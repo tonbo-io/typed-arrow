@@ -46,7 +46,7 @@
 - Builders API (row-based):
   - `BuildRows` derive emits `<Type>Builders` and `<Type>Arrays`.
   - `<Type>Builders` methods: `append_row(row)`, `append_rows(iter)`, `append_null_row()`, `append_option_row(Option<row>)`, `append_option_rows(iter)`; `finish()` returns `<Type>Arrays`.
-  - Nested structs are supported via `#[arrow(nested)]`/`#[nested]` and `AppendStruct`.
+  - Nested structs are supported via `#[nested]` and `AppendStruct`.
   - Future: optional `into_record_batch()` bridge when needed.
 
 - Runtime schema:
@@ -60,7 +60,7 @@
 
 - Macro & Attribute Design
 - `#[derive(Record)]` with field-level attributes:
-  - `#[arrow(nested)]` or `#[nested]` marks a struct-typed field as a nested `Struct` for row-based append ergonomics.
+  - `#[nested]` marks a struct-typed field as a nested `Struct` for row-based append ergonomics.
   - Future: `#[arrow(list(large = bool))]`, `#[arrow(map(keys_sorted = bool))]`, decimal/timestamp attributes if we add schema-only overrides.
 - Helper macro for column iteration (optional if derive emits trait impl):
   - `for_each_col!(RecordType, |I, Meta| { /* compile-time expanded body */ });`
@@ -74,7 +74,7 @@
   - Lists: `List<T>` (items non-null), `ListNullable<T>` (items nullable).
   - Dictionary: `Dictionary<K, String>` (Utf8 values; integer keys).
   - Timestamp: `Timestamp<U>` with unit markers (`Second`, `Millisecond`, `Microsecond`, `Nanosecond`).
-  - Structs: nested structs via `#[arrow(nested)]`/`#[nested]` and row-based append.
+  - Structs: nested structs via `#[nested]` and row-based append.
 
 ---
 
@@ -89,7 +89,7 @@ struct Address { city: String, zip: Option<i32> }
 #[derive(Record)]
 struct Person {
     id: i64,
-    #[arrow(nested)]
+    #[nested]
     address: Option<Address>,
     email: Option<String>,
 }
@@ -141,7 +141,7 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 - Example kernels with full monomorphization.
 
 ### Phase 4 — Ergonomics & Docs
-- Attribute polish (`#[arrow(nested)]`/`#[nested]`), better error messages.
+- Attribute polish (`#[nested]`), better error messages.
 - Preludes, re-exports, crate docs, examples.
 
 ---
@@ -214,7 +214,7 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 ## Testing Guidelines
 - Prefer focused tests; add integration tests in `tests/` for end‑to‑end flows.
 - Validate that `ColAt<I>` exposes `fn data_type()`, `ColumnBuilder`, `ColumnArray` and that builders produce typed arrays.
-- Exercise row-based building (`append_row`, `append_option_rows`) and nested struct append (`#[arrow(nested)]`).
+- Exercise row-based building (`append_row`, `append_option_rows`) and nested struct append (`#[nested]`).
 - Run locally with `cargo test -q` and `cargo clippy --workspace -D warnings`.
 
 ## Commit & Pull Request Guidelines

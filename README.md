@@ -24,7 +24,7 @@ struct Address { city: String, zip: Option<i32> }
 #[derive(arrow_native::Record)]
 struct Person {
     id: i64,
-    #[arrow(nested)]
+    #[nested]
     address: Option<Address>,
     tags: Option<ListNullable<i32>>,          // List column with nullable items
     code: Option<Dictionary<i32, String>>,    // Dictionary<i32, Utf8>
@@ -92,7 +92,7 @@ Run the included examples to see end-to-end usage:
 - `04b_timestamps_tz` — `TimestampTz<U, Z>` with `Utc` and custom markers
 - `05_structs` — nested structs → `StructArray`
 - `06_rows_flat` — row-based building for flat records
-- `07_rows_nested` — row-based building with `#[arrow(nested)]`
+- `07_rows_nested` — row-based building with `#[nested]`
 - `08_record_batch` — compile-time schema + `RecordBatch`
 
 Run:
@@ -109,6 +109,12 @@ cargo run --example 08_record_batch
 - `BuildRows`: derive generates `<Type>Builders` and `<Type>Arrays` with `append_row(s)` and `finish`.
 - `SchemaMeta`: derive provides `fields()` and `schema()`; arrays structs provide `into_record_batch()`.
 - `AppendStruct` and `StructMeta`: enable nested struct fields and `StructArray` building.
+
+### Metadata (Compile-time)
+
+- Schema-level: annotate with `#[schema_metadata(k = "owner", v = "data")]`.
+- Field-level: annotate with `#[metadata(k = "pii", v = "email")]`.
+- You can repeat attributes to add multiple pairs; later duplicates win.
 
 ### Nested Type Wrappers
 

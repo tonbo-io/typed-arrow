@@ -12,7 +12,7 @@ struct AddressN {
 #[derive(arrow_native::Record)]
 struct PersonN {
     id: i64,
-    #[arrow(nested)]
+    #[nested]
     address: Option<AddressN>,
 }
 

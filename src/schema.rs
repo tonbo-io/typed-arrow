@@ -82,10 +82,15 @@ pub trait SchemaMeta: Record {
     /// Top-level fields: (name, data_type, nullable) represented as `Field`s.
     fn fields() -> Vec<Field>;
 
+    /// Optional top-level schema key/value metadata.
+    fn metadata() -> std::collections::HashMap<String, String> {
+        Default::default()
+    }
+
     /// Construct an `Arc<arrow_schema::Schema>` from `fields()`.
     fn schema() -> Arc<Schema> {
         let fields: Vec<Arc<Field>> = Self::fields().into_iter().map(Arc::new).collect();
-        Arc::new(Schema::new_with_metadata(fields, Default::default()))
+        Arc::new(Schema::new_with_metadata(fields, Self::metadata()))
     }
 }
 

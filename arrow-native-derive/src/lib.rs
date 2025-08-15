@@ -2,9 +2,11 @@
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, Ident, Type};
+use syn::{
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, Ident, LitStr, Type,
+};
 
-#[proc_macro_derive(Record, attributes(arrow))]
+#[proc_macro_derive(Record, attributes(nested, schema_metadata, metadata))]
 pub fn derive_record(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match impl_record(&input) {
@@ -47,6 +49,15 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let mut append_struct_null_stmts = Vec::with_capacity(len);
     let mut append_null_row_stmts = Vec::with_capacity(len);
 
+    // Parse top-level schema metadata from struct attributes
+    let schema_meta_pairs = parse_schema_metadata_pairs(&input.attrs)?;
+    let schema_meta_inserts = schema_meta_pairs
+        .iter()
+        .map(|(k, v)| {
+            quote! { __m.insert(::std::string::String::from(#k), ::std::string::String::from(#v)); }
+        })
+        .collect::<Vec<_>>();
+
     for (i, f) in fields.named.iter().enumerate() {
         let idx = syn::Index::from(i);
         let fname = f.ident.as_ref().expect("named");
@@ -82,14 +93,34 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         };
         visit_calls.push(visit);
 
-        // StructMeta: child Field
-        child_field_stmts.push(quote! {
-            fields.push(::arrow_schema::Field::new(
-                stringify!(#fname),
-                <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::data_type(),
-                #nullable_lit,
-            ));
-        });
+        // Field-level metadata
+        let field_meta_pairs = parse_field_metadata_pairs(&f.attrs)?;
+
+        // StructMeta: child Field (with optional metadata)
+        if let Some(pairs) = &field_meta_pairs {
+            let inserts = pairs.iter().map(|(k, v)| {
+                quote! { __m.insert(::std::string::String::from(#k), ::std::string::String::from(#v)); }
+            });
+            child_field_stmts.push(quote! {
+                let mut __f = ::arrow_schema::Field::new(
+                    stringify!(#fname),
+                    <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::data_type(),
+                    #nullable_lit,
+                );
+                let mut __m: ::std::collections::HashMap<::std::string::String, ::std::string::String> = ::std::collections::HashMap::new();
+                #(#inserts)*
+                __f = __f.with_metadata(__m);
+                fields.push(__f);
+            });
+        } else {
+            child_field_stmts.push(quote! {
+                fields.push(::arrow_schema::Field::new(
+                    stringify!(#fname),
+                    <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::data_type(),
+                    #nullable_lit,
+                ));
+            });
+        }
 
         // StructMeta: child builder boxed as ArrayBuilder
         child_builder_stmts.push(quote! {
@@ -266,6 +297,11 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 #(#child_field_stmts)*
                 fields
             }
+            fn metadata() -> ::std::collections::HashMap<::std::string::String, ::std::string::String> {
+                let mut __m: ::std::collections::HashMap<::std::string::String, ::std::string::String> = ::std::collections::HashMap::new();
+                #(#schema_meta_inserts)*
+                __m
+            }
         }
 
         // Row-based: builders + arrays + construction
@@ -340,20 +376,12 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 }
 
 fn has_nested_attr(attrs: &[Attribute]) -> syn::Result<bool> {
-    let mut nested = false;
     for attr in attrs {
         if attr.path().is_ident("nested") {
-            nested = true;
-        } else if attr.path().is_ident("arrow") {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("nested") {
-                    nested = true;
-                }
-                Ok(())
-            })?;
+            return Ok(true);
         }
     }
-    Ok(nested)
+    Ok(false)
 }
 
 fn unwrap_option(ty: &Type) -> (Type, bool) {
@@ -369,4 +397,54 @@ fn unwrap_option(ty: &Type) -> (Type, bool) {
         }
     }
     (ty.clone(), false)
+}
+
+// -------- metadata parsing helpers --------
+
+fn parse_schema_metadata_pairs(attrs: &[Attribute]) -> syn::Result<Vec<(String, String)>> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("schema_metadata") {
+            let mut key: Option<String> = None;
+            let mut val: Option<String> = None;
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("k") {
+                    let s: LitStr = meta.value()?.parse()?;
+                    key = Some(s.value());
+                } else if meta.path.is_ident("v") {
+                    let s: LitStr = meta.value()?.parse()?;
+                    val = Some(s.value());
+                }
+                Ok(())
+            })?;
+            if let (Some(k), Some(vv)) = (key, val) {
+                out.push((k, vv));
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn parse_field_metadata_pairs(attrs: &[Attribute]) -> syn::Result<Option<Vec<(String, String)>>> {
+    let mut out: Option<Vec<(String, String)>> = None;
+    for attr in attrs {
+        if attr.path().is_ident("metadata") {
+            let mut key: Option<String> = None;
+            let mut val: Option<String> = None;
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("k") {
+                    let s: LitStr = meta.value()?.parse()?;
+                    key = Some(s.value());
+                } else if meta.path.is_ident("v") {
+                    let s: LitStr = meta.value()?.parse()?;
+                    val = Some(s.value());
+                }
+                Ok(())
+            })?;
+            if let (Some(k), Some(vv)) = (key, val) {
+                out.get_or_insert_with(Vec::new).push((k, vv));
+            }
+        }
+    }
+    Ok(out)
 }
