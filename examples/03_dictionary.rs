@@ -1,9 +1,9 @@
 //! Showcase: Dictionary<K, String> columns using typed builder.
 
 use arrow_array::{Array, DictionaryArray};
-use arrow_native::{prelude::*, Dictionary};
+use typed_arrow::{prelude::*, Dictionary};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Row {
     code: Dictionary<i32, String>,
     opt_code: Option<Dictionary<i8, String>>,

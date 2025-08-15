@@ -1,8 +1,8 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
 // Import List wrapper; use List<Option<T>> for item-nullability
-use arrow_native::{prelude::*, List};
+use typed_arrow::{prelude::*, List};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct Row {
     pub tags: List<String>,                // List<Utf8>, items non-null
     pub scores: Option<List<Option<i32>>>, // Nullable list of nullable i32 items

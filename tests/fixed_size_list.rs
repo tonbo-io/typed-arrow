@@ -1,5 +1,5 @@
 use arrow_array::Array;
-use arrow_native::{bridge::ArrowBinding, FixedSizeList, FixedSizeListNullable};
+use typed_arrow::{bridge::ArrowBinding, FixedSizeList, FixedSizeListNullable};
 use arrow_schema::{DataType, Field};
 
 #[test]

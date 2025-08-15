@@ -1,4 +1,4 @@
-//! Proc-macros for arrow-native: `#[derive(Record)]` and `#[derive(Union)]`.
+//! Proc-macros for typed-arrow: `#[derive(Record)]` and `#[derive(Union)]`.
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
@@ -75,13 +75,13 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         // impl ColAt<I> for Type
         let col_impl = quote! {
-            impl ::arrow_native::schema::ColAt<{ #idx }> for #name {
+            impl ::typed_arrow::schema::ColAt<{ #idx }> for #name {
                 type Rust = #inner_ty_ts;
-                type ColumnArray = < #inner_ty_ts as ::arrow_native::bridge::ArrowBinding >::Array;
-                type ColumnBuilder = < #inner_ty_ts as ::arrow_native::bridge::ArrowBinding >::Builder;
+                type ColumnArray = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Array;
+                type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
                 const NULLABLE: bool = #nullable_lit;
                 const NAME: &'static str = stringify!(#fname);
-                fn data_type() -> ::arrow_schema::DataType { < #inner_ty_ts as ::arrow_native::bridge::ArrowBinding >::data_type() }
+                fn data_type() -> ::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
             }
         };
         col_impls.push(col_impl);
@@ -89,7 +89,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // V::visit::<I, Arrow, Rust>(FieldMeta::new(name, nullable))
         let visit = quote! {
             V::visit::<{ #idx }, #inner_ty_ts>(
-                ::arrow_native::schema::FieldMeta::new(stringify!(#fname), #nullable_lit)
+                ::typed_arrow::schema::FieldMeta::new(stringify!(#fname), #nullable_lit)
             );
         };
         visit_calls.push(visit);
@@ -105,7 +105,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             child_field_stmts.push(quote! {
                 let mut __f = ::arrow_schema::Field::new(
                     stringify!(#fname),
-                    <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::data_type(),
+                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
                 );
                 let mut __m: ::std::collections::HashMap<::std::string::String, ::std::string::String> = ::std::collections::HashMap::new();
@@ -117,7 +117,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             child_field_stmts.push(quote! {
                 fields.push(::arrow_schema::Field::new(
                     stringify!(#fname),
-                    <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::data_type(),
+                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
                 ));
             });
@@ -125,20 +125,20 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         // StructMeta: child builder boxed as ArrayBuilder
         child_builder_stmts.push(quote! {
-            let b: <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::Builder =
-                <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::new_builder(capacity);
+            let b: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder =
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity);
             builders.push(Box::new(b));
         });
 
         // Row-based: struct fields and init
         builder_struct_fields.push(quote! {
-            pub #fname: <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::Builder
+            pub #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder
         });
         arrays_struct_fields.push(quote! {
-            pub #fname: <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::Array
+            pub #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
         });
         builders_init_fields.push(quote! {
-            #fname: <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::new_builder(capacity)
+            #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity)
         });
         // Append row logic per field
         if is_nested {
@@ -146,11 +146,11 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 append_row_stmts.push(quote! {
                     match #fname {
                         Some(v) => {
-                            <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_owned_into(v, &mut self.#fname);
+                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(v, &mut self.#fname);
                             self.#fname.append(true);
                         }
                         None => {
-                            <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_null_into(&mut self.#fname);
+                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(&mut self.#fname);
                             self.#fname.append(false);
                         }
                     }
@@ -158,46 +158,46 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 // Null-row handling for nested optional struct field: append nulls to children then
                 // mark invalid
                 append_null_row_stmts.push(quote! {
-                    <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_null_into(&mut self.#fname);
+                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(&mut self.#fname);
                     self.#fname.append(false);
                 });
             } else {
                 append_row_stmts.push(quote! {
-                    <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_owned_into(#fname, &mut self.#fname);
+                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(#fname, &mut self.#fname);
                     self.#fname.append(true);
                 });
                 // Null-row handling for nested required struct field: append nulls to children then
                 // mark invalid
                 append_null_row_stmts.push(quote! {
-                    <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_null_into(&mut self.#fname);
+                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(&mut self.#fname);
                     self.#fname.append(false);
                 });
             }
         } else if nullable {
             append_row_stmts.push(quote! {
                 match #fname {
-                    Some(v) => <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_value(&mut self.#fname, &v),
-                    None => <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_null(&mut self.#fname),
+                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &v),
+                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
                 }
             });
             append_null_row_stmts.push(quote! {
-                <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_null(&mut self.#fname);
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname);
             });
         } else {
             append_row_stmts.push(quote! {
-                <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
             });
             append_null_row_stmts.push(quote! {
-                <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_null(&mut self.#fname);
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname);
             });
         }
         finish_fields.push(quote! {
-            #fname: <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::finish(self.#fname)
+            #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::finish(self.#fname)
         });
 
         // Generate AppendStruct implementations' bodies for this struct's fields
         let child_builder_ty =
-            quote! { <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::Builder };
+            quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder };
         if is_nested {
             if nullable {
                 append_struct_owned_stmts.push(quote! {
@@ -206,11 +206,11 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                         .expect("child builder type matches");
                     match #fname {
                         Some(v) => {
-                            <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_owned_into(v, cb);
+                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(v, cb);
                             cb.append(true);
                         }
                         None => {
-                            <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_null_into(cb);
+                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(cb);
                             cb.append(false);
                         }
                     }
@@ -220,7 +220,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                     let cb: &mut #child_builder_ty = __sb
                         .field_builder::<#child_builder_ty>({ #idx })
                         .expect("child builder type matches");
-                    <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_owned_into(#fname, cb);
+                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(#fname, cb);
                     cb.append(true);
                 });
             }
@@ -228,7 +228,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
-                <#inner_ty_ts as ::arrow_native::schema::AppendStruct>::append_null_into(cb);
+                <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(cb);
                 cb.append(false);
             });
         } else {
@@ -238,8 +238,8 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                         .field_builder::<#child_builder_ty>({ #idx })
                         .expect("child builder type matches");
                     match #fname {
-                        Some(v) => <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_value(cb, &v),
-                        None => <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_null(cb),
+                        Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &v),
+                        None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
                     }
                 });
             } else {
@@ -247,31 +247,31 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                     let cb: &mut #child_builder_ty = __sb
                         .field_builder::<#child_builder_ty>({ #idx })
                         .expect("child builder type matches");
-                    <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_value(cb, &#fname);
+                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
                 });
             }
             append_struct_null_stmts.push(quote! {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
-                <#inner_ty_ts as ::arrow_native::bridge::ArrowBinding>::append_null(cb);
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb);
             });
         }
     }
 
     // impl Record and ForEachCol
     let rec_impl = quote! {
-        impl ::arrow_native::schema::Record for #name {
+        impl ::typed_arrow::schema::Record for #name {
             const LEN: usize = #len;
         }
 
-        impl ::arrow_native::schema::ForEachCol for #name {
-            fn for_each_col<V: ::arrow_native::schema::ColumnVisitor>() {
+        impl ::typed_arrow::schema::ForEachCol for #name {
+            fn for_each_col<V: ::typed_arrow::schema::ColumnVisitor>() {
                 #(#visit_calls)*
             }
         }
 
-        impl ::arrow_native::schema::StructMeta for #name {
+        impl ::typed_arrow::schema::StructMeta for #name {
             fn child_fields() -> ::std::vec::Vec<::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
@@ -281,7 +281,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             fn new_struct_builder(capacity: usize) -> ::arrow_array::builder::StructBuilder {
                 use ::std::sync::Arc;
                 let fields: ::std::vec::Vec<Arc<::arrow_schema::Field>> =
-                    <#name as ::arrow_native::schema::StructMeta>::child_fields()
+                    <#name as ::typed_arrow::schema::StructMeta>::child_fields()
                         .into_iter()
                         .map(Arc::new)
                         .collect();
@@ -292,7 +292,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
         }
 
-        impl ::arrow_native::schema::SchemaMeta for #name {
+        impl ::typed_arrow::schema::SchemaMeta for #name {
             fn fields() -> ::std::vec::Vec<::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
@@ -314,7 +314,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             #(#arrays_struct_fields,)*
         }
 
-        impl ::arrow_native::schema::BuildRows for #name {
+        impl ::typed_arrow::schema::BuildRows for #name {
             type Builders = #builders_ident;
             type Arrays = #arrays_ident;
             fn new_builders(capacity: usize) -> Self::Builders {
@@ -351,14 +351,14 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             /// Build an Arrow RecordBatch from these arrays and the generated schema.
             pub fn into_record_batch(self) -> ::arrow_array::RecordBatch {
                 use ::std::sync::Arc;
-                let schema = <#name as ::arrow_native::schema::SchemaMeta>::schema();
+                let schema = <#name as ::typed_arrow::schema::SchemaMeta>::schema();
                 let mut cols: ::std::vec::Vec<Arc<dyn ::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
                 #( cols.push(Arc::new(self.#field_idents)); )*
                 ::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
             }
         }
 
-        impl ::arrow_native::schema::AppendStruct for #name {
+        impl ::typed_arrow::schema::AppendStruct for #name {
             fn append_owned_into(self, __sb: &mut ::arrow_array::builder::StructBuilder) {
                 let #name { #( #field_idents ),* } = self;
                 #(#append_struct_owned_stmts)*
@@ -455,24 +455,24 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
         builder_idents.push(bname.clone());
         let tag = tags_i8[idx];
         builder_fields
-            .push(quote! { #bname: <#v_ty as ::arrow_native::bridge::ArrowBinding>::Builder });
-        builder_inits.push(quote! { #bname: <#v_ty as ::arrow_native::bridge::ArrowBinding>::new_builder(capacity) });
+            .push(quote! { #bname: <#v_ty as ::typed_arrow::bridge::ArrowBinding>::Builder });
+        builder_inits.push(quote! { #bname: <#v_ty as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity) });
         builder_finish_children
-            .push(quote! { <#v_ty as ::arrow_native::bridge::ArrowBinding>::finish(b.#bname) });
+            .push(quote! { <#v_ty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bname) });
 
         // Variant match arm
         match_arms_append.push(quote! {
             #name::#v_ident(inner) => {
                 b.type_ids.push(#tag as i8);
                 b.offsets.push(b.slots[#idx] as i32);
-                <#v_ty as ::arrow_native::bridge::ArrowBinding>::append_value(&mut b.#bname, inner);
+                <#v_ty as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut b.#bname, inner);
                 b.slots[#idx] += 1;
             }
         });
 
         // Field pair for UnionFields
         let v_name_str = &field_names[idx];
-        field_pairs.push(quote! { (#tag, ::std::sync::Arc::new(::arrow_schema::Field::new(#v_name_str, <#v_ty as ::arrow_native::bridge::ArrowBinding>::data_type(), true))) });
+        field_pairs.push(quote! { (#tag, ::std::sync::Arc::new(::arrow_schema::Field::new(#v_name_str, <#v_ty as ::typed_arrow::bridge::ArrowBinding>::data_type(), true))) });
     }
 
     // Null-carrying variant type used for encoding nulls
@@ -491,15 +491,15 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
         let bident = &builder_idents[i];
         let vty = &var_types[i];
         children_finish.push(quote! {
-            ::std::sync::Arc::new(<#vty as ::arrow_native::bridge::ArrowBinding>::finish(b.#bident)) as ::arrow_array::ArrayRef
+            ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bident)) as ::arrow_array::ArrayRef
         });
         children_finish_reset.push(quote! {
-            ::std::sync::Arc::new(<#vty as ::arrow_native::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::arrow_native::bridge::ArrowBinding>::new_builder(0)))) as ::arrow_array::ArrayRef
+            ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::typed_arrow::bridge::ArrowBinding>::new_builder(0)))) as ::arrow_array::ArrayRef
         });
         let vtyc = &var_types_clone[i];
         let bidentc = &builder_idents_clone[i];
         children_finish_cloned.push(quote! {
-            <<#vtyc as ::arrow_native::bridge::ArrowBinding>::Builder as ::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc)
+            <<#vtyc as ::typed_arrow::bridge::ArrowBinding>::Builder as ::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc)
         });
     }
 
@@ -524,7 +524,7 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
             }
         }
 
-        impl ::arrow_native::bridge::ArrowBinding for #name {
+        impl ::typed_arrow::bridge::ArrowBinding for #name {
             type Builder = #builder_ident;
             type Array = ::arrow_array::UnionArray;
 
@@ -545,7 +545,7 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
                 // Encode nulls into the configured null-carrying variant
                 b.type_ids.push(#null_tag);
                 b.offsets.push(b.slots[#null_idx] as i32);
-                <#null_variant_ty as ::arrow_native::bridge::ArrowBinding>::append_null(&mut b.#null_variant_builder_ident);
+                <#null_variant_ty as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut b.#null_variant_builder_ident);
                 b.slots[#null_idx] += 1;
             }
 
@@ -607,14 +607,14 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
         for (j, v_ty_j) in var_types.iter().enumerate() {
             if j != idx {
                 let bj = Ident::new(&format!("b{j}"), name.span());
-                null_others.push(quote! { <#v_ty_j as ::arrow_native::bridge::ArrowBinding>::append_null(&mut b.#bj); });
+                null_others.push(quote! { <#v_ty_j as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut b.#bj); });
             }
         }
         let bi = Ident::new(&format!("b{idx}"), name.span());
         sparse_match_arms.push(quote! {
             #name::#v_ident(inner) => {
                 b.type_ids.push(#tag);
-                <#v_ty as ::arrow_native::bridge::ArrowBinding>::append_value(&mut b.#bi, inner);
+                <#v_ty as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut b.#bi, inner);
                 #(#null_others)*
             }
         });
@@ -625,7 +625,7 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
     for (j, v_ty_j) in var_types.iter().enumerate() {
         let bj = Ident::new(&format!("b{j}"), name.span());
         sparse_append_null_all.push(
-            quote! { <#v_ty_j as ::arrow_native::bridge::ArrowBinding>::append_null(&mut b.#bj); },
+            quote! { <#v_ty_j as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut b.#bj); },
         );
     }
 
@@ -635,11 +635,11 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
     for i in 0..n {
         let bident = &builder_idents[i];
         let vty = &var_types[i];
-        sparse_children_finish.push(quote! { ::std::sync::Arc::new(<#vty as ::arrow_native::bridge::ArrowBinding>::finish(b.#bident)) as ::arrow_array::ArrayRef });
-        sparse_children_finish_reset.push(quote! { ::std::sync::Arc::new(<#vty as ::arrow_native::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::arrow_native::bridge::ArrowBinding>::new_builder(0)))) as ::arrow_array::ArrayRef });
+        sparse_children_finish.push(quote! { ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bident)) as ::arrow_array::ArrayRef });
+        sparse_children_finish_reset.push(quote! { ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::typed_arrow::bridge::ArrowBinding>::new_builder(0)))) as ::arrow_array::ArrayRef });
         let vtyc = &var_types_clone[i];
         let bidentc = &builder_idents_clone[i];
-        sparse_children_finish_cloned.push(quote! { <<#vtyc as ::arrow_native::bridge::ArrowBinding>::Builder as ::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc) });
+        sparse_children_finish_cloned.push(quote! { <<#vtyc as ::typed_arrow::bridge::ArrowBinding>::Builder as ::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc) });
     }
 
     let sparse_ts = quote! {
@@ -658,7 +658,7 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
             }
         }
 
-        impl ::arrow_native::bridge::ArrowBinding for #name {
+        impl ::typed_arrow::bridge::ArrowBinding for #name {
             type Builder = #builder_ident_sparse;
             type Array = ::arrow_array::UnionArray;
 

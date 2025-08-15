@@ -1,8 +1,8 @@
 use arrow_array::{Array, Int32Array, StringArray, UnionArray};
-use arrow_native::{bridge::ArrowBinding, prelude::*};
+use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 // Dense Union with attributes: explicit tags, per-variant field names, and null carrier
-#[derive(arrow_native::Union)]
+#[derive(typed_arrow::Union)]
 #[union(tags(Num = 10, Str = 7))]
 enum Value {
     #[union(null, field = "int_value")]
@@ -12,7 +12,7 @@ enum Value {
 }
 
 // Sparse Union: children align in length with union
-#[derive(arrow_native::Union)]
+#[derive(typed_arrow::Union)]
 #[union(mode = "sparse")]
 enum ValueSparse {
     I(i32),
@@ -20,7 +20,7 @@ enum ValueSparse {
 }
 
 // Use the union as a column in a Record
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Row {
     id: i32,
     value: Value,

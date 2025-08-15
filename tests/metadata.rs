@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use arrow_native::{prelude::*, schema::SchemaMeta};
+use typed_arrow::{prelude::*, schema::SchemaMeta};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 #[schema_metadata(k = "owner", v = "team")]
 #[record(schema_metadata(k = "env", v = "dev"))]
 struct MetaDemo {

@@ -1,9 +1,9 @@
 //! Showcase: Row-based building for flat records.
 
 use arrow_array::Array;
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct PersonR {
     id: i64,
     name: Option<String>,

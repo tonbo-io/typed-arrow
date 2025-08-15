@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use arrow_array::Array;
-use arrow_native::{bridge::ArrowBinding, Map};
+use typed_arrow::{bridge::ArrowBinding, Map};
 use arrow_schema::{DataType, Field};
 
 #[test]
@@ -36,11 +36,11 @@ fn map_datatype_shapes_and_sorted_flag() {
 fn map_append_and_lengths() {
     // Build a map column with two rows: one with two entries and one null
     let mut b = <Map<String, i32> as ArrowBinding>::new_builder(0);
-    arrow_native::bridge::ArrowBinding::append_value(
+    typed_arrow::bridge::ArrowBinding::append_value(
         &mut b,
         &Map::<String, i32, false>(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
     );
-    <Map<String, i32, false> as arrow_native::bridge::ArrowBinding>::append_null(&mut b);
+    <Map<String, i32, false> as typed_arrow::bridge::ArrowBinding>::append_null(&mut b);
     let a = <Map<String, i32> as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
 
@@ -67,7 +67,7 @@ fn map_append_and_lengths() {
 #[test]
 fn map_option_values_append() {
     let mut b = <Map<String, Option<i32>> as ArrowBinding>::new_builder(0);
-    arrow_native::bridge::ArrowBinding::append_value(
+    typed_arrow::bridge::ArrowBinding::append_value(
         &mut b,
         &Map::<String, Option<i32>, false>(vec![
             ("a".to_string(), Some(1)),

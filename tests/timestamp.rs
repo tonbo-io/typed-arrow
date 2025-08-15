@@ -1,7 +1,7 @@
 use arrow_array::Array;
-use arrow_native::{prelude::*, Microsecond, Millisecond, Nanosecond, Second, Timestamp};
+use typed_arrow::{prelude::*, Microsecond, Millisecond, Nanosecond, Second, Timestamp};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct RowTs {
     pub s: Timestamp<Second>,
     pub ms: Option<Timestamp<Millisecond>>,

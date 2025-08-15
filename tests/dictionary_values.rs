@@ -1,4 +1,4 @@
-use arrow_native::{bridge::ArrowBinding, Dictionary, LargeBinary, LargeUtf8};
+use typed_arrow::{bridge::ArrowBinding, Dictionary, LargeBinary, LargeUtf8};
 
 #[test]
 fn dict_utf8_value() {

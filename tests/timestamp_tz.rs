@@ -1,6 +1,6 @@
-use arrow_native::{prelude::*, Millisecond, Nanosecond, Second, TimestampTz, Utc};
+use typed_arrow::{prelude::*, Millisecond, Nanosecond, Second, TimestampTz, Utc};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct RowTz {
     s_utc: TimestampTz<Second, Utc>,
     ms_utc: Option<TimestampTz<Millisecond, Utc>>,
@@ -37,11 +37,11 @@ fn timestamp_tz_schema_and_types() {
 
 // Demonstrate a custom timezone marker
 enum AsiaShanghai {}
-impl arrow_native::TimeZoneSpec for AsiaShanghai {
+impl typed_arrow::TimeZoneSpec for AsiaShanghai {
     const NAME: Option<&'static str> = Some("Asia/Shanghai");
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct RowCustomTz {
     ns_sh: TimestampTz<Nanosecond, AsiaShanghai>,
 }

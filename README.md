@@ -1,8 +1,8 @@
-# arrow-native
+# typed-arrow
 
 Compile‑time Arrow schemas for Rust.
 
-arrow-native provides a strongly typed, fully compile-time way to define Arrow columns and schemas in Rust.
+typed-arrow provides a strongly typed, fully compile-time way to define Arrow columns and schemas in Rust.
 It maps Rust types directly to arrow-rs typed builders/arrays and `arrow_schema::DataType` — without any
 runtime `DataType` switching — enabling fast, monomorphized column construction and ergonomic row-based APIs.
 
@@ -15,13 +15,13 @@ runtime `DataType` switching — enabling fast, monomorphized column constructio
 ## Quick Start
 
 ```rust
-use arrow_native::{prelude::*, schema::SchemaMeta};
-use arrow_native::{Dictionary, TimestampTz, Millisecond, Utc, List};
+use typed_arrow::{prelude::*, schema::SchemaMeta};
+use typed_arrow::{Dictionary, TimestampTz, Millisecond, Utc, List};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Address { city: String, zip: Option<i32> }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Person {
     id: i64,
     #[record(nested)]
@@ -71,14 +71,14 @@ Add to your `Cargo.toml` (derives enabled by default):
 
 ```toml
 [dependencies]
-arrow-native = { version = "0.x" }
+typed-arrow = { version = "0.x" }
 ```
 
 When working in this repository/workspace:
 
 ```toml
 [dependencies]
-arrow-native = { path = "." }
+typed-arrow = { path = "." }
 ```
 
 ## Examples

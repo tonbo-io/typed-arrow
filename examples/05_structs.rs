@@ -1,15 +1,15 @@
 //! Showcase: Struct arrays from nested `Record` types.
 
 use arrow_array::{cast::as_string_array, Array};
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Address {
     city: String,
     zip: Option<i32>,
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct PersonS {
     id: i64,
     #[record(nested)]
@@ -26,8 +26,8 @@ fn main() {
     println!("address_dtype={:?}", <PersonS as ColAt<1>>::data_type());
 
     // Build a StructArray for Address using the ArrowBinding of Address
-    let mut b: <Address as arrow_native::bridge::ArrowBinding>::Builder =
-        <Address as arrow_native::bridge::ArrowBinding>::new_builder(2);
+    let mut b: <Address as typed_arrow::bridge::ArrowBinding>::Builder =
+        <Address as typed_arrow::bridge::ArrowBinding>::new_builder(2);
 
     // Row 0: { city: "NYC", zip: null }
     {

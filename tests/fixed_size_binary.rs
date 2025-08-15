@@ -1,6 +1,6 @@
 use arrow_array::Array;
-use arrow_native::bridge::ArrowBinding;
 use arrow_schema::DataType;
+use typed_arrow::bridge::ArrowBinding;
 
 #[test]
 fn fixed_size_binary_datatype_and_build() {
@@ -18,7 +18,7 @@ fn fixed_size_binary_datatype_and_build() {
     assert_eq!(a.value_length(), N as i32);
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Row {
     tag4: [u8; 4],
     opt_tag8: Option<[u8; 8]>,
@@ -26,7 +26,7 @@ struct Row {
 
 #[test]
 fn fixed_size_binary_in_record() {
-    use arrow_native::schema::{ColAt, SchemaMeta};
+    use typed_arrow::schema::{ColAt, SchemaMeta};
 
     assert_eq!(<Row as ColAt<0>>::data_type(), DataType::FixedSizeBinary(4));
     assert_eq!(<Row as ColAt<1>>::data_type(), DataType::FixedSizeBinary(8));

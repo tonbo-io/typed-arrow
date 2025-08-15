@@ -1,7 +1,7 @@
 use arrow_array::types::{
     IntervalDayTime as IntervalDayTimeNative, IntervalMonthDayNano as IntervalMonthDayNanoNative,
 };
-use arrow_native::{
+use typed_arrow::{
     bridge::ArrowBinding, IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth,
 };
 use arrow_schema::{DataType, IntervalUnit};

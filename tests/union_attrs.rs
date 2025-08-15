@@ -1,7 +1,7 @@
 use arrow_array::{Array, Int32Array, StringArray, UnionArray};
-use arrow_native::bridge::ArrowBinding;
+use typed_arrow::bridge::ArrowBinding;
 
-#[derive(arrow_native::Union)]
+#[derive(typed_arrow::Union)]
 #[union(tags(I = 10, S = 7))]
 enum U {
     #[union(field = "int_value")]
@@ -52,7 +52,7 @@ fn union_attrs_datatype_and_tags_fields() {
     }
 }
 
-#[derive(arrow_native::Union)]
+#[derive(typed_arrow::Union)]
 enum V {
     #[union(tag = 42, field = "num", null)]
     I(i32),

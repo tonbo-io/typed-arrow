@@ -2,10 +2,10 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use arrow_array::Array;
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
 // Define a record using derive macro
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct Person {
     pub id: i64,
     pub name: Option<String>,

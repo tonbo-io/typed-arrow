@@ -1,13 +1,13 @@
 use arrow_array::{builder::StructBuilder, cast::as_string_array, Array};
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct Address {
     pub city: String,
     pub zip: Option<i32>,
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct PersonS {
     pub id: i64,
     pub address: Option<Address>,
@@ -46,8 +46,8 @@ fn build_struct_array_values() {
     };
 
     // Actually create via ArrowBinding for Address
-    let mut b: <Address as arrow_native::bridge::ArrowBinding>::Builder =
-        <Address as arrow_native::bridge::ArrowBinding>::new_builder(2);
+    let mut b: <Address as typed_arrow::bridge::ArrowBinding>::Builder =
+        <Address as typed_arrow::bridge::ArrowBinding>::new_builder(2);
 
     // Row 0: { city: "NYC", zip: null }
     {

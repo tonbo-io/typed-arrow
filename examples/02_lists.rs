@@ -1,9 +1,9 @@
 //! Showcase: List and item-nullable lists via List<Option<T>> for Arrow ListArray.
 
 use arrow_array::Array;
-use arrow_native::{bridge::ArrowBinding, prelude::*, List};
+use typed_arrow::{bridge::ArrowBinding, prelude::*, List};
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct Row {
     tags: List<String>,                // List<Utf8>, items non-null
     scores: Option<List<Option<i32>>>, // Nullable list whose items are nullable i32

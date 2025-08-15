@@ -1,7 +1,7 @@
 use arrow_array::{Array, Int32Array, StringArray, UnionArray};
-use arrow_native::bridge::ArrowBinding;
+use typed_arrow::bridge::ArrowBinding;
 
-#[derive(arrow_native::Union)]
+#[derive(typed_arrow::Union)]
 enum U {
     I(i32),
     S(String),

@@ -1,5 +1,5 @@
 use arrow_array::Array;
-use arrow_native::{bridge::ArrowBinding, LargeBinary};
+use typed_arrow::{bridge::ArrowBinding, LargeBinary};
 use arrow_schema::DataType;
 
 #[test]

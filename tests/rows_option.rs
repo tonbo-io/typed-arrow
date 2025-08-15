@@ -1,7 +1,7 @@
 use arrow_array::Array;
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct PersonO {
     pub id: i64,
     pub name: Option<String>,
@@ -26,12 +26,12 @@ fn build_from_option_rows_flat() {
     assert_eq!(arrays.id.value(0), 1);
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct AddressO {
     pub city: String,
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct PersonNO {
     pub id: i64,
     #[nested]

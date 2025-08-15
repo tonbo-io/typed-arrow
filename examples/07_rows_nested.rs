@@ -1,15 +1,15 @@
 //! Showcase: Row-based building with nested struct fields.
 
 use arrow_array::{cast::as_string_array, Array};
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct AddressN {
     city: String,
     zip: Option<i32>,
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct PersonN {
     id: i64,
     #[record(nested)]

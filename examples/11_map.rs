@@ -1,5 +1,5 @@
 use arrow_array::Array;
-use arrow_native::{bridge::ArrowBinding, Map, OrderedMap, Record};
+use typed_arrow::{bridge::ArrowBinding, Map, OrderedMap, Record};
 
 #[derive(Record)]
 struct Row {
@@ -53,7 +53,7 @@ fn main() {
             notes: None,
         },
     ];
-    let mut rb = <Row as arrow_native::schema::BuildRows>::new_builders(rows.len());
+    let mut rb = <Row as typed_arrow::schema::BuildRows>::new_builders(rows.len());
     rb.append_rows(rows);
     let arrays = rb.finish();
     let batch = arrays.into_record_batch();

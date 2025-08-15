@@ -10,8 +10,8 @@
   - Item nullability: use `List<Option<T>>` / `LargeList<Option<T>>` to allow null items.
 - Fixed-Size List: `[T; N]` maps to `FixedSizeList<T; N>`.
 - Map: `Vec<MapEntry<K, V>>` maps to Arrow Map (List of Struct<key, value>), keys non-null.
-- Dictionary: use `arrow_native::Dictionary<K, V>` wrapper for dictionary encoding (keys integral). Initial support focuses on `V = String` (Utf8 values).
-- Timestamp: `arrow_native::Timestamp<U>` for epoch values with unit markers `Second`, `Millisecond`, `Microsecond`, `Nanosecond` (timezone None in this phase).
+- Dictionary: use `typed_arrow::Dictionary<K, V>` wrapper for dictionary encoding (keys integral). Initial support focuses on `V = String` (Utf8 values).
+- Timestamp: `typed_arrow::Timestamp<U>` for epoch values with unit markers `Second`, `Millisecond`, `Microsecond`, `Nanosecond` (timezone None in this phase).
 - Union (future): derived over enums; deferred due to complexity.
 
 ## Rust Shapes and Attributes

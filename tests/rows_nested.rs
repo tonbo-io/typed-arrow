@@ -1,13 +1,13 @@
 use arrow_array::{cast::as_string_array, Array};
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct AddressN {
     pub city: String,
     pub zip: Option<i32>,
 }
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 pub struct PersonN {
     pub id: i64,
     #[nested]

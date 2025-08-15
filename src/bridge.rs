@@ -58,7 +58,7 @@ use crate::schema::{ColAt, Record, StructMeta};
 /// Example (primitive)
 /// ```no_run
 /// use arrow_array::{builder::PrimitiveBuilder, types::Int64Type, Array};
-/// use arrow_native::bridge::ArrowBinding;
+/// use typed_arrow::bridge::ArrowBinding;
 /// let mut b = PrimitiveBuilder::<Int64Type>::with_capacity(2);
 /// <i64 as ArrowBinding>::append_value(&mut b, &42);
 /// <i64 as ArrowBinding>::append_null(&mut b);
@@ -438,7 +438,7 @@ impl<const P: u8, const S: i8> ArrowBinding for Decimal256<P, S> {
 /// Example
 /// ```no_run
 /// use arrow_array::Array;
-/// use arrow_native::{bridge::ArrowBinding, List};
+/// use typed_arrow::{bridge::ArrowBinding, List};
 /// let mut b = <List<i32> as ArrowBinding>::new_builder(1);
 /// <List<i32> as ArrowBinding>::append_value(&mut b, &List(vec![1, 2, 3]));
 /// let a = <List<i32> as ArrowBinding>::finish(b);
@@ -908,7 +908,7 @@ where
 /// Example
 /// ```no_run
 /// use arrow_array::Array;
-/// use arrow_native::{bridge::ArrowBinding, Dictionary};
+/// use typed_arrow::{bridge::ArrowBinding, Dictionary};
 /// let mut b = <Dictionary<i32, String> as ArrowBinding>::new_builder(0);
 /// <Dictionary<i32, String> as ArrowBinding>::append_value(
 ///     &mut b,
@@ -990,7 +990,7 @@ impl TimeUnitSpec for Nanosecond {
 /// Example
 /// ```no_run
 /// use arrow_array::Array;
-/// use arrow_native::{bridge::ArrowBinding, Millisecond, Timestamp};
+/// use typed_arrow::{bridge::ArrowBinding, Millisecond, Timestamp};
 /// let mut b = <Timestamp<Millisecond> as ArrowBinding>::new_builder(2);
 /// <Timestamp<Millisecond> as ArrowBinding>::append_value(
 ///     &mut b,
@@ -1054,7 +1054,7 @@ impl TimeZoneSpec for Utc {
 /// Example
 /// ```no_run
 /// use arrow_array::Array;
-/// use arrow_native::{bridge::ArrowBinding, Millisecond, TimestampTz, Utc};
+/// use typed_arrow::{bridge::ArrowBinding, Millisecond, TimestampTz, Utc};
 /// let mut b = <TimestampTz<Millisecond, Utc> as ArrowBinding>::new_builder(2);
 /// <TimestampTz<Millisecond, Utc> as ArrowBinding>::append_value(
 ///     &mut b,
@@ -1726,8 +1726,8 @@ impl_dict_primitive_value!(f64, Float64Type, DataType::Float64);
 ///
 /// Example
 /// ```no_run
-/// use arrow_native::{bridge, prelude::*};
-/// #[derive(arrow_native::Record)]
+/// use typed_arrow::{bridge, prelude::*};
+/// #[derive(typed_arrow::Record)]
 /// struct S {
 ///     a: i64,
 /// }
@@ -1750,8 +1750,8 @@ where
 ///
 /// Example
 /// ```no_run
-/// use arrow_native::{bridge::ColumnBuilder, prelude::*};
-/// #[derive(arrow_native::Record)]
+/// use typed_arrow::{bridge::ColumnBuilder, prelude::*};
+/// #[derive(typed_arrow::Record)]
 /// struct S {
 ///     a: i64,
 /// }

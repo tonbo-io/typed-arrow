@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-//! arrow-native core: compile-time Arrow schema traits and primitive markers.
+//! typed-arrow core: compile-time Arrow schema traits and primitive markers.
 
 pub mod bridge;
 pub mod schema;
@@ -11,7 +11,7 @@ pub mod prelude {
 
 // Re-export the derive macro when enabled
 #[cfg(feature = "derive")]
-pub use arrow_native_derive::{Record, Union};
+pub use typed_arrow_derive::{Record, Union};
 
 // Public re-exports for convenience
 pub use crate::bridge::{

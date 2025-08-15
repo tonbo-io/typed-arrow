@@ -1,21 +1,25 @@
 [workspace]
-members = [".", "arrow-native-derive"]
+members = [".", "typed-arrow-derive"]
 
 [package]
-name = "arrow-native"
+name = "typed-arrow"
 version = "0.1.0"
 edition = "2021"
+description = "Compile-time Arrow schemas for Rust."
+license = "Apache-2.0"
+readme = "README.md"
+resolver = "2"
 
 [lib]
-name = "arrow_native"
+name = "typed_arrow"
 path = "src/lib.rs"
 
 [features]
 default = ["derive"]
-derive = ["dep:arrow-native-derive"]
+derive = ["dep:typed-arrow-derive"]
 
 [dependencies]
-arrow-native-derive = { path = "arrow-native-derive", optional = true }
+typed-arrow-derive = { path = "typed-arrow-derive", optional = true, package = "typed-arrow-derive" }
 arrow-array = { version = "56" }
 arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }

@@ -2,13 +2,13 @@
 
 // Native structs for DayTime and MonthDayNano interval values
 use arrow_array::{types as t, Array};
-use arrow_native::{
+use typed_arrow::{
     bridge::{Duration as Dur, Millisecond, Nanosecond},
     prelude::*,
     IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth,
 };
 
-#[derive(arrow_native::Record)]
+#[derive(typed_arrow::Record)]
 struct RowDurInt {
     d_ms: Dur<Millisecond>,
     d_ns_opt: Option<Dur<Nanosecond>>,

@@ -86,7 +86,7 @@
 ## Example
 
 ```rust
-use arrow_native::prelude::*;
+use typed_arrow::prelude::*;
 
 #[derive(Record)]
 struct Address { city: String, zip: Option<i32> }
@@ -141,7 +141,7 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
   - `schema.rs`: `Record`, `ColAt<I>`, visitors, compile-time metadata.
   - `bridge.rs`: `ArrowBinding` (Rust type → Arrow builder/array/DataType).
   - `lib.rs`: crate entry, prelude exports.
-- `arrow-native-derive/` — proc-macro crate implementing `#[derive(Record)]` and `#[derive(Union)]`.
+- `typed-arrow-derive/` — proc-macro crate implementing `#[derive(Record)]` and `#[derive(Union)]`.
 - `tests/` — integration tests (e.g., `primitive_macro.rs`).
 - `docs/` — design notes (e.g., `nested-types.md`).
 - `examples/` — runnable demos (e.g., `examples/11_map.rs`).
