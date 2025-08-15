@@ -2,8 +2,8 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use arrow_array::Array;
-use arrow_schema::DataType;
+use arrow_array::{builder::StructBuilder, Array};
+use arrow_schema::{DataType, Field, Schema};
 
 /// A record (row) with a fixed, compile-time number of columns.
 pub trait Record {
@@ -71,25 +71,21 @@ pub trait ForEachCol: Record {
 /// Metadata and builder utilities for nested Struct fields.
 pub trait StructMeta: Record {
     /// Child fields (names, data types, nullability) for this struct.
-    fn child_fields() -> Vec<arrow_schema::Field>;
+    fn child_fields() -> Vec<Field>;
 
     /// Construct a `StructBuilder` with appropriate child builders for this struct.
-    fn new_struct_builder(capacity: usize) -> arrow_array::builder::StructBuilder;
+    fn new_struct_builder(capacity: usize) -> StructBuilder;
 }
 
 /// Arrow runtime schema metadata for a top-level Record.
 pub trait SchemaMeta: Record {
     /// Top-level fields: (name, data_type, nullable) represented as `Field`s.
-    fn fields() -> Vec<arrow_schema::Field>;
+    fn fields() -> Vec<Field>;
 
     /// Construct an `Arc<arrow_schema::Schema>` from `fields()`.
-    fn schema() -> std::sync::Arc<arrow_schema::Schema> {
-        let fields: Vec<Arc<arrow_schema::Field>> =
-            Self::fields().into_iter().map(Arc::new).collect();
-        Arc::new(arrow_schema::Schema::new_with_metadata(
-            fields,
-            Default::default(),
-        ))
+    fn schema() -> Arc<Schema> {
+        let fields: Vec<Arc<Field>> = Self::fields().into_iter().map(Arc::new).collect();
+        Arc::new(Schema::new_with_metadata(fields, Default::default()))
     }
 }
 
@@ -111,9 +107,9 @@ pub trait BuildRows: Record {
 pub trait AppendStruct {
     /// Append this struct's child values into the provided `StructBuilder`.
     /// Caller is responsible for setting the parent validity via `append(true)`.
-    fn append_owned_into(self, b: &mut arrow_array::builder::StructBuilder);
+    fn append_owned_into(self, b: &mut StructBuilder);
 
     /// Append nulls for each child into the provided `StructBuilder` to align lengths.
     /// Caller is responsible for `append(false)` for the parent validity.
-    fn append_null_into(b: &mut arrow_array::builder::StructBuilder);
+    fn append_null_into(b: &mut StructBuilder);
 }

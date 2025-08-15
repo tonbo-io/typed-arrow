@@ -19,14 +19,19 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use arrow_array::{
-    builder::{BinaryBuilder, BooleanBuilder, PrimitiveBuilder, StringBuilder},
+    builder::{
+        ArrayBuilder, BinaryBuilder, BooleanBuilder, ListBuilder, PrimitiveBuilder, StringBuilder,
+        StringDictionaryBuilder, StructBuilder,
+    },
     types::{
-        Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type,
+        ArrowDictionaryKeyType, ArrowTimestampType, Float32Type, Float64Type, Int16Type, Int32Type,
+        Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType,
+        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
+        UInt8Type,
     },
     Array, PrimitiveArray, StringArray,
 };
-use arrow_schema::DataType;
+use arrow_schema::{DataType, Field, TimeUnit};
 
 use crate::schema::{ColAt, Record, StructMeta};
 
@@ -216,21 +221,19 @@ pub struct List<T>(pub Vec<T>);
 impl<T> ArrowBinding for List<T>
 where
     T: ArrowBinding,
-    <T as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
+    <T as ArrowBinding>::Builder: ArrayBuilder,
 {
-    type Builder = arrow_array::builder::ListBuilder<<T as ArrowBinding>::Builder>;
+    type Builder = ListBuilder<<T as ArrowBinding>::Builder>;
 
     type Array = arrow_array::ListArray;
 
     fn data_type() -> DataType {
-        DataType::List(
-            arrow_schema::Field::new("item", <T as ArrowBinding>::data_type(), false).into(),
-        )
+        DataType::List(Field::new("item", <T as ArrowBinding>::data_type(), false).into())
     }
 
     fn new_builder(_capacity: usize) -> Self::Builder {
         let child = <T as ArrowBinding>::new_builder(0);
-        arrow_array::builder::ListBuilder::new(child)
+        ListBuilder::new(child)
     }
 
     fn append_value(b: &mut Self::Builder, v: &Self) {
@@ -265,21 +268,19 @@ pub struct ListNullable<T>(pub Vec<Option<T>>);
 impl<T> ArrowBinding for ListNullable<T>
 where
     T: ArrowBinding,
-    <T as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
+    <T as ArrowBinding>::Builder: ArrayBuilder,
 {
-    type Builder = arrow_array::builder::ListBuilder<<T as ArrowBinding>::Builder>;
+    type Builder = ListBuilder<<T as ArrowBinding>::Builder>;
 
     type Array = arrow_array::ListArray;
 
     fn data_type() -> DataType {
-        DataType::List(
-            arrow_schema::Field::new("item", <T as ArrowBinding>::data_type(), true).into(),
-        )
+        DataType::List(Field::new("item", <T as ArrowBinding>::data_type(), true).into())
     }
 
     fn new_builder(_capacity: usize) -> Self::Builder {
         let child = <T as ArrowBinding>::new_builder(0);
-        arrow_array::builder::ListBuilder::new(child)
+        ListBuilder::new(child)
     }
 
     fn append_value(b: &mut Self::Builder, v: &Self) {
@@ -341,19 +342,19 @@ pub trait DictKey {
 /// Marker describing a timestamp unit.
 pub trait TimeUnitSpec {
     /// Typed Arrow timestamp marker for this unit.
-    type Arrow: arrow_array::types::ArrowTimestampType;
+    type Arrow: ArrowTimestampType;
 
     /// The `arrow_schema::TimeUnit` of this marker.
-    fn unit() -> arrow_schema::TimeUnit;
+    fn unit() -> TimeUnit;
 }
 
 /// Seconds since epoch.
 pub enum Second {}
 
 impl TimeUnitSpec for Second {
-    type Arrow = arrow_array::types::TimestampSecondType;
-    fn unit() -> arrow_schema::TimeUnit {
-        arrow_schema::TimeUnit::Second
+    type Arrow = TimestampSecondType;
+    fn unit() -> TimeUnit {
+        TimeUnit::Second
     }
 }
 
@@ -361,9 +362,9 @@ impl TimeUnitSpec for Second {
 pub enum Millisecond {}
 
 impl TimeUnitSpec for Millisecond {
-    type Arrow = arrow_array::types::TimestampMillisecondType;
-    fn unit() -> arrow_schema::TimeUnit {
-        arrow_schema::TimeUnit::Millisecond
+    type Arrow = TimestampMillisecondType;
+    fn unit() -> TimeUnit {
+        TimeUnit::Millisecond
     }
 }
 
@@ -371,20 +372,20 @@ impl TimeUnitSpec for Millisecond {
 pub enum Microsecond {}
 
 impl TimeUnitSpec for Microsecond {
-    type Arrow = arrow_array::types::TimestampMicrosecondType;
+    type Arrow = TimestampMicrosecondType;
 
-    fn unit() -> arrow_schema::TimeUnit {
-        arrow_schema::TimeUnit::Microsecond
+    fn unit() -> TimeUnit {
+        TimeUnit::Microsecond
     }
 }
 
 /// Nanoseconds since epoch.
 pub enum Nanosecond {}
 impl TimeUnitSpec for Nanosecond {
-    type Arrow = arrow_array::types::TimestampNanosecondType;
+    type Arrow = TimestampNanosecondType;
 
-    fn unit() -> arrow_schema::TimeUnit {
-        arrow_schema::TimeUnit::Nanosecond
+    fn unit() -> TimeUnit {
+        TimeUnit::Nanosecond
     }
 }
 
@@ -507,7 +508,7 @@ impl<T> ArrowBinding for T
 where
     T: Record + StructMeta,
 {
-    type Builder = arrow_array::builder::StructBuilder;
+    type Builder = StructBuilder;
 
     type Array = arrow_array::StructArray;
 
@@ -562,9 +563,9 @@ impl_dict_key!(u64, UInt64Type, DataType::UInt64);
 impl<K> ArrowBinding for Dictionary<K, String>
 where
     K: DictKey,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: ArrowDictionaryKeyType,
 {
-    type Builder = arrow_array::builder::StringDictionaryBuilder<<K as DictKey>::ArrowKey>;
+    type Builder = StringDictionaryBuilder<<K as DictKey>::ArrowKey>;
 
     type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
 
@@ -577,7 +578,7 @@ where
 
     fn new_builder(_capacity: usize) -> Self::Builder {
         // capacity hint ignored; builder manages its dictionary table.
-        arrow_array::builder::StringDictionaryBuilder::new()
+        StringDictionaryBuilder::new()
     }
 
     fn append_value(b: &mut Self::Builder, v: &Self) {
