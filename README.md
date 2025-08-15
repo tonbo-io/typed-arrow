@@ -1,40 +1,22 @@
-# arrow-native — Compile‑time Arrow schemas for Rust
+# arrow-native
+
+Compile‑time Arrow schemas for Rust.
 
 arrow-native provides a strongly typed, fully compile-time way to define Arrow columns and schemas in Rust.
 It maps Rust types directly to arrow-rs typed builders/arrays and `arrow_schema::DataType` — without any
 runtime `DataType` switching — enabling fast, monomorphized column construction and ergonomic row-based APIs.
 
-## Highlights
-
-- Derive once, get a typed schema
-  - `#[derive(Record)]` exposes column metadata at compile time via `ColAt<I>`.
-  - Per-column associated items: `Rust`, `ColumnBuilder`, `ColumnArray`, `NULLABLE`, `NAME`, `data_type()`.
-- Nested types, no dynamic dispatch
-  - `List<T>` and `ListNullable<T>` → `ListArray` (item nullability at the type level).
-  - Structs via nested `Record` types (produce `StructArray`).
-  - `Dictionary<K, String>` (integral keys) via `StringDictionaryBuilder`.
-  - `Timestamp<U>` with unit markers: `Second`, `Millisecond`, `Microsecond`, `Nanosecond`.
-- Row-based building for owned records
-  - Derive generates `<Type>Builders` and `<Type>Arrays` with `append_row(s)`, `append_option_row(s)`, `finish`.
-  - Nested struct fields via `#[arrow(nested)]` (or `#[nested]`).
-- Compile-time schema and RecordBatch
-  - `SchemaMeta::schema()` to produce an `Arc<arrow_schema::Schema>` at compile time.
-  - `<Type>Arrays::into_record_batch()` to build a `RecordBatch` from typed arrays.
-
 ## Why compile-time Arrow?
 
 - Performance: monomorphized builders/arrays with zero dynamic dispatch; avoids runtime `DataType` matching.
 - Safety: column types, names, and nullability live in the type system; mismatches fail at compile time.
-- Ergonomics: `#[derive(Record)]` generates associated types and row builders; append `Vec<Record>` or `Vec<Option<Record>>` easily.
-- Nested clarity: `#[arrow(nested)]` plus `AppendStruct` ensures child lengths align and struct validity is handled correctly.
-- Schema coherence: `SchemaMeta::schema()` and `into_record_batch()` keep schema and arrays in lockstep.
 - Interop: uses `arrow-array`/`arrow-schema` types directly; no bespoke runtime layer to learn.
 
 ## Quick Start
 
 ```rust
 use arrow_native::{prelude::*, schema::SchemaMeta};
-use arrow_native::{ListNullable, Dictionary, Timestamp, Millisecond};
+use arrow_native::{ListNullable, Dictionary, TimestampTz, Millisecond, Utc};
 
 #[derive(arrow_native::Record)]
 struct Address { city: String, zip: Option<i32> }
@@ -46,7 +28,7 @@ struct Person {
     address: Option<Address>,
     tags: Option<ListNullable<i32>>,          // List column with nullable items
     code: Option<Dictionary<i32, String>>,    // Dictionary<i32, Utf8>
-    joined: Timestamp<Millisecond>,           // Timestamp(ms) without timezone
+    joined: TimestampTz<Millisecond, Utc>,    // Timestamp(ms) with timezone (UTC)
 }
 
 fn main() {
@@ -57,14 +39,20 @@ fn main() {
             address: Some(Address { city: "NYC".into(), zip: None }),
             tags: Some(ListNullable(vec![Some(1), None, Some(3)])),
             code: Some(Dictionary("gold".into(), std::marker::PhantomData)),
-            joined: Timestamp(1_700_000_000_000, std::marker::PhantomData),
+            joined: TimestampTz::<Millisecond, Utc>(
+                1_700_000_000_000,
+                std::marker::PhantomData,
+            ),
         },
         Person {
             id: 2,
             address: None,
             tags: None,
             code: None,
-            joined: Timestamp(1_700_000_100_000, std::marker::PhantomData),
+            joined: TimestampTz::<Millisecond, Utc>(
+                1_700_000_100_000,
+                std::marker::PhantomData,
+            ),
         },
     ];
 
@@ -101,6 +89,7 @@ Run the included examples to see end-to-end usage:
 - `02_lists` — `List<T>` and `ListNullable<T>`
 - `03_dictionary` — `Dictionary<K, String>`
 - `04_timestamps` — `Timestamp<U>` units
+- `04b_timestamps_tz` — `TimestampTz<U, Z>` with `Utc` and custom markers
 - `05_structs` — nested structs → `StructArray`
 - `06_rows_flat` — row-based building for flat records
 - `07_rows_nested` — row-based building with `#[arrow(nested)]`
@@ -125,16 +114,16 @@ cargo run --example 08_record_batch
 
 - Lists: `List<T>` (non-null items), `ListNullable<T>` (nullable items). Use `Option<List<_>>` for list-level nulls.
 - Dictionary: `Dictionary<K, String>` for dictionary-encoded Utf8 with integral keys (`i8/i16/i32/i64/u8/u16/u32/u64`).
-- Timestamps: `Timestamp<Second|Millisecond|Microsecond|Nanosecond>` (timezone not yet supported).
+- Timestamps: `Timestamp<Second|Millisecond|Microsecond|Nanosecond>` and `TimestampTz<U, Z>` (built-in `Utc`, custom markers via `TimeZoneSpec`).
 
 > Note: `Vec<u8>` maps to Arrow `Binary`, so lists use explicit `List<T>`/`ListNullable<T>` wrappers to avoid
 > conflicts with `Vec<T>`.
 
 ## Status & Roadmap
 
-- Implemented: primitives, Utf8/Binary, List, Struct, Dictionary<String>, Timestamp (no timezone),
+- Implemented: primitives, Utf8/Binary, List, Struct, Dictionary<String>, Timestamp, TimestampTz (UTC/custom markers),
   row-based building (including `Option<Record>` rows), compile-time schema + `RecordBatch`.
-- Planned: `LargeList`, `FixedSizeList`, `Map`; Timestamp with timezone; broader Dictionary values; bulk append helpers.
+- Planned: `LargeList`, `FixedSizeList`, `Map`; broader Dictionary values; bulk append helpers.
 
 See `AGENTS.md` and docs in `src/bridge.rs` for deeper details and examples.
 

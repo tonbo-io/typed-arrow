@@ -15,5 +15,6 @@ pub use arrow_native_derive::Record;
 
 // Public re-exports for convenience
 pub use crate::bridge::{
-    Dictionary, List, ListNullable, Microsecond, Millisecond, Nanosecond, Second, Timestamp,
+    Dictionary, List, ListNullable, Microsecond, Millisecond, Nanosecond, Second, TimeZoneSpec,
+    Timestamp, TimestampTz, Utc,
 };

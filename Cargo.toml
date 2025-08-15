@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    ".",
-    "arrow-native-derive",
-]
+members = [".", "arrow-native-derive"]
 
 [package]
 name = "arrow-native"

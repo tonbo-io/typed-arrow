@@ -1,0 +1,59 @@
+use arrow_native::{prelude::*, Millisecond, Nanosecond, Second, TimestampTz, Utc};
+
+#[derive(arrow_native::Record)]
+struct RowTz {
+    s_utc: TimestampTz<Second, Utc>,
+    ms_utc: Option<TimestampTz<Millisecond, Utc>>,
+}
+
+#[test]
+fn timestamp_tz_schema_and_types() {
+    use arrow_array::{builder::PrimitiveBuilder, types as t};
+    use arrow_schema::{DataType, TimeUnit};
+
+    assert_eq!(<RowTz as Record>::LEN, 2);
+
+    // DataTypes include timezone name
+    assert_eq!(
+        <RowTz as ColAt<0>>::data_type(),
+        DataType::Timestamp(TimeUnit::Second, Some(std::sync::Arc::<str>::from("UTC")))
+    );
+    assert_eq!(
+        <RowTz as ColAt<1>>::data_type(),
+        DataType::Timestamp(
+            TimeUnit::Millisecond,
+            Some(std::sync::Arc::<str>::from("UTC"))
+        )
+    );
+
+    // Associated builder/array types are identical to non-tz counterparts
+    type B0 = <RowTz as ColAt<0>>::ColumnBuilder; // PrimitiveBuilder<TimestampSecondType>
+    type A0 = <RowTz as ColAt<0>>::ColumnArray; // PrimitiveArray<TimestampSecondType>
+    let mut b0: B0 = PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(1);
+    b0.append_value(42);
+    let a0: A0 = b0.finish();
+    assert_eq!(a0.len(), 1);
+}
+
+// Demonstrate a custom timezone marker
+enum AsiaShanghai {}
+impl arrow_native::TimeZoneSpec for AsiaShanghai {
+    const NAME: Option<&'static str> = Some("Asia/Shanghai");
+}
+
+#[derive(arrow_native::Record)]
+struct RowCustomTz {
+    ns_sh: TimestampTz<Nanosecond, AsiaShanghai>,
+}
+
+#[test]
+fn custom_tz_marker_datatype() {
+    use arrow_schema::{DataType, TimeUnit};
+    assert_eq!(
+        <RowCustomTz as ColAt<0>>::data_type(),
+        DataType::Timestamp(
+            TimeUnit::Nanosecond,
+            Some(std::sync::Arc::<str>::from("Asia/Shanghai"))
+        )
+    );
+}

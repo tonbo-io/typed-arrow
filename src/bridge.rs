@@ -11,12 +11,12 @@
 //!   - [`List<T>`] / [`ListNullable<T>`] → `ListArray` with non-null/nullable items.
 //!   - [`Dictionary<K, String>`] → dictionary-encoded Utf8 values.
 //!   - [`Timestamp<U>`] with unit markers ([`Second`], [`Millisecond`], [`Microsecond`],
-//!     [`Nanosecond`]).
+//!     [`Nanosecond`]) and [`TimestampTz<U, Z>`] for timezone-aware timestamps.
 //!   - Any `T: Record + StructMeta` binds to an Arrow `StructArray`.
 //!
 //! See tests for end-to-end examples and usage patterns.
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use arrow_array::{
     builder::{BinaryBuilder, BooleanBuilder, PrimitiveBuilder, StringBuilder},
@@ -415,6 +415,68 @@ impl<U: TimeUnitSpec> ArrowBinding for Timestamp<U> {
 
     fn data_type() -> DataType {
         DataType::Timestamp(U::unit(), None)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<U::Arrow>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// TimestampTz<U, Z> (unit + timezone)
+// -------------------------
+
+/// Marker describing a timestamp timezone.
+///
+/// Implement this for your own unit types to encode a named timezone at the
+/// type level (e.g. "UTC" or an IANA name like "Asia/Shanghai").
+pub trait TimeZoneSpec {
+    /// The optional timezone name for this marker.
+    const NAME: Option<&'static str>;
+}
+
+/// UTC timezone marker.
+pub enum Utc {}
+impl TimeZoneSpec for Utc {
+    const NAME: Option<&'static str> = Some("UTC");
+}
+
+/// Timestamp with time unit `U` and timezone marker `Z`.
+///
+/// The timezone name is embedded at the type level via `Z: TimeZoneSpec`.
+///
+/// Example
+/// ```no_run
+/// use arrow_array::Array;
+/// use arrow_native::{bridge::ArrowBinding, Millisecond, TimestampTz, Utc};
+/// let mut b = <TimestampTz<Millisecond, Utc> as ArrowBinding>::new_builder(2);
+/// <TimestampTz<Millisecond, Utc> as ArrowBinding>::append_value(
+///     &mut b,
+///     &TimestampTz::<Millisecond, Utc>(1_000, std::marker::PhantomData),
+/// );
+/// let a = <TimestampTz<Millisecond, Utc> as ArrowBinding>::finish(b);
+/// assert_eq!(a.len(), 1);
+/// ```
+pub struct TimestampTz<U: TimeUnitSpec, Z: TimeZoneSpec>(pub i64, pub PhantomData<(U, Z)>);
+
+impl<U: TimeUnitSpec, Z: TimeZoneSpec> ArrowBinding for TimestampTz<U, Z> {
+    type Builder = PrimitiveBuilder<U::Arrow>;
+    type Array = PrimitiveArray<U::Arrow>;
+
+    fn data_type() -> DataType {
+        DataType::Timestamp(U::unit(), Z::NAME.map(Arc::<str>::from))
     }
 
     fn new_builder(capacity: usize) -> Self::Builder {

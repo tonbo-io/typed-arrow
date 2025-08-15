@@ -81,6 +81,7 @@ pub trait StructMeta: Record {
 pub trait SchemaMeta: Record {
     /// Top-level fields: (name, data_type, nullable) represented as `Field`s.
     fn fields() -> Vec<arrow_schema::Field>;
+
     /// Construct an `Arc<arrow_schema::Schema>` from `fields()`.
     fn schema() -> std::sync::Arc<arrow_schema::Schema> {
         let fields: Vec<Arc<arrow_schema::Field>> =
