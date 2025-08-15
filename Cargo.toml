@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    ".",
+    "arrow-native-derive",
+]
+
+[package]
+name = "arrow-native"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "arrow_native"
+path = "src/lib.rs"
+
+[features]
+default = ["derive"]
+derive = ["dep:arrow-native-derive"]
+
+[dependencies]
+arrow-native-derive = { path = "arrow-native-derive", optional = true }
+arrow-array = { version = "53" }
+arrow-schema = { version = "53" }
