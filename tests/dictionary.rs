@@ -1,9 +1,10 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
+use arrow_array::types::Int32Type;
 use arrow_native::{prelude::*, Dictionary};
 
 #[derive(arrow_native::Record)]
 pub struct Row {
-    pub code: Dictionary<i32, String>, // required dict<i32, Utf8>
+    pub code: Dictionary<i32, i32>,               // dict<i32, Utf8>
     pub opt_code: Option<Dictionary<i8, String>>, // nullable dict<i8, Utf8>
 }
 
@@ -11,10 +12,10 @@ pub struct Row {
 fn build_dictionary_arrays() {
     type B0 = <Row as ColAt<0>>::ColumnBuilder;
     type A0 = <Row as ColAt<0>>::ColumnArray;
-    let mut b: B0 = arrow_array::builder::StringDictionaryBuilder::new();
-    let _ = b.append("foo");
-    let _ = b.append("bar");
-    let _ = b.append("foo");
+    let mut b: B0 = arrow_array::builder::PrimitiveDictionaryBuilder::<Int32Type, Int32Type>::new();
+    let _ = b.append(0);
+    let _ = b.append(1);
+    let _ = b.append(0);
     let a: A0 = b.finish();
     assert_eq!(a.len(), 3);
 }
@@ -33,7 +34,7 @@ fn dictionary_schema_and_types() {
     let dt0 = <Row as ColAt<0>>::data_type();
     assert_eq!(
         dt0,
-        DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+        DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Int32))
     );
     let dt1 = <Row as ColAt<1>>::data_type();
     assert_eq!(
@@ -48,10 +49,7 @@ fn dictionary_schema_and_types() {
     trait Same<T> {}
     impl<T> Same<T> for T {}
     fn _a0<T: Same<arrow_array::DictionaryArray<arrow_array::types::Int32Type>>>() {}
-    fn _b0<
-        T: Same<arrow_array::builder::StringDictionaryBuilder<arrow_array::types::Int32Type>>,
-    >() {
-    }
+    fn _b0<T: Same<arrow_array::builder::PrimitiveDictionaryBuilder<Int32Type, Int32Type>>>() {}
     _a0::<A0>();
     _b0::<B0>();
 }

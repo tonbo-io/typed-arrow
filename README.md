@@ -16,7 +16,7 @@ runtime `DataType` switching — enabling fast, monomorphized column constructio
 
 ```rust
 use arrow_native::{prelude::*, schema::SchemaMeta};
-use arrow_native::{ListNullable, Dictionary, TimestampTz, Millisecond, Utc};
+use arrow_native::{Dictionary, TimestampTz, Millisecond, Utc, List};
 
 #[derive(arrow_native::Record)]
 struct Address { city: String, zip: Option<i32> }
@@ -24,9 +24,9 @@ struct Address { city: String, zip: Option<i32> }
 #[derive(arrow_native::Record)]
 struct Person {
     id: i64,
-    #[nested]
+    #[record(nested)]
     address: Option<Address>,
-    tags: Option<ListNullable<i32>>,          // List column with nullable items
+    tags: Option<List<Option<i32>>>,          // List column with nullable items
     code: Option<Dictionary<i32, String>>,    // Dictionary<i32, Utf8>
     joined: TimestampTz<Millisecond, Utc>,    // Timestamp(ms) with timezone (UTC)
 }
@@ -37,7 +37,7 @@ fn main() {
         Person {
             id: 1,
             address: Some(Address { city: "NYC".into(), zip: None }),
-            tags: Some(ListNullable(vec![Some(1), None, Some(3)])),
+            tags: Some(List(vec![Some(1), None, Some(3)])),
             code: Some(Dictionary("gold".into(), std::marker::PhantomData)),
             joined: TimestampTz::<Millisecond, Utc>(
                 1_700_000_000_000,
@@ -86,14 +86,17 @@ arrow-native = { path = "." }
 Run the included examples to see end-to-end usage:
 
 - `01_primitives` — derive `Record`, inspect `DataType`, build primitives
-- `02_lists` — `List<T>` and `ListNullable<T>`
+- `02_lists` — `List<T>` and `List<Option<T>>`
 - `03_dictionary` — `Dictionary<K, String>`
 - `04_timestamps` — `Timestamp<U>` units
 - `04b_timestamps_tz` — `TimestampTz<U, Z>` with `Utc` and custom markers
 - `05_structs` — nested structs → `StructArray`
 - `06_rows_flat` — row-based building for flat records
-- `07_rows_nested` — row-based building with `#[nested]`
+- `07_rows_nested` — row-based building with `#[record(nested)]`
 - `08_record_batch` — compile-time schema + `RecordBatch`
+- `09_duration_interval` — Duration and Interval types
+- `10_union` — Dense Union as a Record column (with attributes)
+- `11_map` — Map (incl. `Option<V>` values) + as a Record column
 
 Run:
 
@@ -118,21 +121,28 @@ cargo run --example 08_record_batch
 
 ### Nested Type Wrappers
 
-- Lists: `List<T>` (non-null items), `ListNullable<T>` (nullable items). Use `Option<List<_>>` for list-level nulls.
-- Dictionary: `Dictionary<K, String>` for dictionary-encoded Utf8 with integral keys (`i8/i16/i32/i64/u8/u16/u32/u64`).
-- Timestamps: `Timestamp<Second|Millisecond|Microsecond|Nanosecond>` and `TimestampTz<U, Z>` (built-in `Utc`, custom markers via `TimeZoneSpec`).
+- Lists: `List<T>` (non-null items), `List<Option<T>>` (nullable items). Use `Option<List<_>>` for list-level nulls.
+- Dictionary: dictionary-encoded values with integral keys (`i8/i16/i32/i64/u8/u16/u32/u64`):
+  - `Dictionary<K, String>` (Utf8)
+  - `Dictionary<K, Vec<u8>>` (Binary)
+  - `Dictionary<K, T>` for primitives `T ∈ { i8, i16, i32, i64, u8, u16, u32, u64, f32, f64 }`
 
-> Note: `Vec<u8>` maps to Arrow `Binary`, so lists use explicit `List<T>`/`ListNullable<T>` wrappers to avoid
-> conflicts with `Vec<T>`.
+## Arrow DataType Coverage
 
-## Status & Roadmap
+Supported (arrow-rs v56):
 
-- Implemented: primitives, Utf8/Binary, List, Struct, Dictionary<String>, Timestamp, TimestampTz (UTC/custom markers),
-  row-based building (including `Option<Record>` rows), compile-time schema + `RecordBatch`.
-- Planned: `LargeList`, `FixedSizeList`, `Map`; broader Dictionary values; bulk append helpers.
+- Primitives: Int8/16/32/64, UInt8/16/32/64, Float16/32/64, Boolean
+- Strings/Binary: Utf8, LargeUtf8, Binary, LargeBinary, FixedSizeBinary (via `[u8; N]`)
+- Temporal: Timestamp (with/without TZ; s/ms/us/ns), Date32/64, Time32(s/ms), Time64(us/ns), Duration(s/ms/us/ns), Interval(YearMonth/DayTime/MonthDayNano)
+- Decimal: Decimal128, Decimal256 (const generic precision/scale)
+- Nested: List (including nullable items), LargeList, FixedSizeList (nullable/non-null items), Struct,
+  Map (Vec<(K,V)>; use `Option<V>` for nullable values), OrderedMap (BTreeMap<K,V>) with `keys_sorted = true`
+- Union: Dense and Sparse (via `#[derive(Union)]` on enums)
+- Dictionary: keys = all integral types; values = Utf8 (String), LargeUtf8, Binary (Vec<u8>), LargeBinary, FixedSizeBinary (`[u8; N]`), primitives (i*, u*, f32, f64)
 
-See `AGENTS.md` and docs in `src/bridge.rs` for deeper details and examples.
+Missing:
 
----
-
-This project builds on the `arrow-array` and `arrow-schema` crates from the Arrow Rust ecosystem.
+- BinaryView, Utf8View
+- Utf8View
+- ListView, LargeListView
+- RunEndEncoded

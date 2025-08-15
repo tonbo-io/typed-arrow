@@ -7,7 +7,7 @@
 ## Supported Shapes
 - Struct: nested `#[derive(Record)]` structs map to Arrow `Struct`.
 - List/LargeList: `Vec<T>` maps to `List<T>`; `#[arrow(list(large = true))]` selects `LargeList<T>`.
-  - Note: In the current prototype, use `arrow_native::List<T>` for non-null items and `arrow_native::ListNullable<T>` for nullable items to avoid a coherence conflict with `Vec<u8>` → Binary. We’ll switch to direct `Vec<T>`/`Vec<Option<T>>` mapping in a follow-up.
+  - Item nullability: use `List<Option<T>>` / `LargeList<Option<T>>` to allow null items.
 - Fixed-Size List: `[T; N]` maps to `FixedSizeList<T; N>`.
 - Map: `Vec<MapEntry<K, V>>` maps to Arrow Map (List of Struct<key, value>), keys non-null.
 - Dictionary: use `arrow_native::Dictionary<K, V>` wrapper for dictionary encoding (keys integral). Initial support focuses on `V = String` (Utf8 values).

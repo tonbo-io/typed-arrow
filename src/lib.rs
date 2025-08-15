@@ -11,10 +11,12 @@ pub mod prelude {
 
 // Re-export the derive macro when enabled
 #[cfg(feature = "derive")]
-pub use arrow_native_derive::Record;
+pub use arrow_native_derive::{Record, Union};
 
 // Public re-exports for convenience
 pub use crate::bridge::{
-    Dictionary, List, ListNullable, Microsecond, Millisecond, Nanosecond, Second, TimeZoneSpec,
-    Timestamp, TimestampTz, Utc,
+    Date32, Date64, Decimal128, Decimal256, Dictionary, Duration, FixedSizeList,
+    FixedSizeListNullable, IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth, LargeBinary,
+    LargeList, LargeUtf8, List, Map, Microsecond, Millisecond, Nanosecond, Null, OrderedMap,
+    Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utc,
 };

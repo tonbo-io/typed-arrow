@@ -1,12 +1,12 @@
-//! Showcase: List and ListNullable wrappers for Arrow ListArray.
+//! Showcase: List and item-nullable lists via List<Option<T>> for Arrow ListArray.
 
 use arrow_array::Array;
-use arrow_native::{bridge::ArrowBinding, prelude::*, List, ListNullable};
+use arrow_native::{bridge::ArrowBinding, prelude::*, List};
 
 #[derive(arrow_native::Record)]
 struct Row {
     tags: List<String>,                // List<Utf8>, items non-null
-    scores: Option<ListNullable<i32>>, // Nullable list whose items are nullable i32
+    scores: Option<List<Option<i32>>>, // Nullable list whose items are nullable i32
 }
 
 fn main() {
@@ -29,10 +29,10 @@ fn main() {
     );
 
     // Build a nullable-list of nullable i32 items
-    let mut nlb = <ListNullable<i32> as ArrowBinding>::new_builder(2);
-    <ListNullable<i32> as ArrowBinding>::append_value(&mut nlb, &ListNullable(vec![Some(1), None]));
-    <ListNullable<i32> as ArrowBinding>::append_null(&mut nlb);
-    let nla = <ListNullable<i32> as ArrowBinding>::finish(nlb);
+    let mut nlb = <List<Option<i32>> as ArrowBinding>::new_builder(2);
+    <List<Option<i32>> as ArrowBinding>::append_value(&mut nlb, &List(vec![Some(1), None]));
+    <List<Option<i32>> as ArrowBinding>::append_null(&mut nlb);
+    let nla = <List<Option<i32>> as ArrowBinding>::finish(nlb);
     println!(
         "List<Nullable<i32>> len={}, second_is_null={}",
         nla.len(),

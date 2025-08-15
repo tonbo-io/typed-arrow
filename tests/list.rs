@@ -1,11 +1,11 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
-// Import List wrapper
-use arrow_native::{bridge::ListNullable, prelude::*, List};
+// Import List wrapper; use List<Option<T>> for item-nullability
+use arrow_native::{prelude::*, List};
 
 #[derive(arrow_native::Record)]
 pub struct Row {
     pub tags: List<String>,                // List<Utf8>, items non-null
-    pub scores: Option<ListNullable<i32>>, // Nullable list of nullable i32 items
+    pub scores: Option<List<Option<i32>>>, // Nullable list of nullable i32 items
 }
 
 // Helper trait to assert type equality at compile time

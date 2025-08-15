@@ -16,5 +16,7 @@ derive = ["dep:arrow-native-derive"]
 
 [dependencies]
 arrow-native-derive = { path = "arrow-native-derive", optional = true }
-arrow-array = { version = "53" }
-arrow-schema = { version = "53" }
+arrow-array = { version = "56" }
+arrow-schema = { version = "56" }
+arrow-buffer = { version = "56" }
+half = "2"

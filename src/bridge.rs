@@ -8,7 +8,7 @@
 //! - Primitives: `i{8,16,32,64}`, `u{8,16,32,64}`, `f{32,64}`, `bool`.
 //! - Utf8/Binary: `String` → `Utf8`, `Vec<u8>` → `Binary`.
 //! - Nested containers:
-//!   - [`List<T>`] / [`ListNullable<T>`] → `ListArray` with non-null/nullable items.
+//!   - [`List<T>`] with non-null items, and [`List<Option<T>>`] for nullable items.
 //!   - [`Dictionary<K, String>`] → dictionary-encoded Utf8 values.
 //!   - [`Timestamp<U>`] with unit markers ([`Second`], [`Millisecond`], [`Microsecond`],
 //!     [`Nanosecond`]) and [`TimestampTz<U, Z>`] for timezone-aware timestamps.
@@ -16,22 +16,32 @@
 //!
 //! See tests for end-to-end examples and usage patterns.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 use arrow_array::{
     builder::{
-        ArrayBuilder, BinaryBuilder, BooleanBuilder, ListBuilder, PrimitiveBuilder, StringBuilder,
-        StringDictionaryBuilder, StructBuilder,
+        ArrayBuilder, BinaryBuilder, BinaryDictionaryBuilder, BooleanBuilder, Decimal128Builder,
+        Decimal256Builder, FixedSizeBinaryBuilder, FixedSizeBinaryDictionaryBuilder,
+        LargeBinaryBuilder, LargeBinaryDictionaryBuilder, LargeListBuilder, LargeStringBuilder,
+        LargeStringDictionaryBuilder, ListBuilder, MapBuilder, NullBuilder, PrimitiveBuilder,
+        PrimitiveDictionaryBuilder, StringBuilder, StringDictionaryBuilder, StructBuilder,
     },
     types::{
-        ArrowDictionaryKeyType, ArrowTimestampType, Float32Type, Float64Type, Int16Type, Int32Type,
-        Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType,
+        ArrowDictionaryKeyType, ArrowPrimitiveType, ArrowTimestampType, Date32Type, Date64Type,
+        DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
+        DurationSecondType, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
+        Int8Type, IntervalDayTime as IntervalDayTimeNative, IntervalDayTimeType,
+        IntervalMonthDayNano as IntervalMonthDayNanoNative, IntervalMonthDayNanoType,
+        IntervalYearMonthType, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
+        Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
         TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
         UInt8Type,
     },
-    Array, PrimitiveArray, StringArray,
+    Array, Decimal128Array, Decimal256Array, MapArray, NullArray, PrimitiveArray, StringArray,
 };
-use arrow_schema::{DataType, Field, TimeUnit};
+use arrow_buffer::i256;
+use arrow_schema::{DataType, Field, IntervalUnit, TimeUnit};
+use half::f16;
 
 use crate::schema::{ColAt, Record, StructMeta};
 
@@ -114,6 +124,63 @@ impl_primitive_binding!(u64, UInt64Type, DataType::UInt64);
 impl_primitive_binding!(f32, Float32Type, DataType::Float32);
 impl_primitive_binding!(f64, Float64Type, DataType::Float64);
 
+// -------------------------
+// Null type marker
+// -------------------------
+
+/// Marker type for Arrow `DataType::Null` columns.
+///
+/// A `Null` column contains only nulls. Appending a value or a null both append
+/// a null slot. This maps to `arrow_array::NullArray` and uses `NullBuilder`.
+pub struct Null;
+
+impl ArrowBinding for Null {
+    type Builder = NullBuilder;
+    type Array = NullArray;
+    fn data_type() -> DataType {
+        DataType::Null
+    }
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        NullBuilder::new()
+    }
+    fn append_value(b: &mut Self::Builder, _v: &Self) {
+        b.append_null();
+    }
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Float16 (half-precision)
+impl ArrowBinding for f16 {
+    type Builder = PrimitiveBuilder<Float16Type>;
+
+    type Array = PrimitiveArray<Float16Type>;
+
+    fn data_type() -> DataType {
+        DataType::Float16
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<Float16Type>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(*v);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
 // Boolean
 impl ArrowBinding for bool {
     type Builder = BooleanBuilder;
@@ -168,6 +235,40 @@ impl ArrowBinding for String {
     }
 }
 
+// -------------------------
+// LargeUtf8: wrapper around String
+// -------------------------
+
+/// Wrapper denoting Arrow `LargeUtf8` values. Use when individual strings can be
+/// extremely large or when 64-bit offsets are preferred.
+pub struct LargeUtf8(pub String);
+
+impl ArrowBinding for LargeUtf8 {
+    type Builder = LargeStringBuilder;
+
+    type Array = arrow_array::LargeStringArray;
+
+    fn data_type() -> DataType {
+        DataType::LargeUtf8
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        LargeStringBuilder::with_capacity(capacity, 0)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0.as_str());
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
 // Binary / Vec<u8>
 impl ArrowBinding for Vec<u8> {
     type Builder = BinaryBuilder;
@@ -196,6 +297,133 @@ impl ArrowBinding for Vec<u8> {
 }
 
 // -------------------------
+// FixedSizeBinary: [u8; N]
+// -------------------------
+
+impl<const N: usize> ArrowBinding for [u8; N] {
+    type Builder = FixedSizeBinaryBuilder;
+
+    type Array = arrow_array::FixedSizeBinaryArray;
+
+    fn data_type() -> DataType {
+        DataType::FixedSizeBinary(N as i32)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        // Capacity is a hint; builder requires element width (N)
+        FixedSizeBinaryBuilder::with_capacity(capacity, N as i32)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        let _ = b.append_value(v);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// LargeBinary: wrapper around Vec<u8>
+// -------------------------
+
+/// Wrapper denoting Arrow `LargeBinary` values. Use when individual binary values
+/// can exceed 2GB or when 64-bit offsets are preferred.
+pub struct LargeBinary(pub Vec<u8>);
+
+impl ArrowBinding for LargeBinary {
+    type Builder = LargeBinaryBuilder;
+
+    type Array = arrow_array::LargeBinaryArray;
+
+    fn data_type() -> DataType {
+        DataType::LargeBinary
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        LargeBinaryBuilder::with_capacity(capacity, 0)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0.as_slice());
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// Decimal128<P, S> and Decimal256<P, S>
+// -------------------------
+
+/// Fixed-precision decimal stored in 128 bits.
+/// The value is represented as a scaled integer of type `i128`.
+pub struct Decimal128<const P: u8, const S: i8>(pub i128);
+
+impl<const P: u8, const S: i8> ArrowBinding for Decimal128<P, S> {
+    type Builder = Decimal128Builder;
+    type Array = Decimal128Array;
+
+    fn data_type() -> DataType {
+        DataType::Decimal128(P, S)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        Decimal128Builder::with_capacity(capacity).with_data_type(DataType::Decimal128(P, S))
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Fixed-precision decimal stored in 256 bits.
+/// The value is represented as a scaled integer of type `i256`.
+pub struct Decimal256<const P: u8, const S: i8>(pub i256);
+
+impl<const P: u8, const S: i8> ArrowBinding for Decimal256<P, S> {
+    type Builder = Decimal256Builder;
+    type Array = Decimal256Array;
+
+    fn data_type() -> DataType {
+        DataType::Decimal256(P, S)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        Decimal256Builder::with_capacity(capacity).with_data_type(DataType::Decimal256(P, S))
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
 // Nested: List<T>
 // -------------------------
 
@@ -203,7 +431,7 @@ impl ArrowBinding for Vec<u8> {
 ///
 /// Notes:
 /// - List-level nullability: wrap the column in `Option<List<T>>`.
-/// - Item-level nullability: use [`ListNullable<T>`] when elements can be null.
+/// - Item-level nullability: use `List<Option<T>>` when elements can be null.
 /// - This avoids conflict with `Vec<u8>` which maps to `Binary`. We may transition to
 ///   `Vec<T>`/`Vec<Option<T>>` mapping in the future.
 ///
@@ -252,20 +480,9 @@ where
     }
 }
 
-/// Wrapper denoting a `ListArray` whose items are nullable.
-///
-/// Example
-/// ```no_run
-/// use arrow_array::Array;
-/// use arrow_native::bridge::{ArrowBinding, ListNullable};
-/// let mut b = <ListNullable<i32> as ArrowBinding>::new_builder(1);
-/// <ListNullable<i32> as ArrowBinding>::append_value(&mut b, &ListNullable(vec![Some(1), None]));
-/// let a = <ListNullable<i32> as ArrowBinding>::finish(b);
-/// assert_eq!(a.len(), 1);
-/// ```
-pub struct ListNullable<T>(pub Vec<Option<T>>);
-
-impl<T> ArrowBinding for ListNullable<T>
+/// Provide ArrowBinding for `List<Option<T>>` so users can express
+/// item-nullability via `Option` in the type parameter, avoiding a separate wrapper.
+impl<T> ArrowBinding for List<Option<T>>
 where
     T: ArrowBinding,
     <T as ArrowBinding>::Builder: ArrayBuilder,
@@ -301,6 +518,382 @@ where
         b.finish()
     }
 }
+
+// -------------------------
+// FixedSizeList<T, N>
+// -------------------------
+
+/// Wrapper denoting an Arrow `FixedSizeListArray` column with `N` elements of `T`.
+///
+/// - List-level nullability: wrap the column in `Option<FixedSizeList<_, N>>`.
+/// - Item-level non-nullability: child field is non-nullable; use `FixedSizeListNullable` for
+///   nullable items.
+pub struct FixedSizeList<T, const N: usize>(pub [T; N]);
+
+impl<T, const N: usize> ArrowBinding for FixedSizeList<T, N>
+where
+    T: ArrowBinding,
+    <T as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
+
+    type Array = arrow_array::FixedSizeListArray;
+
+    fn data_type() -> DataType {
+        DataType::FixedSizeList(
+            Field::new("item", <T as ArrowBinding>::data_type(), false).into(),
+            N as i32,
+        )
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        let child = <T as ArrowBinding>::new_builder(0);
+        arrow_array::builder::FixedSizeListBuilder::with_capacity(child, N as i32, capacity)
+            .with_field(Field::new("item", <T as ArrowBinding>::data_type(), false))
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for it in &v.0 {
+            <T as ArrowBinding>::append_value(b.values(), it);
+        }
+        b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        for _ in 0..N {
+            <T as ArrowBinding>::append_null(b.values());
+        }
+        b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Wrapper denoting a `FixedSizeListArray` with `N` elements where items are nullable.
+pub struct FixedSizeListNullable<T, const N: usize>(pub [Option<T>; N]);
+
+impl<T, const N: usize> ArrowBinding for FixedSizeListNullable<T, N>
+where
+    T: ArrowBinding,
+    <T as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
+
+    type Array = arrow_array::FixedSizeListArray;
+
+    fn data_type() -> DataType {
+        DataType::FixedSizeList(
+            Field::new("item", <T as ArrowBinding>::data_type(), true).into(),
+            N as i32,
+        )
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        let child = <T as ArrowBinding>::new_builder(0);
+        arrow_array::builder::FixedSizeListBuilder::with_capacity(child, N as i32, capacity)
+            .with_field(Field::new("item", <T as ArrowBinding>::data_type(), true))
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for it in &v.0 {
+            match it {
+                Some(inner) => <T as ArrowBinding>::append_value(b.values(), inner),
+                None => <T as ArrowBinding>::append_null(b.values()),
+            }
+        }
+        b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        for _ in 0..N {
+            <T as ArrowBinding>::append_null(b.values());
+        }
+        b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// Map<K, V, const SORTED: bool>
+// -------------------------
+
+/// Wrapper denoting an Arrow `MapArray` column with entries `(K, V)`.
+///
+/// - Keys are non-nullable by Arrow spec.
+/// - Values are non-nullable for `Map<K, V, SORTED>` and nullable for [`MapNullable<K, V,
+///   SORTED>`].
+/// - Column-level nullability is expressed with `Option<Map<...>>`.
+pub struct Map<K, V, const SORTED: bool = false>(pub Vec<(K, V)>);
+
+impl<K, V, const SORTED: bool> ArrowBinding for Map<K, V, SORTED>
+where
+    K: ArrowBinding,
+    V: ArrowBinding,
+    <K as ArrowBinding>::Builder: ArrayBuilder,
+    <V as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
+    type Array = MapArray;
+
+    fn data_type() -> DataType {
+        let key_f = Field::new("keys", <K as ArrowBinding>::data_type(), false);
+        // MapBuilder uses field name `values` and constructs a nullable value field; align our
+        // DataType accordingly
+        let val_f = Field::new("values", <V as ArrowBinding>::data_type(), true);
+        let entries = DataType::Struct(vec![Arc::new(key_f), Arc::new(val_f)].into());
+        DataType::Map(Field::new("entries", entries, false).into(), SORTED)
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        let kb = <K as ArrowBinding>::new_builder(0);
+        let vb = <V as ArrowBinding>::new_builder(0);
+        // Use default field names `keys`/`values` matching MapBuilder
+        MapBuilder::new(None, kb, vb)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for (k, val) in &v.0 {
+            <K as ArrowBinding>::append_value(b.keys(), k);
+            <V as ArrowBinding>::append_value(b.values(), val);
+        }
+        let _ = b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        let _ = b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Provide ArrowBinding for Map<K, Option<V>, SORTED> so users can express
+// value-nullability via Option in the type parameter, avoiding a separate wrapper.
+impl<K, V, const SORTED: bool> ArrowBinding for Map<K, Option<V>, SORTED>
+where
+    K: ArrowBinding,
+    V: ArrowBinding,
+    <K as ArrowBinding>::Builder: ArrayBuilder,
+    <V as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
+    type Array = MapArray;
+
+    fn data_type() -> DataType {
+        let key_f = Field::new("keys", <K as ArrowBinding>::data_type(), false);
+        let val_f = Field::new("values", <V as ArrowBinding>::data_type(), true);
+        let entries = DataType::Struct(vec![Arc::new(key_f), Arc::new(val_f)].into());
+        DataType::Map(Field::new("entries", entries, false).into(), SORTED)
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        let kb = <K as ArrowBinding>::new_builder(0);
+        let vb = <V as ArrowBinding>::new_builder(0);
+        MapBuilder::new(None, kb, vb)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for (k, val_opt) in &v.0 {
+            <K as ArrowBinding>::append_value(b.keys(), k);
+            match val_opt {
+                Some(val) => <V as ArrowBinding>::append_value(b.values(), val),
+                None => <V as ArrowBinding>::append_null(b.values()),
+            }
+        }
+        let _ = b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        let _ = b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// OrderedMap<K, V> and OrderedMapNullable<K, V>
+// -------------------------
+
+/// Sorted-keys Map: entries sourced from `BTreeMap<K, V>`, declaring `keys_sorted = true`.
+/// Keys are non-nullable; the value field is nullable per MapBuilder semantics, but this
+/// wrapper does not write null values.
+pub struct OrderedMap<K, V>(pub BTreeMap<K, V>);
+
+impl<K, V> ArrowBinding for OrderedMap<K, V>
+where
+    K: ArrowBinding + Ord,
+    V: ArrowBinding,
+    <K as ArrowBinding>::Builder: ArrayBuilder,
+    <V as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
+    type Array = MapArray;
+
+    fn data_type() -> DataType {
+        let key_f = Field::new("keys", <K as ArrowBinding>::data_type(), false);
+        let val_f = Field::new("values", <V as ArrowBinding>::data_type(), true);
+        let entries = DataType::Struct(vec![Arc::new(key_f), Arc::new(val_f)].into());
+        DataType::Map(Field::new("entries", entries, false).into(), true)
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        let kb = <K as ArrowBinding>::new_builder(0);
+        let vb = <V as ArrowBinding>::new_builder(0);
+        MapBuilder::new(None, kb, vb)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for (k, val) in v.0.iter() {
+            <K as ArrowBinding>::append_value(b.keys(), k);
+            <V as ArrowBinding>::append_value(b.values(), val);
+        }
+        let _ = b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        let _ = b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Provide ArrowBinding for OrderedMap<K, Option<V>> mirroring the non-wrapper variant
+impl<K, V> ArrowBinding for OrderedMap<K, Option<V>>
+where
+    K: ArrowBinding + Ord,
+    V: ArrowBinding,
+    <K as ArrowBinding>::Builder: ArrayBuilder,
+    <V as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
+    type Array = MapArray;
+
+    fn data_type() -> DataType {
+        let key_f = Field::new("keys", <K as ArrowBinding>::data_type(), false);
+        let val_f = Field::new("values", <V as ArrowBinding>::data_type(), true);
+        let entries = DataType::Struct(vec![Arc::new(key_f), Arc::new(val_f)].into());
+        DataType::Map(Field::new("entries", entries, false).into(), true)
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        let kb = <K as ArrowBinding>::new_builder(0);
+        let vb = <V as ArrowBinding>::new_builder(0);
+        MapBuilder::new(None, kb, vb)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for (k, val_opt) in v.0.iter() {
+            <K as ArrowBinding>::append_value(b.keys(), k);
+            match val_opt {
+                Some(val) => <V as ArrowBinding>::append_value(b.values(), val),
+                None => <V as ArrowBinding>::append_null(b.values()),
+            }
+        }
+        let _ = b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        let _ = b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Removed ListNullable<T>; use List<Option<T>> instead.
+
+// -------------------------
+// LargeList<T>
+// -------------------------
+
+/// Wrapper denoting an Arrow `LargeListArray` column with elements of `T`.
+pub struct LargeList<T>(pub Vec<T>);
+
+impl<T> ArrowBinding for LargeList<T>
+where
+    T: ArrowBinding,
+    <T as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = LargeListBuilder<<T as ArrowBinding>::Builder>;
+
+    type Array = arrow_array::LargeListArray;
+
+    fn data_type() -> DataType {
+        DataType::LargeList(Field::new("item", <T as ArrowBinding>::data_type(), false).into())
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        let child = <T as ArrowBinding>::new_builder(0);
+        LargeListBuilder::new(child)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for it in &v.0 {
+            <T as ArrowBinding>::append_value(b.values(), it);
+        }
+        b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Provide ArrowBinding for `LargeList<Option<T>>` so users can express
+/// item-nullability via `Option` in the type parameter for LargeList.
+impl<T> ArrowBinding for LargeList<Option<T>>
+where
+    T: ArrowBinding,
+    <T as ArrowBinding>::Builder: ArrayBuilder,
+{
+    type Builder = LargeListBuilder<<T as ArrowBinding>::Builder>;
+
+    type Array = arrow_array::LargeListArray;
+
+    fn data_type() -> DataType {
+        DataType::LargeList(Field::new("item", <T as ArrowBinding>::data_type(), true).into())
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        let child = <T as ArrowBinding>::new_builder(0);
+        LargeListBuilder::new(child)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        for it in &v.0 {
+            match it {
+                Some(inner) => <T as ArrowBinding>::append_value(b.values(), inner),
+                None => <T as ArrowBinding>::append_null(b.values()),
+            }
+        }
+        b.append(true);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Removed LargeListNullable<T>; use LargeList<Option<T>> instead.
 
 // -------------------------
 // Dictionary<K, V>
@@ -498,6 +1091,266 @@ impl<U: TimeUnitSpec, Z: TimeZoneSpec> ArrowBinding for TimestampTz<U, Z> {
 }
 
 // -------------------------
+// Date32 / Date64
+// -------------------------
+
+/// Days since UNIX epoch.
+pub struct Date32(pub i32);
+
+impl ArrowBinding for Date32 {
+    type Builder = PrimitiveBuilder<Date32Type>;
+
+    type Array = PrimitiveArray<Date32Type>;
+
+    fn data_type() -> DataType {
+        DataType::Date32
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<Date32Type>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Milliseconds since UNIX epoch.
+pub struct Date64(pub i64);
+
+impl ArrowBinding for Date64 {
+    type Builder = PrimitiveBuilder<Date64Type>;
+
+    type Array = PrimitiveArray<Date64Type>;
+
+    fn data_type() -> DataType {
+        DataType::Date64
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<Date64Type>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// Time32<U> and Time64<U>
+// -------------------------
+
+/// Marker mapping for `Time32` units.
+/// Marker trait mapping `Time32` units to Arrow time types.
+pub trait Time32UnitSpec {
+    /// Arrow type for this time unit (`Time32SecondType` or `Time32MillisecondType`).
+    type Arrow;
+
+    /// The `arrow_schema::TimeUnit` variant for this unit.
+    fn unit() -> TimeUnit;
+}
+
+impl Time32UnitSpec for Second {
+    type Arrow = Time32SecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Second
+    }
+}
+
+impl Time32UnitSpec for Millisecond {
+    type Arrow = Time32MillisecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Millisecond
+    }
+}
+
+/// Number of seconds/milliseconds since midnight.
+pub struct Time32<U: Time32UnitSpec>(pub i32, pub PhantomData<U>);
+
+impl<U: Time32UnitSpec> ArrowBinding for Time32<U>
+where
+    U::Arrow: ArrowPrimitiveType<Native = i32>,
+{
+    type Builder = PrimitiveBuilder<U::Arrow>;
+
+    type Array = PrimitiveArray<U::Arrow>;
+
+    fn data_type() -> DataType {
+        DataType::Time32(U::unit())
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<U::Arrow>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0 as <U::Arrow as ArrowPrimitiveType>::Native);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Marker mapping for `Time64` units.
+/// Marker trait mapping `Time64` units to Arrow time types.
+pub trait Time64UnitSpec {
+    /// Arrow type for this time unit (`Time64MicrosecondType` or `Time64NanosecondType`).
+    type Arrow;
+
+    /// The `arrow_schema::TimeUnit` variant for this unit.
+    fn unit() -> TimeUnit;
+}
+
+impl Time64UnitSpec for Microsecond {
+    type Arrow = Time64MicrosecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Microsecond
+    }
+}
+
+impl Time64UnitSpec for Nanosecond {
+    type Arrow = Time64NanosecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Nanosecond
+    }
+}
+
+/// Number of microseconds/nanoseconds since midnight.
+pub struct Time64<U: Time64UnitSpec>(pub i64, pub PhantomData<U>);
+
+impl<U: Time64UnitSpec> ArrowBinding for Time64<U>
+where
+    U::Arrow: ArrowPrimitiveType<Native = i64>,
+{
+    type Builder = PrimitiveBuilder<U::Arrow>;
+
+    type Array = PrimitiveArray<U::Arrow>;
+
+    fn data_type() -> DataType {
+        DataType::Time64(U::unit())
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<U::Arrow>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0 as <U::Arrow as ArrowPrimitiveType>::Native);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// Duration<U>
+// -------------------------
+
+/// Marker mapping for `Duration` units.
+/// Marker trait mapping `Duration` units to Arrow duration types.
+pub trait DurationUnitSpec {
+    /// Arrow type for this duration unit (`Duration*Type`).
+    type Arrow;
+
+    /// The `arrow_schema::TimeUnit` variant for this unit.
+    fn unit() -> TimeUnit;
+}
+
+impl DurationUnitSpec for Second {
+    type Arrow = DurationSecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Second
+    }
+}
+
+impl DurationUnitSpec for Millisecond {
+    type Arrow = DurationMillisecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Millisecond
+    }
+}
+
+impl DurationUnitSpec for Microsecond {
+    type Arrow = DurationMicrosecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Microsecond
+    }
+}
+
+impl DurationUnitSpec for Nanosecond {
+    type Arrow = DurationNanosecondType;
+
+    fn unit() -> TimeUnit {
+        TimeUnit::Nanosecond
+    }
+}
+
+/// Duration in the given unit.
+pub struct Duration<U: DurationUnitSpec>(pub i64, pub PhantomData<U>);
+
+impl<U: DurationUnitSpec> ArrowBinding for Duration<U>
+where
+    U::Arrow: ArrowPrimitiveType<Native = i64>,
+{
+    type Builder = PrimitiveBuilder<U::Arrow>;
+
+    type Array = PrimitiveArray<U::Arrow>;
+
+    fn data_type() -> DataType {
+        DataType::Duration(U::unit())
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<U::Arrow>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
 // Struct<T: Record + StructMeta>
 // -------------------------
 // Any `T` implementing `Record + StructMeta` automatically binds to a typed
@@ -532,6 +1385,97 @@ where
 
     fn append_null(b: &mut Self::Builder) {
         b.append(false);
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// -------------------------
+// Interval (YearMonth, DayTime, MonthDayNano)
+// -------------------------
+
+/// Interval with unit YearMonth (i32 months since epoch).
+pub struct IntervalYearMonth(pub i32);
+
+impl ArrowBinding for IntervalYearMonth {
+    type Builder = PrimitiveBuilder<IntervalYearMonthType>;
+
+    type Array = PrimitiveArray<IntervalYearMonthType>;
+
+    fn data_type() -> DataType {
+        DataType::Interval(IntervalUnit::YearMonth)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<IntervalYearMonthType>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Interval with unit DayTime (packed days and milliseconds).
+pub struct IntervalDayTime(pub IntervalDayTimeNative);
+
+impl ArrowBinding for IntervalDayTime {
+    type Builder = PrimitiveBuilder<IntervalDayTimeType>;
+
+    type Array = PrimitiveArray<IntervalDayTimeType>;
+
+    fn data_type() -> DataType {
+        DataType::Interval(IntervalUnit::DayTime)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<IntervalDayTimeType>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+/// Interval with unit MonthDayNano (packed months, days, and nanoseconds).
+pub struct IntervalMonthDayNano(pub IntervalMonthDayNanoNative);
+
+impl ArrowBinding for IntervalMonthDayNano {
+    type Builder = PrimitiveBuilder<IntervalMonthDayNanoType>;
+
+    type Array = PrimitiveArray<IntervalMonthDayNanoType>;
+
+    fn data_type() -> DataType {
+        DataType::Interval(IntervalUnit::MonthDayNano)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<IntervalMonthDayNanoType>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
     }
 
     fn finish(mut b: Self::Builder) -> Self::Array {
@@ -593,6 +1537,187 @@ where
         b.finish()
     }
 }
+
+// Provide binding for Dictionary<K, Vec<u8>> (Binary) using BinaryDictionaryBuilder
+impl<K> ArrowBinding for Dictionary<K, Vec<u8>>
+where
+    K: DictKey,
+    <K as DictKey>::ArrowKey: ArrowDictionaryKeyType,
+{
+    type Builder = BinaryDictionaryBuilder<<K as DictKey>::ArrowKey>;
+
+    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+
+    fn data_type() -> DataType {
+        DataType::Dictionary(
+            Box::new(<K as DictKey>::data_type()),
+            Box::new(DataType::Binary),
+        )
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        BinaryDictionaryBuilder::new()
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        let _ = b.append(v.0.as_slice());
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Provide binding for Dictionary<K, [u8; N]> (FixedSizeBinary) using
+// FixedSizeBinaryDictionaryBuilder
+impl<K, const N: usize> ArrowBinding for Dictionary<K, [u8; N]>
+where
+    K: DictKey,
+    <K as DictKey>::ArrowKey: ArrowDictionaryKeyType,
+{
+    type Builder = FixedSizeBinaryDictionaryBuilder<<K as DictKey>::ArrowKey>;
+
+    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+
+    fn data_type() -> DataType {
+        DataType::Dictionary(
+            Box::new(<K as DictKey>::data_type()),
+            Box::new(DataType::FixedSizeBinary(N as i32)),
+        )
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        FixedSizeBinaryDictionaryBuilder::new(N as i32)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0);
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Provide binding for Dictionary<K, LargeBinary> (LargeBinary) using LargeBinaryDictionaryBuilder
+impl<K> ArrowBinding for Dictionary<K, LargeBinary>
+where
+    K: DictKey,
+    <K as DictKey>::ArrowKey: ArrowDictionaryKeyType,
+{
+    type Builder = LargeBinaryDictionaryBuilder<<K as DictKey>::ArrowKey>;
+
+    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+
+    fn data_type() -> DataType {
+        DataType::Dictionary(
+            Box::new(<K as DictKey>::data_type()),
+            Box::new(DataType::LargeBinary),
+        )
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        LargeBinaryDictionaryBuilder::new()
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        let _ = b.append(v.0 .0.as_slice());
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+// Provide binding for Dictionary<K, LargeUtf8> using LargeStringDictionaryBuilder
+impl<K> ArrowBinding for Dictionary<K, LargeUtf8>
+where
+    K: DictKey,
+    <K as DictKey>::ArrowKey: ArrowDictionaryKeyType,
+{
+    type Builder = LargeStringDictionaryBuilder<<K as DictKey>::ArrowKey>;
+
+    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+
+    fn data_type() -> DataType {
+        DataType::Dictionary(
+            Box::new(<K as DictKey>::data_type()),
+            Box::new(DataType::LargeUtf8),
+        )
+    }
+
+    fn new_builder(_capacity: usize) -> Self::Builder {
+        LargeStringDictionaryBuilder::new()
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        let _ = b.append(v.0 .0.as_str());
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+macro_rules! impl_dict_primitive_value {
+    ($rust:ty, $atype:ty, $dt:expr) => {
+        impl<K> ArrowBinding for Dictionary<K, $rust>
+        where
+            K: DictKey,
+            <K as DictKey>::ArrowKey: ArrowDictionaryKeyType,
+        {
+            type Builder = PrimitiveDictionaryBuilder<<K as DictKey>::ArrowKey, $atype>;
+            type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+
+            fn data_type() -> DataType {
+                DataType::Dictionary(Box::new(<K as DictKey>::data_type()), Box::new($dt))
+            }
+
+            fn new_builder(_capacity: usize) -> Self::Builder {
+                PrimitiveDictionaryBuilder::<_, $atype>::new()
+            }
+
+            fn append_value(b: &mut Self::Builder, v: &Self) {
+                let _ = b.append(v.0);
+            }
+
+            fn append_null(b: &mut Self::Builder) {
+                b.append_null();
+            }
+
+            fn finish(mut b: Self::Builder) -> Self::Array {
+                b.finish()
+            }
+        }
+    };
+}
+
+impl_dict_primitive_value!(i8, Int8Type, DataType::Int8);
+impl_dict_primitive_value!(i16, Int16Type, DataType::Int16);
+impl_dict_primitive_value!(i32, Int32Type, DataType::Int32);
+impl_dict_primitive_value!(i64, Int64Type, DataType::Int64);
+impl_dict_primitive_value!(u8, UInt8Type, DataType::UInt8);
+impl_dict_primitive_value!(u16, UInt16Type, DataType::UInt16);
+impl_dict_primitive_value!(u32, UInt32Type, DataType::UInt32);
+impl_dict_primitive_value!(u64, UInt64Type, DataType::UInt64);
+impl_dict_primitive_value!(f32, Float32Type, DataType::Float32);
+impl_dict_primitive_value!(f64, Float64Type, DataType::Float64);
 
 /// Returns the Arrow `DataType` for column `I` of record `R`.
 ///

@@ -15,9 +15,8 @@
 - Keep ergonomics close to idiomatic Rust: field attributes express Arrow specifics; Option/Nullability is explicit.
 
 ## Non-Goals (Initial Phases)
-- Full coverage of every Arrow type (lists, maps, unions, dense nested). We start with primitives, bool, utf8, binary, timestamp(UTC), decimal128.
-- Transparent timezone strings at the type level. We’ll start with UTC-only timestamps, expand later.
 - Runtime reflection of arbitrary user types. The schema is compile-time and explicit.
+- Note: Timezones are supported via `TimestampTz<U, Z>` (e.g., `Utc`).
 
 ---
 
@@ -46,7 +45,7 @@
 - Builders API (row-based):
   - `BuildRows` derive emits `<Type>Builders` and `<Type>Arrays`.
   - `<Type>Builders` methods: `append_row(row)`, `append_rows(iter)`, `append_null_row()`, `append_option_row(Option<row>)`, `append_option_rows(iter)`; `finish()` returns `<Type>Arrays`.
-  - Nested structs are supported via `#[nested]` and `AppendStruct`.
+- Nested structs are supported via `#[record(nested)]` (preferred) and `#[nested]`, plus `AppendStruct`.
   - Future: optional `into_record_batch()` bridge when needed.
 
 - Runtime schema:
@@ -60,8 +59,11 @@
 
 - Macro & Attribute Design
 - `#[derive(Record)]` with field-level attributes:
-  - `#[nested]` marks a struct-typed field as a nested `Struct` for row-based append ergonomics.
-  - Future: `#[arrow(list(large = bool))]`, `#[arrow(map(keys_sorted = bool))]`, decimal/timestamp attributes if we add schema-only overrides.
+  - `#[record(nested)]` (or legacy `#[nested]`) marks a struct-typed field as nested `Struct` for row-based append ergonomics.
+- `#[derive(Union)]` (enums) supports Dense/Sparse modes and attributes:
+  - Container: `#[union(mode = "dense"|"sparse", null_variant = "Var", tags(A=10, B=7))]`
+  - Variant: `#[union(tag = 42)]`, `#[union(field = "name")]`, `#[union(null)]`
+- Map uses wrappers rather than attributes: `Map<K, V, const SORTED: bool>` and `OrderedMap<K, V>`; value-nullability via `Option<V>`.
 - Helper macro for column iteration (optional if derive emits trait impl):
   - `for_each_col!(RecordType, |I, Meta| { /* compile-time expanded body */ });`
 
@@ -71,10 +73,13 @@
   - `String` → `Utf8`, `Vec<u8>` → `Binary`.
   - `Option<T>` toggles nullability at the column level.
 - Nested & specialized wrappers (current):
-  - Lists: `List<T>` (items non-null), `ListNullable<T>` (items nullable).
-  - Dictionary: `Dictionary<K, String>` (Utf8 values; integer keys).
-  - Timestamp: `Timestamp<U>` with unit markers (`Second`, `Millisecond`, `Microsecond`, `Nanosecond`).
-  - Structs: nested structs via `#[nested]` and row-based append.
+- Lists: `List<T>` (items non-null), `List<Option<T>>` (items nullable); LargeList and FixedSizeList variants.
+  - Dictionary: `Dictionary<K, V>` for Utf8/Binary/FixedSizeBinary/primitives.
+  - Timestamp: `Timestamp<U>` (unit markers) and `TimestampTz<U, Z>` (timezone markers, e.g., `Utc`).
+  - Decimal: `Decimal128<const P: u8, const S: i8>`, `Decimal256<const P: u8, const S: i8>`.
+  - Map: `Map<K, V, const SORTED: bool>`; nullable values via `Option<V>`.
+  - Ordered Map: `OrderedMap<K, V>` with sorted keys (`keys_sorted = true`).
+  - Union: `#[derive(Union)]` with Dense and Sparse modes.
 
 ---
 
@@ -115,45 +120,6 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 
 ---
 
-## Implementation Plan
-
-### Crate Layout
-- `crates/core` — traits, markers, prelude, runtime bridge shims.
-- `crates/derive` — `#[derive(Record)]` proc-macro, attributes parsing, codegen.
-- `crates/examples` — small end-to-end demos, doctests.
-
-### Phase 0 — Scaffolding
-- Set up workspace, feature flags, MSRV, CI.
-- Add `ArrowMarker` set and `ArrowNative` mapping traits with initial impls.
-
-### Phase 1 — Primitives + Utf8 + Bool
-- Derive(Record) generates: `Record`, `ColAt<I>`, `ForEachCol`.
-- Implement ArrowBinding for primitives; expose associated ColumnBuilder/Array via `ColAt<I>`.
-- Tests: `LEN`, names, types, builders/arrays.
-
-### Phase 2 — Temporal + Binary
-- Add `Timestamp<U>` (Second/Millisecond/Microsecond/Nanosecond) and `Binary`.
-- Mapping to arrow-rs arrays/builders and to runtime `DataType`.
-- Tests: temporal behavior and schema.
-
-### Phase 3 — Compile-Time Dispatch Utilities
-- `ColumnVisitor` and `ForEachCol` expansion emitted by derive.
-- Example kernels with full monomorphization.
-
-### Phase 4 — Ergonomics & Docs
-- Attribute polish (`#[nested]`), better error messages.
-- Preludes, re-exports, crate docs, examples.
-
----
-
-## Testing Strategy
-- Unit: type-to-Arrow mapping for each supported marker, nullability flags.
-- Derive: generated `LEN`, names, `ColAt<I>` invariants.
-- E2E: build `RecordBatch` from builders and verify with arrow-rs readers.
-- Property: random null masks and values vs. arrow-rs invariants.
-
----
-
 ## Open Questions / Risks
 - Timezones at type level: use const `&'static str` generic or a closed set of TZ types? Start with UTC only.
 - Decimal overflow/scale enforcement in builders: enforce at append-time or constructor?
@@ -163,31 +129,11 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 
 ---
 
-## Deliverables & Milestones
-- M1: Core traits + derive + primitives/utf8/bool + runtime schema + batch finish.
-- M2: Temporal/decimal/binary support + examples.
-- M3: Compile-time dispatch utilities + example kernels.
-- M4: Docs, polished API, ergonomic helpers, CI.
-
----
-
 ## Minimum Supported Rust Version (tentative)
 - Rust 1.75+ (const generics for integers are sufficient; advance if we adopt additional const parameters).
 
 ---
 
-## Next Steps
-- Initialize `crates/core` and `crates/derive` with skeletons.
-- Implement primitive mappings and `#[derive(Record)]` with `ColAt<I>/NullableAt<I>`.
-- Land first E2E example building a `RecordBatch` from typed builders.
-
-## Nested Types
-- Support Struct, List/LargeList, FixedSizeList, Map (Dictionary optional; Union later) using natural Rust shapes (`Option`, `Vec`, arrays, nested `#[derive(Record)]`).
-- Control nullability per level with `Option<_>`; item nullability via `Option<T>` in element type.
-- Attributes: `#[arrow(list(large = bool))]`, `#[arrow(fixed_size_list)]`, `#[arrow(map(keys_sorted = bool))]`, `#[arrow(child(name = "..."))]`.
-- Builders expose nested paths and container-aware APIs (`start/item/end`, `append_iter`, fixed-size append).
-- Compile-time dispatch adds `LeafVisitor` and `for_each_leaf::<R, V>()` for monomorphized kernels over leaves.
-- Details and examples: see `docs/nested-types.md`.
 # Repository Guidelines
 
 ## Project Structure & Module Organization
@@ -195,9 +141,10 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
   - `schema.rs`: `Record`, `ColAt<I>`, visitors, compile-time metadata.
   - `bridge.rs`: `ArrowBinding` (Rust type → Arrow builder/array/DataType).
   - `lib.rs`: crate entry, prelude exports.
-- `arrow-native-derive/` — proc-macro crate implementing `#[derive(Record)]`.
+- `arrow-native-derive/` — proc-macro crate implementing `#[derive(Record)]` and `#[derive(Union)]`.
 - `tests/` — integration tests (e.g., `primitive_macro.rs`).
 - `docs/` — design notes (e.g., `nested-types.md`).
+- `examples/` — runnable demos (e.g., `examples/11_map.rs`).
 
 ## Build, Test, and Development Commands
 - `cargo build` — builds the workspace (library + proc-macro).
@@ -215,6 +162,8 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 - Prefer focused tests; add integration tests in `tests/` for end‑to‑end flows.
 - Validate that `ColAt<I>` exposes `fn data_type()`, `ColumnBuilder`, `ColumnArray` and that builders produce typed arrays.
 - Exercise row-based building (`append_row`, `append_option_rows`) and nested struct append (`#[nested]`).
+- Validate DataType shapes (child names, `keys_sorted`, union tags/fields) and append semantics.
+- Prefer names/tags over child indices when asserting nested/union children.
 - Run locally with `cargo test -q` and `cargo clippy --workspace -D warnings`.
 
 ## Commit & Pull Request Guidelines
@@ -228,4 +177,4 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 ## Architecture Overview
 - Compile-time schema via `#[derive(Record)]` generates `Record`, `ColAt<I>`, and `ForEachCol`.
 - `ColAt<I>` exposes `Rust` (inner type), `data_type()`, `ColumnBuilder`, and `ColumnArray` — no runtime `DataType` switching.
-- `bridge::ArrowBinding` maps Rust types (e.g., `i64`, `String`, `Vec<u8>`, `List<T>`, `Timestamp<U>`, `Dictionary<K, String>`) to Arrow builders/arrays.
+- `bridge::ArrowBinding` maps Rust types and wrappers (e.g., primitives, Utf8/Binary, List/LargeList/FixedSizeList, Map/OrderedMap, Decimal128/256, Timestamp/TimestampTz, Dictionary, and Union via derive) to Arrow builders/arrays.
