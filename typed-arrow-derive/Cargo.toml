@@ -1,9 +1,12 @@
 [package]
 name = "typed-arrow-derive"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 description = "Proc-macro derive for typed-arrow compile-time schema"
-license = "MIT OR Apache-2.0"
+license = { workspace = true }
+readme = { workspace = true }
+repository = { workspace = true }
+resolver = "2"
 
 [lib]
 proc-macro = true
