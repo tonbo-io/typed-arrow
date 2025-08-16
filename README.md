@@ -121,11 +121,21 @@ cargo run --example 08_record_batch
 
 ### Nested Type Wrappers
 
-- Lists: `List<T>` (non-null items), `List<Option<T>>` (nullable items). Use `Option<List<_>>` for list-level nulls.
-- Dictionary: dictionary-encoded values with integral keys (`i8/i16/i32/i64/u8/u16/u32/u64`):
-  - `Dictionary<K, String>` (Utf8)
-  - `Dictionary<K, Vec<u8>>` (Binary)
-  - `Dictionary<K, T>` for primitives `T ∈ { i8, i16, i32, i64, u8, u16, u32, u64, f32, f64 }`
+- Struct fields: use `#[record(nested)]` (or `#[nested]`) on a struct-typed field to treat it as an Arrow `Struct`. Make the parent struct nullable with `Option<Nested>`; child nullability is independent.
+- Lists: `List<T>` (items non-null) and `List<Option<T>>` (items nullable). Use `Option<List<_>>` for list-level nulls.
+- LargeList: `LargeList<T>` and `LargeList<Option<T>>` for 64-bit offsets; wrap with `Option<_>` for column nulls.
+- FixedSizeList: `FixedSizeList<T, N>` (items non-null) and `FixedSizeListNullable<T, N>` (items nullable). Wrap with `Option<_>` for list-level nulls.
+- Map: `Map<K, V, const SORTED: bool = false>` where keys are non-null; use `Map<K, Option<V>>` to allow nullable values. Column nullability via `Option<Map<...>>`. `SORTED` sets `keys_sorted` in the Arrow `DataType`.
+- OrderedMap: `OrderedMap<K, V>` uses `BTreeMap<K, V>` and declares `keys_sorted = true`.
+- Dictionary: `Dictionary<K, V>` with integral keys `K ∈ { i8, i16, i32, i64, u8, u16, u32, u64 }` and values:
+  - `String`/`LargeUtf8` (Utf8/LargeUtf8)
+  - `Vec<u8>`/`LargeBinary` (Binary/LargeBinary)
+  - `[u8; N]` (FixedSizeBinary)
+  - primitives `i*`, `u*`, `f32`, `f64`
+  Column nullability via `Option<Dictionary<..>>`.
+- Timestamps: `Timestamp<U>` (unit-only) and `TimestampTz<U, Z>` (unit + timezone). Units: `Second`, `Millisecond`, `Microsecond`, `Nanosecond`. Use `Utc` or define your own `Z: TimeZoneSpec`.
+- Decimals: `Decimal128<P, S>` and `Decimal256<P, S>` (precision `P`, scale `S` as const generics).
+- Unions: `#[derive(Union)]` for enums with `#[union(mode = "dense"|"sparse")]`, per-variant `#[union(tag = N)]`, `#[union(field = "name")]`, and optional null carrier `#[union(null)]` or container-level `null_variant = "Var"`.
 
 ## Arrow DataType Coverage
 
@@ -135,10 +145,12 @@ Supported (arrow-rs v56):
 - Strings/Binary: Utf8, LargeUtf8, Binary, LargeBinary, FixedSizeBinary (via `[u8; N]`)
 - Temporal: Timestamp (with/without TZ; s/ms/us/ns), Date32/64, Time32(s/ms), Time64(us/ns), Duration(s/ms/us/ns), Interval(YearMonth/DayTime/MonthDayNano)
 - Decimal: Decimal128, Decimal256 (const generic precision/scale)
-- Nested: List (including nullable items), LargeList, FixedSizeList (nullable/non-null items), Struct,
-  Map (Vec<(K,V)>; use `Option<V>` for nullable values), OrderedMap (BTreeMap<K,V>) with `keys_sorted = true`
-- Union: Dense and Sparse (via `#[derive(Union)]` on enums)
-- Dictionary: keys = all integral types; values = Utf8 (String), LargeUtf8, Binary (Vec<u8>), LargeBinary, FixedSizeBinary (`[u8; N]`), primitives (i*, u*, f32, f64)
+- Nested:
+  - List (including nullable items), LargeList, FixedSizeList (nullable/non-null items)
+  - Struct,
+  - Map (Vec<(K,V)>; use `Option<V>` for nullable values), OrderedMap (BTreeMap<K,V>) with `keys_sorted = true`
+  - Union: Dense and Sparse (via `#[derive(Union)]` on enums)
+  - Dictionary: keys = all integral types; values = Utf8 (String), LargeUtf8, Binary (Vec<u8>), LargeBinary, FixedSizeBinary (`[u8; N]`), primitives (i*, u*, f32, f64)
 
 Missing:
 
