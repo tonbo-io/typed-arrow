@@ -1,6 +1,6 @@
 use arrow_array::Array;
-use typed_arrow::{bridge::ArrowBinding, LargeUtf8};
 use arrow_schema::DataType;
+use typed_arrow::{bridge::ArrowBinding, LargeUtf8};
 
 #[test]
 fn large_utf8_datatype_and_build() {

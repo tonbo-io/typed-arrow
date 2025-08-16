@@ -1,6 +1,6 @@
 use arrow_array::Array;
-use typed_arrow::{bridge::ArrowBinding, LargeList};
 use arrow_schema::{DataType, Field};
+use typed_arrow::{bridge::ArrowBinding, LargeList};
 
 #[test]
 fn large_list_datatype() {

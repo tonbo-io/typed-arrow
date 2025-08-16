@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use arrow_array::Array;
-use typed_arrow::{bridge::ArrowBinding, OrderedMap};
 use arrow_schema::{DataType, Field};
+use typed_arrow::{bridge::ArrowBinding, OrderedMap};
 
 #[test]
 fn ordered_map_datatype() {

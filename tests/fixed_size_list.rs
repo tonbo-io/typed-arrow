@@ -1,6 +1,6 @@
 use arrow_array::Array;
-use typed_arrow::{bridge::ArrowBinding, FixedSizeList, FixedSizeListNullable};
 use arrow_schema::{DataType, Field};
+use typed_arrow::{bridge::ArrowBinding, FixedSizeList, FixedSizeListNullable};
 
 #[test]
 fn fixed_size_list_datatype() {

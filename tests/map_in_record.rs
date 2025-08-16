@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use typed_arrow::{prelude::*, Map, Record};
 use arrow_schema::{DataType, Field};
+use typed_arrow::{prelude::*, Map, Record};
 
 #[derive(Record)]
 struct Row {

@@ -1,6 +1,6 @@
 use arrow_array::Array;
-use typed_arrow::{bridge::ArrowBinding, Null};
 use arrow_schema::DataType;
+use typed_arrow::{bridge::ArrowBinding, Null};
 
 #[test]
 fn null_datatype_and_builder() {
