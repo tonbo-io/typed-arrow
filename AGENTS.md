@@ -139,7 +139,19 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 ## Project Structure & Module Organization
 - `src/` — core library:
   - `schema.rs`: `Record`, `ColAt<I>`, visitors, compile-time metadata.
-  - `bridge.rs`: `ArrowBinding` (Rust type → Arrow builder/array/DataType).
+  - `bridge/` — Arrow interop:
+    - `mod.rs`: `ArrowBinding` trait and public re-exports
+    - `primitives.rs`: numeric primitives, `bool`, `f16`
+    - `strings.rs`: `String` (Utf8), `LargeUtf8`
+    - `binary.rs`: `Vec<u8>` (Binary), `[u8; N]` (FixedSizeBinary), `LargeBinary`
+    - `decimals.rs`: `Decimal128`, `Decimal256`
+    - `lists.rs`: `List`, `LargeList`, `FixedSizeList`
+    - `map.rs`: `Map`, `OrderedMap`
+    - `dictionary.rs`: `Dictionary`, `DictKey` and value impls
+    - `temporal.rs`: `Date32/64`, `Time32/64`, `Duration`, `Timestamp`, `TimestampTz`, TZ markers
+    - `intervals.rs`: `IntervalYearMonth`, `IntervalDayTime`, `IntervalMonthDayNano`
+    - `record_struct.rs`: blanket impl for `T: Record + StructMeta` → `StructArray`
+    - `column.rs`: `data_type_of<R, I>()`, `ColumnBuilder<R, I>`
   - `lib.rs`: crate entry, prelude exports.
 - `typed-arrow-derive/` — proc-macro crate implementing `#[derive(Record)]` and `#[derive(Union)]`.
 - `tests/` — integration tests (e.g., `primitive_macro.rs`).
