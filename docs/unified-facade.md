@@ -37,11 +37,12 @@ Keep everything in a single repository as a workspace with focused crates. Make 
 Developer ergonomics and re-exports
 - Users wanting only static APIs: depend on `typed-arrow` (default `derive` feature).
 - Dynamic-only users: depend on `typed-arrow-dyn`.
-- Unified facade: either depend on `typed-arrow-unified` directly, or enable `typed-arrow` feature `unified` and import from `typed_arrow::unified`.
+- Unified facade: depend on `typed-arrow-unified` directly.
+  - Note: re-exporting `typed-arrow-unified` from `typed-arrow` creates a cycle (`typed-arrow → typed-arrow-unified → typed-arrow`). To avoid this, keep `typed-arrow-unified` as a separate crate, or introduce a small aggregator crate (e.g., `typed-arrow-full`) that depends on both and re-exports convenience APIs.
 
 CI/test matrix
 - Core only: `typed-arrow` with default features.
-- Unified enabled: `typed-arrow` with `--features unified` (brings in unified + dyn).
+- Unified crate: build/test `typed-arrow-unified` (pulls `typed-arrow-dyn`).
 - Dynamic crate direct: build/test `typed-arrow-dyn` independently to ensure factory coverage.
 
 ## Types and API Surface
@@ -160,14 +161,10 @@ impl<R: Record> UnifiedBuilders<R> {
         }
     }
 
-    pub fn finish_into_batch(self, name: Option<&str>) -> arrow_array::RecordBatch {
+    pub fn finish(self) -> <R as BuildRows>::Arrays {
         match self {
-            Self::CompileTime(b) => {
-                let arrays = b.finish();
-                let schema = typed_arrow::schema::<R>();
-                typed_arrow::into_record_batch::<R>(name, schema, arrays)
-            }
-            Self::Runtime(b) => b.finish_into_batch(name),
+            Self::CompileTime(b) => b.finish(),
+            Self::Runtime(_) => panic!("use UnifiedRecord<DynMarker> for dynamic path"),
         }
     }
 }
@@ -223,7 +220,7 @@ impl DynBuilders {
 ## What Unifies vs. What Doesn’t
 - Unifies well:
   - Schema: `schema_ref()` returns `SchemaRef` from both variants.
-  - Ingestion: one builders handle that finishes to `RecordBatch`.
+  - Ingestion: one builders handle; `finish()` yields typed arrays on static and `RecordBatch` on dynamic. Use `finish_batch()` extension to always get `RecordBatch`.
   - Dynamic column iteration: visit index/name/`DataType`/nullable.
   - Downcast: `try_as_static`/`try_bind` when runtime schema matches `R` by shape.
 - Does not unify:
@@ -258,7 +255,11 @@ let rec = UnifiedRecord::<Person>::compile_time();
 let mut b = rec.builders(2);
 b.append_unified_row(UnifiedRow::Static(Some(Person { id: 1, email: None })));
 b.append_null_row();
-let batch = b.finish_into_batch(Some("people"));
+// Either keep typed arrays:
+let arrays = b.finish();
+// Or convert to RecordBatch via helper:
+use typed_arrow_unified::FinishBatchExt;
+let batch = b.finish_batch();
 ```
 
 ### Dynamic-only
@@ -267,7 +268,8 @@ let schema: arrow_schema::SchemaRef = load_schema_somehow();
 let rec: UnifiedRecord = UnifiedRecord::runtime(schema.clone()); // DynMarker default
 let mut b = rec.builders(1);
 b.append_unified_row(UnifiedRow::Dynamic(Some(dyn_row_from_values(&schema))));
-let batch = b.finish_into_batch(Some("people"));
+use typed_arrow_unified::FinishBatchExt;
+let batch = b.finish_batch();
 ```
 
 ### Downcast dynamic to static (if shapes match)

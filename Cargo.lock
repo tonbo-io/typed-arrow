@@ -408,6 +408,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "typed-arrow-dyn"
+version = "0.1.0"
+dependencies = [
+ "arrow-array",
+ "arrow-buffer",
+ "arrow-schema",
+ "typed-arrow",
+]
+
+[[package]]
+name = "typed-arrow-unified"
+version = "0.1.0"
+dependencies = [
+ "arrow-array",
+ "arrow-schema",
+ "typed-arrow",
+ "typed-arrow-dyn",
+]
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

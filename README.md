@@ -1,5 +1,13 @@
 # typed-arrow
 
+<p align="left">
+  <a href="https://github.com/tonbo-io/typed-arrow" target="_blank">
+    <a href="https://crates.io/crates/typed-arrow/"><img src="https://img.shields.io/crates/v/typed-arrow.svg"></a>
+    <a href="https://github.com/tonbo-io/tonbo/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/tonbo"></a>
+    <a href="https://discord.gg/j27XVFVmJM"><img src="https://img.shields.io/discord/1270294987355197460?logo=discord"></a>
+  </a>
+</p>
+
 typed-arrow provides a strongly typed, fully compile-time way to declare Arrow schemas in Rust. It maps Rust types directly to arrow-rs typed builders/arrays and `arrow_schema::DataType` — without any runtime `DataType` switching — enabling zero runtime cost, monomorphized column construction and ergonomic ORM-like APIs.
 
 ## Why compile-time Arrow?

@@ -107,6 +107,42 @@ pub trait BuildRows: Record {
     fn new_builders(capacity: usize) -> Self::Builders;
 }
 
+/// Trait implemented by derive-generated builders to append rows of `Row`
+/// and finish into a typed arrays struct.
+pub trait RowBuilder<Row> {
+    /// The arrays struct produced by `finish`.
+    type Arrays;
+
+    /// Append a non-null row.
+    fn append_row(&mut self, row: Row);
+    /// Append a null row.
+    fn append_null_row(&mut self);
+    /// Append an optional row.
+    fn append_option_row(&mut self, row: Option<Row>);
+    /// Append an iterator of non-null rows.
+    fn append_rows<I: ::core::iter::IntoIterator<Item = Row>>(&mut self, rows: I);
+    /// Append an iterator of optional rows.
+    fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<Row>>>(
+        &mut self,
+        rows: I,
+    );
+    /// Finish and produce arrays.
+    fn finish(self) -> Self::Arrays;
+}
+
+/// Trait implemented by derive-generated arrays to assemble a `RecordBatch`.
+pub trait IntoRecordBatch {
+    /// Assemble and return an `arrow_array::RecordBatch`.
+    fn into_record_batch(self) -> ::arrow_array::RecordBatch;
+}
+
+// Identity conversion for dynamic path output (RecordBatch already assembled).
+impl IntoRecordBatch for ::arrow_array::RecordBatch {
+    fn into_record_batch(self) -> ::arrow_array::RecordBatch {
+        self
+    }
+}
+
 /// Trait implemented by `#[derive(Record)]` structs to append their fields into a
 /// `StructBuilder`. Used by row-based APIs to handle nested struct fields.
 pub trait AppendStruct {

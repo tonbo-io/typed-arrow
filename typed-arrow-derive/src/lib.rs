@@ -347,6 +347,26 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
         }
 
+        // Implement the generic RowBuilder trait for the generated builders
+        impl ::typed_arrow::schema::RowBuilder<#name> for #builders_ident {
+            type Arrays = #arrays_ident;
+            fn append_row(&mut self, row: #name) { Self::append_row(self, row) }
+            fn append_null_row(&mut self) { Self::append_null_row(self) }
+            fn append_option_row(&mut self, row: ::core::option::Option<#name>) {
+                Self::append_option_row(self, row)
+            }
+            fn append_rows<I: ::core::iter::IntoIterator<Item = #name>>(&mut self, rows: I) {
+                Self::append_rows(self, rows)
+            }
+            fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<#name>>>(
+                &mut self,
+                rows: I,
+            ) {
+                Self::append_option_rows(self, rows)
+            }
+            fn finish(self) -> #arrays_ident { Self::finish(self) }
+        }
+
         impl #arrays_ident {
             /// Build an Arrow RecordBatch from these arrays and the generated schema.
             pub fn into_record_batch(self) -> ::arrow_array::RecordBatch {
@@ -356,6 +376,10 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 #( cols.push(Arc::new(self.#field_idents)); )*
                 ::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
             }
+        }
+
+        impl ::typed_arrow::schema::IntoRecordBatch for #arrays_ident {
+            fn into_record_batch(self) -> ::arrow_array::RecordBatch { Self::into_record_batch(self) }
         }
 
         impl ::typed_arrow::schema::AppendStruct for #name {
