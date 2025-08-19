@@ -47,8 +47,8 @@ fn large_list_offsets_and_values() {
     <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![]));
     // row1: [1, null]
     <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(1), None]));
-    // row2: null list simulated by appending null row via builder API is not available for value-level;
-    // here we append another non-empty list to verify offsets
+    // row2: null list simulated by appending null row via builder API is not available for
+    // value-level; here we append another non-empty list to verify offsets
     <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(2)]));
     // row3: [3,4]
     <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(3), Some(4)]));

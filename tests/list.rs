@@ -61,7 +61,10 @@ fn list_build_and_values() {
     // Non-null item list: List<String>
     type L = List<String>;
     let mut b = <L as typed_arrow::bridge::ArrowBinding>::new_builder(3);
-    <L as typed_arrow::bridge::ArrowBinding>::append_value(&mut b, &List(vec!["a".to_string(), "b".to_string()]));
+    <L as typed_arrow::bridge::ArrowBinding>::append_value(
+        &mut b,
+        &List(vec!["a".to_string(), "b".to_string()]),
+    );
     <L as typed_arrow::bridge::ArrowBinding>::append_null(&mut b);
     <L as typed_arrow::bridge::ArrowBinding>::append_value(&mut b, &List(vec!["c".to_string()]));
     let arr = <L as typed_arrow::bridge::ArrowBinding>::finish(b);
