@@ -41,3 +41,30 @@ fn fixed_size_list_nullable_items_build() {
     assert_eq!(a.len(), 2);
     assert_eq!(a.value_length(), 2);
 }
+
+#[test]
+fn fixed_size_list_child_values() {
+    use arrow_array::Array;
+    type L = FixedSizeList<i32, 3>;
+    let mut b = <L as ArrowBinding>::new_builder(3);
+    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList([7, 8, 9]));
+    <L as ArrowBinding>::append_null(&mut b);
+    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList([1, 2, 3]));
+    let a = <L as ArrowBinding>::finish(b);
+    let child = a
+        .values()
+        .as_any()
+        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
+        .unwrap();
+    assert_eq!(child.len(), 9);
+    assert_eq!(child.value(0), 7);
+    assert_eq!(child.value(1), 8);
+    assert_eq!(child.value(2), 9);
+    // middle row is null, so 3 child nulls
+    assert!(child.is_null(3));
+    assert!(child.is_null(4));
+    assert!(child.is_null(5));
+    assert_eq!(child.value(6), 1);
+    assert_eq!(child.value(7), 2);
+    assert_eq!(child.value(8), 3);
+}

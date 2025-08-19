@@ -1,3 +1,4 @@
+use arrow_array::Array;
 use typed_arrow::{bridge::ArrowBinding, Dictionary, LargeBinary, LargeUtf8};
 
 #[test]
@@ -11,6 +12,35 @@ fn dict_utf8_value() {
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);
+}
+
+#[test]
+fn dict_utf8_roundtrip_values() {
+    use arrow_array::cast;
+    type D = Dictionary<i32, String>;
+    let mut b = <D as ArrowBinding>::new_builder(0);
+    // Build values: ["apple", "banana", "apple", null, "banana"]
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary("apple".to_string(), std::marker::PhantomData));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary("banana".to_string(), std::marker::PhantomData));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary("apple".to_string(), std::marker::PhantomData));
+    <D as ArrowBinding>::append_null(&mut b);
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary("banana".to_string(), std::marker::PhantomData));
+    let arr = <D as ArrowBinding>::finish(b);
+
+    let dict_arr = &arr;
+    let keys = dict_arr.keys();
+    let values = cast::as_string_array(dict_arr.values().as_ref());
+    let expected = [Some("apple"), Some("banana"), Some("apple"), None, Some("banana")];
+    for i in 0..dict_arr.len() {
+        match expected[i] {
+            None => assert!(dict_arr.is_null(i)),
+            Some(s) => {
+                assert!(dict_arr.is_valid(i));
+                let k = keys.value(i) as usize;
+                assert_eq!(values.value(k), s);
+            }
+        }
+    }
 }
 
 #[test]
@@ -106,4 +136,24 @@ fn dict_fixed_size_binary_value() {
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 4);
+}
+
+#[test]
+fn dict_fixed_size_binary_roundtrip() {
+    type D = Dictionary<i16, [u8; 4]>;
+    let mut b = <D as ArrowBinding>::new_builder(0);
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary([0xAA, 0xBB, 0xCC, 0xDD], std::marker::PhantomData));
+    <D as ArrowBinding>::append_null(&mut b);
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary([0xAA, 0xBB, 0xCC, 0xDD], std::marker::PhantomData));
+    let arr = <D as ArrowBinding>::finish(b);
+    let values = arr
+        .values()
+        .as_any()
+        .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
+        .unwrap();
+    let keys = arr.keys();
+    for &i in &[0usize, 2usize] {
+        let k = keys.value(i) as usize;
+        assert_eq!(values.value(k), &[0xAA, 0xBB, 0xCC, 0xDD]);
+    }
 }
