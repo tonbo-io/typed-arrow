@@ -1,0 +1,20 @@
+[package]
+name = "typed-arrow-dyn"
+version = { workspace = true }
+edition = { workspace = true }
+description = "Dynamic Arrow facade for typed-arrow (runtime schema/builders)."
+license = { workspace = true }
+readme = { workspace = true }
+repository = { workspace = true }
+resolver = "2"
+
+[lib]
+name = "typed_arrow_dyn"
+path = "src/lib.rs"
+
+[dependencies]
+typed-arrow = { path = "..", version = "0.1.0", package = "typed-arrow" }
+arrow-array = { version = "56" }
+arrow-schema = { version = "56" }
+arrow-buffer = { version = "56" }
+thiserror = "1"
