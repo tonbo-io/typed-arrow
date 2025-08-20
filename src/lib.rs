@@ -10,6 +10,11 @@ pub mod prelude {
 }
 
 // Re-export the derive macro when enabled
+// Re-export Arrow crates so derives can reference a stable path
+// and downstream users don't need to depend on Arrow directly.
+pub use arrow_array;
+pub use arrow_buffer;
+pub use arrow_schema;
 #[cfg(feature = "derive")]
 pub use typed_arrow_derive::{Record, Union};
 

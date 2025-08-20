@@ -1,8 +1,13 @@
 //! Core schema traits for compile-time Arrow typing.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+    collections::HashMap, iter::IntoIterator, marker::PhantomData, option::Option, sync::Arc,
+};
 
-use arrow_array::{builder::StructBuilder, Array};
+use arrow_array::{
+    builder::{ArrayBuilder, StructBuilder},
+    Array, RecordBatch,
+};
 use arrow_schema::{DataType, Field, Schema};
 
 /// A record (row) with a fixed, compile-time number of columns.
@@ -20,7 +25,7 @@ pub trait ColAt<const I: usize>: Record {
     type ColumnArray: Array;
 
     /// The typed Arrow builder for this column.
-    type ColumnBuilder;
+    type ColumnBuilder: ArrayBuilder;
 
     /// Whether this column is nullable.
     const NULLABLE: bool;
@@ -83,7 +88,7 @@ pub trait SchemaMeta: Record {
     fn fields() -> Vec<Field>;
 
     /// Optional top-level schema key/value metadata.
-    fn metadata() -> std::collections::HashMap<String, String> {
+    fn metadata() -> HashMap<String, String> {
         Default::default()
     }
 
@@ -96,12 +101,12 @@ pub trait SchemaMeta: Record {
 
 /// Row-based building interface: construct typed column builders, append owned rows,
 /// and finish into typed arrays.
-pub trait BuildRows: Record {
+pub trait BuildRows: Record + Sized {
     /// Generated builders struct for this record.
-    type Builders;
+    type Builders: RowBuilder<Self>;
 
     /// Generated arrays struct for this record.
-    type Arrays;
+    type Arrays: IntoRecordBatch;
 
     /// Create builders with a capacity hint.
     fn new_builders(capacity: usize) -> Self::Builders;
@@ -111,7 +116,7 @@ pub trait BuildRows: Record {
 /// and finish into a typed arrays struct.
 pub trait RowBuilder<Row> {
     /// The arrays struct produced by `finish`.
-    type Arrays;
+    type Arrays: IntoRecordBatch;
 
     /// Append a non-null row.
     fn append_row(&mut self, row: Row);
@@ -120,12 +125,9 @@ pub trait RowBuilder<Row> {
     /// Append an optional row.
     fn append_option_row(&mut self, row: Option<Row>);
     /// Append an iterator of non-null rows.
-    fn append_rows<I: ::core::iter::IntoIterator<Item = Row>>(&mut self, rows: I);
+    fn append_rows<I: IntoIterator<Item = Row>>(&mut self, rows: I);
     /// Append an iterator of optional rows.
-    fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<Row>>>(
-        &mut self,
-        rows: I,
-    );
+    fn append_option_rows<I: IntoIterator<Item = Option<Row>>>(&mut self, rows: I);
     /// Finish and produce arrays.
     fn finish(self) -> Self::Arrays;
 }
@@ -133,12 +135,12 @@ pub trait RowBuilder<Row> {
 /// Trait implemented by derive-generated arrays to assemble a `RecordBatch`.
 pub trait IntoRecordBatch {
     /// Assemble and return an `arrow_array::RecordBatch`.
-    fn into_record_batch(self) -> ::arrow_array::RecordBatch;
+    fn into_record_batch(self) -> RecordBatch;
 }
 
 // Identity conversion for dynamic path output (RecordBatch already assembled).
-impl IntoRecordBatch for ::arrow_array::RecordBatch {
-    fn into_record_batch(self) -> ::arrow_array::RecordBatch {
+impl IntoRecordBatch for RecordBatch {
+    fn into_record_batch(self) -> RecordBatch {
         self
     }
 }

@@ -81,7 +81,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
                 const NULLABLE: bool = #nullable_lit;
                 const NAME: &'static str = stringify!(#fname);
-                fn data_type() -> ::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
+                fn data_type() -> ::typed_arrow::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
             }
         };
         col_impls.push(col_impl);
@@ -103,7 +103,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 quote! { __m.insert(::std::string::String::from(#k), ::std::string::String::from(#v)); }
             });
             child_field_stmts.push(quote! {
-                let mut __f = ::arrow_schema::Field::new(
+                let mut __f = ::typed_arrow::arrow_schema::Field::new(
                     stringify!(#fname),
                     <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
@@ -115,7 +115,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             });
         } else {
             child_field_stmts.push(quote! {
-                fields.push(::arrow_schema::Field::new(
+                fields.push(::typed_arrow::arrow_schema::Field::new(
                     stringify!(#fname),
                     <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
@@ -272,28 +272,28 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
 
         impl ::typed_arrow::schema::StructMeta for #name {
-            fn child_fields() -> ::std::vec::Vec<::arrow_schema::Field> {
+            fn child_fields() -> ::std::vec::Vec<::typed_arrow::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
                 fields
             }
 
-            fn new_struct_builder(capacity: usize) -> ::arrow_array::builder::StructBuilder {
+            fn new_struct_builder(capacity: usize) -> ::typed_arrow::arrow_array::builder::StructBuilder {
                 use ::std::sync::Arc;
-                let fields: ::std::vec::Vec<Arc<::arrow_schema::Field>> =
+                let fields: ::std::vec::Vec<Arc<::typed_arrow::arrow_schema::Field>> =
                     <#name as ::typed_arrow::schema::StructMeta>::child_fields()
                         .into_iter()
                         .map(Arc::new)
                         .collect();
-                let mut builders: ::std::vec::Vec<Box<dyn ::arrow_array::builder::ArrayBuilder>> =
+                let mut builders: ::std::vec::Vec<Box<dyn ::typed_arrow::arrow_array::builder::ArrayBuilder>> =
                     ::std::vec::Vec::with_capacity(#len);
                 #(#child_builder_stmts)*
-                ::arrow_array::builder::StructBuilder::new(fields, builders)
+                ::typed_arrow::arrow_array::builder::StructBuilder::new(fields, builders)
             }
         }
 
         impl ::typed_arrow::schema::SchemaMeta for #name {
-            fn fields() -> ::std::vec::Vec<::arrow_schema::Field> {
+            fn fields() -> ::std::vec::Vec<::typed_arrow::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
                 fields
@@ -369,25 +369,25 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         impl #arrays_ident {
             /// Build an Arrow RecordBatch from these arrays and the generated schema.
-            pub fn into_record_batch(self) -> ::arrow_array::RecordBatch {
+            pub fn into_record_batch(self) -> ::typed_arrow::arrow_array::RecordBatch {
                 use ::std::sync::Arc;
                 let schema = <#name as ::typed_arrow::schema::SchemaMeta>::schema();
-                let mut cols: ::std::vec::Vec<Arc<dyn ::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
+                let mut cols: ::std::vec::Vec<Arc<dyn ::typed_arrow::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
                 #( cols.push(Arc::new(self.#field_idents)); )*
-                ::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
+                ::typed_arrow::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
             }
         }
 
         impl ::typed_arrow::schema::IntoRecordBatch for #arrays_ident {
-            fn into_record_batch(self) -> ::arrow_array::RecordBatch { Self::into_record_batch(self) }
+            fn into_record_batch(self) -> ::typed_arrow::arrow_array::RecordBatch { Self::into_record_batch(self) }
         }
 
         impl ::typed_arrow::schema::AppendStruct for #name {
-            fn append_owned_into(self, __sb: &mut ::arrow_array::builder::StructBuilder) {
+            fn append_owned_into(self, __sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
                 let #name { #( #field_idents ),* } = self;
                 #(#append_struct_owned_stmts)*
             }
-            fn append_null_into(__sb: &mut ::arrow_array::builder::StructBuilder) {
+            fn append_null_into(__sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
                 #(#append_struct_null_stmts)*
             }
         }
@@ -496,7 +496,7 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
         // Field pair for UnionFields
         let v_name_str = &field_names[idx];
-        field_pairs.push(quote! { (#tag, ::std::sync::Arc::new(::arrow_schema::Field::new(#v_name_str, <#v_ty as ::typed_arrow::bridge::ArrowBinding>::data_type(), true))) });
+        field_pairs.push(quote! { (#tag, ::std::sync::Arc::new(::typed_arrow::arrow_schema::Field::new(#v_name_str, <#v_ty as ::typed_arrow::bridge::ArrowBinding>::data_type(), true))) });
     }
 
     // Null-carrying variant type used for encoding nulls
@@ -515,15 +515,15 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
         let bident = &builder_idents[i];
         let vty = &var_types[i];
         children_finish.push(quote! {
-            ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bident)) as ::arrow_array::ArrayRef
+            ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bident)) as ::typed_arrow::arrow_array::ArrayRef
         });
         children_finish_reset.push(quote! {
-            ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::typed_arrow::bridge::ArrowBinding>::new_builder(0)))) as ::arrow_array::ArrayRef
+            ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::typed_arrow::bridge::ArrowBinding>::new_builder(0)))) as ::typed_arrow::arrow_array::ArrayRef
         });
         let vtyc = &var_types_clone[i];
         let bidentc = &builder_idents_clone[i];
         children_finish_cloned.push(quote! {
-            <<#vtyc as ::typed_arrow::bridge::ArrowBinding>::Builder as ::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc)
+            <<#vtyc as ::typed_arrow::bridge::ArrowBinding>::Builder as ::typed_arrow::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc)
         });
     }
 
@@ -550,11 +550,11 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
         impl ::typed_arrow::bridge::ArrowBinding for #name {
             type Builder = #builder_ident;
-            type Array = ::arrow_array::UnionArray;
+            type Array = ::typed_arrow::arrow_array::UnionArray;
 
-            fn data_type() -> ::arrow_schema::DataType {
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                ::arrow_schema::DataType::Union(fields, ::arrow_schema::UnionMode::Dense)
+            fn data_type() -> ::typed_arrow::arrow_schema::DataType {
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                ::typed_arrow::arrow_schema::DataType::Union(fields, ::typed_arrow::arrow_schema::UnionMode::Dense)
             }
 
             fn new_builder(capacity: usize) -> Self::Builder {
@@ -575,46 +575,46 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
             fn finish(mut b: Self::Builder) -> Self::Array {
                 // Finish children in insertion order (must match fields order)
-                let children: ::std::vec::Vec<::arrow_array::ArrayRef> = vec![#(
+                let children: ::std::vec::Vec<::typed_arrow::arrow_array::ArrayRef> = vec![#(
                     #children_finish
                 ),*];
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                let type_ids: ::arrow_buffer::ScalarBuffer<i8> = b.type_ids.into_iter().collect();
-                let offsets: ::arrow_buffer::ScalarBuffer<i32> = b.offsets.into_iter().collect();
-                ::arrow_array::UnionArray::try_new(fields, type_ids, Some(offsets), children).expect("valid dense union")
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                let type_ids: ::typed_arrow::arrow_buffer::ScalarBuffer<i8> = b.type_ids.into_iter().collect();
+                let offsets: ::typed_arrow::arrow_buffer::ScalarBuffer<i32> = b.offsets.into_iter().collect();
+                ::typed_arrow::arrow_array::UnionArray::try_new(fields, type_ids, Some(offsets), children).expect("valid dense union")
             }
         }
 
         // Implement ArrayBuilder so this union can be used as a struct field builder
-        impl ::arrow_array::builder::ArrayBuilder for #builder_ident {
+        impl ::typed_arrow::arrow_array::builder::ArrayBuilder for #builder_ident {
             fn as_any(&self) -> &dyn ::std::any::Any { self }
             fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any { self }
             fn into_box_any(self: ::std::boxed::Box<Self>) -> ::std::boxed::Box<dyn ::std::any::Any> { self }
             fn len(&self) -> usize { self.type_ids.len() }
 
-            fn finish(&mut self) -> ::arrow_array::ArrayRef {
+            fn finish(&mut self) -> ::typed_arrow::arrow_array::ArrayRef {
                 // Finish children in insertion order and reset builders
-                let children: ::std::vec::Vec<::arrow_array::ArrayRef> = vec![
+                let children: ::std::vec::Vec<::typed_arrow::arrow_array::ArrayRef> = vec![
                     #( #children_finish_reset ),*
                 ];
                 self.slots = [0; #n];
 
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                let type_ids: ::arrow_buffer::ScalarBuffer<i8> = ::std::mem::take(&mut self.type_ids).into_iter().collect();
-                let offsets: ::arrow_buffer::ScalarBuffer<i32> = ::std::mem::take(&mut self.offsets).into_iter().collect();
-                let u = ::arrow_array::UnionArray::try_new(fields, type_ids, Some(offsets), children).expect("valid dense union");
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                let type_ids: ::typed_arrow::arrow_buffer::ScalarBuffer<i8> = ::std::mem::take(&mut self.type_ids).into_iter().collect();
+                let offsets: ::typed_arrow::arrow_buffer::ScalarBuffer<i32> = ::std::mem::take(&mut self.offsets).into_iter().collect();
+                let u = ::typed_arrow::arrow_array::UnionArray::try_new(fields, type_ids, Some(offsets), children).expect("valid dense union");
                 ::std::sync::Arc::new(u)
             }
 
-            fn finish_cloned(&self) -> ::arrow_array::ArrayRef {
+            fn finish_cloned(&self) -> ::typed_arrow::arrow_array::ArrayRef {
                 // Build from current state without resetting child builders
-                let children: ::std::vec::Vec<::arrow_array::ArrayRef> = vec![
+                let children: ::std::vec::Vec<::typed_arrow::arrow_array::ArrayRef> = vec![
                     #( #children_finish_cloned ),*
                 ];
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                let type_ids: ::arrow_buffer::ScalarBuffer<i8> = self.type_ids.clone().into_iter().collect();
-                let offsets: ::arrow_buffer::ScalarBuffer<i32> = self.offsets.clone().into_iter().collect();
-                let u = ::arrow_array::UnionArray::try_new(fields, type_ids, Some(offsets), children).expect("valid dense union");
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                let type_ids: ::typed_arrow::arrow_buffer::ScalarBuffer<i8> = self.type_ids.clone().into_iter().collect();
+                let offsets: ::typed_arrow::arrow_buffer::ScalarBuffer<i32> = self.offsets.clone().into_iter().collect();
+                let u = ::typed_arrow::arrow_array::UnionArray::try_new(fields, type_ids, Some(offsets), children).expect("valid dense union");
                 ::std::sync::Arc::new(u)
             }
         }
@@ -659,11 +659,11 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
     for i in 0..n {
         let bident = &builder_idents[i];
         let vty = &var_types[i];
-        sparse_children_finish.push(quote! { ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bident)) as ::arrow_array::ArrayRef });
-        sparse_children_finish_reset.push(quote! { ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::typed_arrow::bridge::ArrowBinding>::new_builder(0)))) as ::arrow_array::ArrayRef });
+        sparse_children_finish.push(quote! { ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(b.#bident)) as ::typed_arrow::arrow_array::ArrayRef });
+        sparse_children_finish_reset.push(quote! { ::std::sync::Arc::new(<#vty as ::typed_arrow::bridge::ArrowBinding>::finish(::std::mem::replace(&mut self.#bident, <#vty as ::typed_arrow::bridge::ArrowBinding>::new_builder(0)))) as ::typed_arrow::arrow_array::ArrayRef });
         let vtyc = &var_types_clone[i];
         let bidentc = &builder_idents_clone[i];
-        sparse_children_finish_cloned.push(quote! { <<#vtyc as ::typed_arrow::bridge::ArrowBinding>::Builder as ::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc) });
+        sparse_children_finish_cloned.push(quote! { <<#vtyc as ::typed_arrow::bridge::ArrowBinding>::Builder as ::typed_arrow::arrow_array::builder::ArrayBuilder>::finish_cloned(&self.#bidentc) });
     }
 
     let sparse_ts = quote! {
@@ -684,11 +684,11 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
         impl ::typed_arrow::bridge::ArrowBinding for #name {
             type Builder = #builder_ident_sparse;
-            type Array = ::arrow_array::UnionArray;
+            type Array = ::typed_arrow::arrow_array::UnionArray;
 
-            fn data_type() -> ::arrow_schema::DataType {
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                ::arrow_schema::DataType::Union(fields, ::arrow_schema::UnionMode::Sparse)
+            fn data_type() -> ::typed_arrow::arrow_schema::DataType {
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                ::typed_arrow::arrow_schema::DataType::Union(fields, ::typed_arrow::arrow_schema::UnionMode::Sparse)
             }
 
             fn new_builder(capacity: usize) -> Self::Builder {
@@ -705,39 +705,39 @@ fn impl_union_dense(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream
             }
 
             fn finish(mut b: Self::Builder) -> Self::Array {
-                let children: ::std::vec::Vec<::arrow_array::ArrayRef> = vec![#(
+                let children: ::std::vec::Vec<::typed_arrow::arrow_array::ArrayRef> = vec![#(
                     #sparse_children_finish
                 ),*];
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                let type_ids: ::arrow_buffer::ScalarBuffer<i8> = b.type_ids.into_iter().collect();
-                ::arrow_array::UnionArray::try_new(fields, type_ids, None, children).expect("valid sparse union")
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                let type_ids: ::typed_arrow::arrow_buffer::ScalarBuffer<i8> = b.type_ids.into_iter().collect();
+                ::typed_arrow::arrow_array::UnionArray::try_new(fields, type_ids, None, children).expect("valid sparse union")
             }
         }
 
         // Implement ArrayBuilder so this union can be used as a struct field builder
-        impl ::arrow_array::builder::ArrayBuilder for #builder_ident_sparse {
+        impl ::typed_arrow::arrow_array::builder::ArrayBuilder for #builder_ident_sparse {
             fn as_any(&self) -> &dyn ::std::any::Any { self }
             fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any { self }
             fn into_box_any(self: ::std::boxed::Box<Self>) -> ::std::boxed::Box<dyn ::std::any::Any> { self }
             fn len(&self) -> usize { self.type_ids.len() }
 
-            fn finish(&mut self) -> ::arrow_array::ArrayRef {
-                let children: ::std::vec::Vec<::arrow_array::ArrayRef> = vec![
+            fn finish(&mut self) -> ::typed_arrow::arrow_array::ArrayRef {
+                let children: ::std::vec::Vec<::typed_arrow::arrow_array::ArrayRef> = vec![
                     #( #sparse_children_finish_reset ),*
                 ];
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                let type_ids: ::arrow_buffer::ScalarBuffer<i8> = ::std::mem::take(&mut self.type_ids).into_iter().collect();
-                let u = ::arrow_array::UnionArray::try_new(fields, type_ids, None, children).expect("valid sparse union");
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                let type_ids: ::typed_arrow::arrow_buffer::ScalarBuffer<i8> = ::std::mem::take(&mut self.type_ids).into_iter().collect();
+                let u = ::typed_arrow::arrow_array::UnionArray::try_new(fields, type_ids, None, children).expect("valid sparse union");
                 ::std::sync::Arc::new(u)
             }
 
-            fn finish_cloned(&self) -> ::arrow_array::ArrayRef {
-                let children: ::std::vec::Vec<::arrow_array::ArrayRef> = vec![
+            fn finish_cloned(&self) -> ::typed_arrow::arrow_array::ArrayRef {
+                let children: ::std::vec::Vec<::typed_arrow::arrow_array::ArrayRef> = vec![
                     #( #sparse_children_finish_cloned ),*
                 ];
-                let fields: ::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
-                let type_ids: ::arrow_buffer::ScalarBuffer<i8> = self.type_ids.clone().into_iter().collect();
-                let u = ::arrow_array::UnionArray::try_new(fields, type_ids, None, children).expect("valid sparse union");
+                let fields: ::typed_arrow::arrow_schema::UnionFields = [#(#field_pairs),*].into_iter().collect();
+                let type_ids: ::typed_arrow::arrow_buffer::ScalarBuffer<i8> = self.type_ids.clone().into_iter().collect();
+                let u = ::typed_arrow::arrow_array::UnionArray::try_new(fields, type_ids, None, children).expect("valid sparse union");
                 ::std::sync::Arc::new(u)
             }
         }

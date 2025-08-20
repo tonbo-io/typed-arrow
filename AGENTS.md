@@ -190,3 +190,8 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 - Compile-time schema via `#[derive(Record)]` generates `Record`, `ColAt<I>`, and `ForEachCol`.
 - `ColAt<I>` exposes `Rust` (inner type), `data_type()`, `ColumnBuilder`, and `ColumnArray` — no runtime `DataType` switching.
 - `bridge::ArrowBinding` maps Rust types and wrappers (e.g., primitives, Utf8/Binary, List/LargeList/FixedSizeList, Map/OrderedMap, Decimal128/256, Timestamp/TimestampTz, Dictionary, and Union via derive) to Arrow builders/arrays.
+
+---
+
+## Agent Operational Notes
+`narrow-*` deps not in manifests, if you think it's not true, search first with `rg -n "<pattern>"` across the workspace.
