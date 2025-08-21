@@ -10,7 +10,40 @@ use super::ArrowBinding;
 /// Notes:
 /// - List-level nullability: wrap the column in `Option<List<T>>`.
 /// - Item-level nullability: use `List<Option<T>>` when elements can be null.
-pub struct List<T>(pub Vec<T>);
+pub struct List<T>(Vec<T>);
+impl<T> List<T> {
+    /// Construct a new list from a vector of values.
+    #[inline]
+    pub fn new(values: Vec<T>) -> Self {
+        Self(values)
+    }
+    /// Borrow the underlying values.
+    #[inline]
+    pub fn values(&self) -> &Vec<T> {
+        &self.0
+    }
+    /// Consume and return the underlying vector of values.
+    #[inline]
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<T> From<Vec<T>> for List<T> {
+    /// Convert a vector into a `List<T>`.
+    #[inline]
+    fn from(values: Vec<T>) -> Self {
+        Self::new(values)
+    }
+}
+
+impl<T> std::iter::FromIterator<T> for List<T> {
+    /// Collect an iterator into a `List<T>`.
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self::new(iter.into_iter().collect())
+    }
+}
 
 impl<T> ArrowBinding for List<T>
 where
@@ -74,7 +107,24 @@ where
 }
 
 /// Wrapper denoting an Arrow `FixedSizeListArray` column with `N` elements of `T`.
-pub struct FixedSizeList<T, const N: usize>(pub [T; N]);
+pub struct FixedSizeList<T, const N: usize>([T; N]);
+impl<T, const N: usize> FixedSizeList<T, N> {
+    /// Construct a new fixed-size list from an array of length `N`.
+    #[inline]
+    pub fn new(values: [T; N]) -> Self {
+        Self(values)
+    }
+    /// Borrow the underlying fixed-size array of values.
+    #[inline]
+    pub fn values(&self) -> &[T; N] {
+        &self.0
+    }
+    /// Consume and return the underlying fixed-size array of values.
+    #[inline]
+    pub fn into_inner(self) -> [T; N] {
+        self.0
+    }
+}
 
 impl<T, const N: usize> ArrowBinding for FixedSizeList<T, N>
 where
@@ -112,7 +162,24 @@ where
 }
 
 /// Wrapper denoting a `FixedSizeListArray` with `N` elements where items are nullable.
-pub struct FixedSizeListNullable<T, const N: usize>(pub [Option<T>; N]);
+pub struct FixedSizeListNullable<T, const N: usize>([Option<T>; N]);
+impl<T, const N: usize> FixedSizeListNullable<T, N> {
+    /// Construct a new fixed-size list with nullable items from an array of length `N`.
+    #[inline]
+    pub fn new(values: [Option<T>; N]) -> Self {
+        Self(values)
+    }
+    /// Borrow the underlying fixed-size array of optional values.
+    #[inline]
+    pub fn values(&self) -> &[Option<T>; N] {
+        &self.0
+    }
+    /// Consume and return the underlying fixed-size array of optional values.
+    #[inline]
+    pub fn into_inner(self) -> [Option<T>; N] {
+        self.0
+    }
+}
 
 impl<T, const N: usize> ArrowBinding for FixedSizeListNullable<T, N>
 where
@@ -153,7 +220,40 @@ where
 }
 
 /// Wrapper denoting an Arrow `LargeListArray` column with elements of `T`.
-pub struct LargeList<T>(pub Vec<T>);
+pub struct LargeList<T>(Vec<T>);
+impl<T> LargeList<T> {
+    /// Construct a new large-list from a vector of values.
+    #[inline]
+    pub fn new(values: Vec<T>) -> Self {
+        Self(values)
+    }
+    /// Borrow the underlying values.
+    #[inline]
+    pub fn values(&self) -> &Vec<T> {
+        &self.0
+    }
+    /// Consume and return the underlying vector of values.
+    #[inline]
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<T> From<Vec<T>> for LargeList<T> {
+    /// Convert a vector into a `LargeList<T>`.
+    #[inline]
+    fn from(values: Vec<T>) -> Self {
+        Self::new(values)
+    }
+}
+
+impl<T> std::iter::FromIterator<T> for LargeList<T> {
+    /// Collect an iterator into a `LargeList<T>`.
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self::new(iter.into_iter().collect())
+    }
+}
 
 impl<T> ArrowBinding for LargeList<T>
 where

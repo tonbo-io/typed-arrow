@@ -21,9 +21,9 @@ fn large_list_datatype() {
 fn large_list_build() {
     type L = LargeList<i32>;
     let mut b = <L as ArrowBinding>::new_builder(3);
-    <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![1, 2, 3]));
+    <L as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![1, 2, 3]));
     <L as ArrowBinding>::append_null(&mut b);
-    <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![]));
+    <L as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![]));
     let a = <L as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 3);
 }
@@ -32,7 +32,7 @@ fn large_list_build() {
 fn large_list_nullable_items_build() {
     type LN = LargeList<Option<i32>>;
     let mut b = <LN as ArrowBinding>::new_builder(2);
-    <LN as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(1), None]));
+    <LN as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![Some(1), None]));
     <LN as ArrowBinding>::append_null(&mut b);
     let a = <LN as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
@@ -44,14 +44,14 @@ fn large_list_offsets_and_values() {
     type L = LargeList<Option<i32>>;
     let mut b = <L as ArrowBinding>::new_builder(4);
     // row0: []
-    <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![]));
+    <L as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![]));
     // row1: [1, null]
-    <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(1), None]));
+    <L as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![Some(1), None]));
     // row2: null list simulated by appending null row via builder API is not available for
     // value-level; here we append another non-empty list to verify offsets
-    <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(2)]));
+    <L as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![Some(2)]));
     // row3: [3,4]
-    <L as ArrowBinding>::append_value(&mut b, &LargeList(vec![Some(3), Some(4)]));
+    <L as ArrowBinding>::append_value(&mut b, &LargeList::new(vec![Some(3), Some(4)]));
     let a = <L as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 4);
     let offs = a.value_offsets();

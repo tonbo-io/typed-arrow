@@ -88,7 +88,7 @@ fn dict_large_binary_value() {
 
     type D = Dictionary<i32, LargeBinary>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(LargeBinary(vec![1, 2])));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(LargeBinary::new(vec![1, 2])));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);
@@ -104,7 +104,7 @@ fn dict_large_utf8_value() {
 
     type D = Dictionary<i32, LargeUtf8>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(LargeUtf8("a".into())));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(LargeUtf8::new("a".into())));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);

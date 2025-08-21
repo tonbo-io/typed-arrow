@@ -19,8 +19,8 @@ fn main() {
 
     // Build a List<Utf8> column manually via ArrowBinding
     let mut lb = <List<String> as ArrowBinding>::new_builder(2);
-    <List<String> as ArrowBinding>::append_value(&mut lb, &List(vec!["a".into(), "b".into()]));
-    <List<String> as ArrowBinding>::append_value(&mut lb, &List(vec!["x".into()]));
+    <List<String> as ArrowBinding>::append_value(&mut lb, &List::new(vec!["a".into(), "b".into()]));
+    <List<String> as ArrowBinding>::append_value(&mut lb, &List::new(vec!["x".into()]));
     let la = <List<String> as ArrowBinding>::finish(lb);
     println!(
         "List<Utf8> len={}, first_list_len={}",
@@ -30,7 +30,7 @@ fn main() {
 
     // Build a nullable-list of nullable i32 items
     let mut nlb = <List<Option<i32>> as ArrowBinding>::new_builder(2);
-    <List<Option<i32>> as ArrowBinding>::append_value(&mut nlb, &List(vec![Some(1), None]));
+    <List<Option<i32>> as ArrowBinding>::append_value(&mut nlb, &List::new(vec![Some(1), None]));
     <List<Option<i32>> as ArrowBinding>::append_null(&mut nlb);
     let nla = <List<Option<i32>> as ArrowBinding>::finish(nlb);
     println!(

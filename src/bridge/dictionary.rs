@@ -91,7 +91,7 @@ where
         StringDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0.as_str());
+        let _ = b.append(v.value().as_str());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -119,7 +119,7 @@ where
         BinaryDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0.as_slice());
+        let _ = b.append(v.value().as_slice());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -148,7 +148,7 @@ where
         FixedSizeBinaryDictionaryBuilder::new(N as i32)
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0);
+        let _ = b.append(*v.value());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -176,7 +176,7 @@ where
         LargeBinaryDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0 .0.as_slice());
+        let _ = b.append(v.value().as_slice());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -204,7 +204,7 @@ where
         LargeStringDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0 .0.as_str());
+        let _ = b.append(v.value().as_str());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -231,7 +231,7 @@ macro_rules! impl_dict_primitive_value {
                 PrimitiveDictionaryBuilder::<_, $atype>::new()
             }
             fn append_value(b: &mut Self::Builder, v: &Self) {
-                let _ = b.append(v.0);
+                let _ = b.append(*v.value());
             }
             fn append_null(b: &mut Self::Builder) {
                 b.append_null();

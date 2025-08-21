@@ -12,7 +12,40 @@ use super::ArrowBinding;
 /// - Keys are non-nullable by Arrow spec.
 /// - Values are non-nullable for `Map<K, V, SORTED>` and nullable for `Map<K, Option<V>, SORTED>`.
 /// - Column-level nullability is expressed with `Option<Map<...>>`.
-pub struct Map<K, V, const SORTED: bool = false>(pub Vec<(K, V)>);
+pub struct Map<K, V, const SORTED: bool = false>(Vec<(K, V)>);
+impl<K, V, const SORTED: bool> Map<K, V, SORTED> {
+    /// Construct a new map from a vector of `(key, value)` pairs.
+    #[inline]
+    pub fn new(entries: Vec<(K, V)>) -> Self {
+        Self(entries)
+    }
+    /// Borrow the underlying `(key, value)` entries.
+    #[inline]
+    pub fn entries(&self) -> &Vec<(K, V)> {
+        &self.0
+    }
+    /// Consume and return the underlying `(key, value)` entries.
+    #[inline]
+    pub fn into_inner(self) -> Vec<(K, V)> {
+        self.0
+    }
+}
+
+impl<K, V, const SORTED: bool> From<Vec<(K, V)>> for Map<K, V, SORTED> {
+    /// Convert a vector of `(key, value)` pairs into a `Map`.
+    #[inline]
+    fn from(entries: Vec<(K, V)>) -> Self {
+        Self::new(entries)
+    }
+}
+
+impl<K, V, const SORTED: bool> std::iter::FromIterator<(K, V)> for Map<K, V, SORTED> {
+    /// Collect an iterator of `(key, value)` pairs into a `Map`.
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        Self::new(iter.into_iter().collect())
+    }
+}
 
 impl<K, V, const SORTED: bool> ArrowBinding for Map<K, V, SORTED>
 where
@@ -92,7 +125,24 @@ where
 /// Sorted-keys Map: entries sourced from `BTreeMap<K, V>`, declaring `keys_sorted = true`.
 /// Keys are non-nullable; the value field is nullable per MapBuilder semantics, but this
 /// wrapper does not write null values.
-pub struct OrderedMap<K, V>(pub BTreeMap<K, V>);
+pub struct OrderedMap<K, V>(BTreeMap<K, V>);
+impl<K, V> OrderedMap<K, V> {
+    /// Construct a new ordered-map from a `BTreeMap` (keys sorted).
+    #[inline]
+    pub fn new(map: BTreeMap<K, V>) -> Self {
+        Self(map)
+    }
+    /// Borrow the underlying `BTreeMap`.
+    #[inline]
+    pub fn map(&self) -> &BTreeMap<K, V> {
+        &self.0
+    }
+    /// Consume and return the underlying `BTreeMap`.
+    #[inline]
+    pub fn into_inner(self) -> BTreeMap<K, V> {
+        self.0
+    }
+}
 
 impl<K, V> ArrowBinding for OrderedMap<K, V>
 where

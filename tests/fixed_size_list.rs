@@ -23,9 +23,9 @@ fn fixed_size_list_datatype() {
 fn fixed_size_list_build_and_nulls() {
     type L = FixedSizeList<i32, 3>;
     let mut b = <L as ArrowBinding>::new_builder(3);
-    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList([1, 2, 3]));
+    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList::new([1, 2, 3]));
     <L as ArrowBinding>::append_null(&mut b);
-    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList([10, 11, 12]));
+    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList::new([10, 11, 12]));
     let a = <L as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 3);
     assert_eq!(a.value_length(), 3);
@@ -35,8 +35,8 @@ fn fixed_size_list_build_and_nulls() {
 fn fixed_size_list_nullable_items_build() {
     type LN = FixedSizeListNullable<i32, 2>;
     let mut b = <LN as ArrowBinding>::new_builder(2);
-    <LN as ArrowBinding>::append_value(&mut b, &FixedSizeListNullable([Some(1), None]));
-    <LN as ArrowBinding>::append_value(&mut b, &FixedSizeListNullable([None, Some(2)]));
+    <LN as ArrowBinding>::append_value(&mut b, &FixedSizeListNullable::new([Some(1), None]));
+    <LN as ArrowBinding>::append_value(&mut b, &FixedSizeListNullable::new([None, Some(2)]));
     let a = <LN as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
     assert_eq!(a.value_length(), 2);
@@ -47,9 +47,9 @@ fn fixed_size_list_child_values() {
     use arrow_array::Array;
     type L = FixedSizeList<i32, 3>;
     let mut b = <L as ArrowBinding>::new_builder(3);
-    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList([7, 8, 9]));
+    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList::new([7, 8, 9]));
     <L as ArrowBinding>::append_null(&mut b);
-    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList([1, 2, 3]));
+    <L as ArrowBinding>::append_value(&mut b, &FixedSizeList::new([1, 2, 3]));
     let a = <L as ArrowBinding>::finish(b);
     let child = a
         .values()

@@ -38,7 +38,7 @@ fn map_append_and_lengths() {
     let mut b = <Map<String, i32> as ArrowBinding>::new_builder(0);
     typed_arrow::bridge::ArrowBinding::append_value(
         &mut b,
-        &Map::<String, i32, false>(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
+        &Map::<String, i32, false>::new(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
     );
     <Map<String, i32, false> as typed_arrow::bridge::ArrowBinding>::append_null(&mut b);
     let a = <Map<String, i32> as ArrowBinding>::finish(b);
@@ -69,7 +69,7 @@ fn map_option_values_append() {
     let mut b = <Map<String, Option<i32>> as ArrowBinding>::new_builder(0);
     typed_arrow::bridge::ArrowBinding::append_value(
         &mut b,
-        &Map::<String, Option<i32>, false>(vec![
+        &Map::<String, Option<i32>, false>::new(vec![
             ("a".to_string(), Some(1)),
             ("b".to_string(), None),
         ]),

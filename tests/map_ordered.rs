@@ -20,7 +20,7 @@ fn ordered_map_build() {
     let mut m = BTreeMap::new();
     m.insert("b".to_string(), 2);
     m.insert("a".to_string(), 1);
-    <OrderedMap<String, i32> as ArrowBinding>::append_value(&mut b, &OrderedMap(m));
+    <OrderedMap<String, i32> as ArrowBinding>::append_value(&mut b, &OrderedMap::new(m));
     let a = <OrderedMap<String, i32> as ArrowBinding>::finish(b);
     let entries = a.entries();
     let keys = entries
@@ -46,7 +46,7 @@ fn ordered_map_nullable_build() {
     let mut m = BTreeMap::new();
     m.insert("x".to_string(), Some(1));
     m.insert("y".to_string(), None);
-    <OrderedMap<String, Option<i32>> as ArrowBinding>::append_value(&mut b, &OrderedMap(m));
+    <OrderedMap<String, Option<i32>> as ArrowBinding>::append_value(&mut b, &OrderedMap::new(m));
     let a = <OrderedMap<String, Option<i32>> as ArrowBinding>::finish(b);
     let entries = a.entries();
     let keys = entries

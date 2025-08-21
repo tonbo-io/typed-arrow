@@ -54,7 +54,24 @@ impl TimeUnitSpec for Nanosecond {
 }
 
 /// Timestamp value (unit only, timezone = None).
-pub struct Timestamp<U: TimeUnitSpec>(pub i64, pub PhantomData<U>);
+pub struct Timestamp<U: TimeUnitSpec>(i64, PhantomData<U>);
+impl<U: TimeUnitSpec> Timestamp<U> {
+    /// Construct a new timestamp from an epoch value in the unit `U`.
+    #[inline]
+    pub fn new(value: i64) -> Self {
+        Self(value, PhantomData)
+    }
+    /// Return the inner epoch value.
+    #[inline]
+    pub fn value(&self) -> i64 {
+        self.0
+    }
+    /// Consume and return the inner epoch value.
+    #[inline]
+    pub fn into_value(self) -> i64 {
+        self.0
+    }
+}
 impl<U: TimeUnitSpec> ArrowBinding for Timestamp<U> {
     type Builder = PrimitiveBuilder<U::Arrow>;
     type Array = PrimitiveArray<U::Arrow>;
@@ -88,7 +105,24 @@ impl TimeZoneSpec for Utc {
 }
 
 /// Timestamp with time unit `U` and timezone marker `Z`.
-pub struct TimestampTz<U: TimeUnitSpec, Z: TimeZoneSpec>(pub i64, pub PhantomData<(U, Z)>);
+pub struct TimestampTz<U: TimeUnitSpec, Z: TimeZoneSpec>(i64, PhantomData<(U, Z)>);
+impl<U: TimeUnitSpec, Z: TimeZoneSpec> TimestampTz<U, Z> {
+    /// Construct a new timezone-aware timestamp from an epoch value in the unit `U`.
+    #[inline]
+    pub fn new(value: i64) -> Self {
+        Self(value, PhantomData)
+    }
+    /// Return the inner epoch value.
+    #[inline]
+    pub fn value(&self) -> i64 {
+        self.0
+    }
+    /// Consume and return the inner epoch value.
+    #[inline]
+    pub fn into_value(self) -> i64 {
+        self.0
+    }
+}
 impl<U: TimeUnitSpec, Z: TimeZoneSpec> ArrowBinding for TimestampTz<U, Z> {
     type Builder = PrimitiveBuilder<U::Arrow>;
     type Array = PrimitiveArray<U::Arrow>;
@@ -112,7 +146,24 @@ impl<U: TimeUnitSpec, Z: TimeZoneSpec> ArrowBinding for TimestampTz<U, Z> {
 // ---------- Date32 / Date64 ----------
 
 /// Days since UNIX epoch.
-pub struct Date32(pub i32);
+pub struct Date32(i32);
+impl Date32 {
+    /// Construct a new `Date32` from days since UNIX epoch.
+    #[inline]
+    pub fn new(value: i32) -> Self {
+        Self(value)
+    }
+    /// Return the days since UNIX epoch.
+    #[inline]
+    pub fn value(&self) -> i32 {
+        self.0
+    }
+    /// Consume and return the days since UNIX epoch.
+    #[inline]
+    pub fn into_value(self) -> i32 {
+        self.0
+    }
+}
 impl ArrowBinding for Date32 {
     type Builder = PrimitiveBuilder<Date32Type>;
     type Array = PrimitiveArray<Date32Type>;
@@ -134,7 +185,24 @@ impl ArrowBinding for Date32 {
 }
 
 /// Milliseconds since UNIX epoch.
-pub struct Date64(pub i64);
+pub struct Date64(i64);
+impl Date64 {
+    /// Construct a new `Date64` from milliseconds since UNIX epoch.
+    #[inline]
+    pub fn new(value: i64) -> Self {
+        Self(value)
+    }
+    /// Return the milliseconds since UNIX epoch.
+    #[inline]
+    pub fn value(&self) -> i64 {
+        self.0
+    }
+    /// Consume and return the milliseconds since UNIX epoch.
+    #[inline]
+    pub fn into_value(self) -> i64 {
+        self.0
+    }
+}
 impl ArrowBinding for Date64 {
     type Builder = PrimitiveBuilder<Date64Type>;
     type Array = PrimitiveArray<Date64Type>;
@@ -176,7 +244,24 @@ impl Time32UnitSpec for Millisecond {
 }
 
 /// Number of seconds/milliseconds since midnight.
-pub struct Time32<U: Time32UnitSpec>(pub i32, pub PhantomData<U>);
+pub struct Time32<U: Time32UnitSpec>(i32, PhantomData<U>);
+impl<U: Time32UnitSpec> Time32<U> {
+    /// Construct a new `Time32` value from an `i32` count in unit `U`.
+    #[inline]
+    pub fn new(value: i32) -> Self {
+        Self(value, PhantomData)
+    }
+    /// Return the inner value.
+    #[inline]
+    pub fn value(&self) -> i32 {
+        self.0
+    }
+    /// Consume and return the inner value.
+    #[inline]
+    pub fn into_value(self) -> i32 {
+        self.0
+    }
+}
 impl<U: Time32UnitSpec> ArrowBinding for Time32<U>
 where
     U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i32>,
@@ -219,7 +304,24 @@ impl Time64UnitSpec for Nanosecond {
 }
 
 /// Number of microseconds/nanoseconds since midnight.
-pub struct Time64<U: Time64UnitSpec>(pub i64, pub PhantomData<U>);
+pub struct Time64<U: Time64UnitSpec>(i64, PhantomData<U>);
+impl<U: Time64UnitSpec> Time64<U> {
+    /// Construct a new `Time64` value from an `i64` count in unit `U`.
+    #[inline]
+    pub fn new(value: i64) -> Self {
+        Self(value, PhantomData)
+    }
+    /// Return the inner value.
+    #[inline]
+    pub fn value(&self) -> i64 {
+        self.0
+    }
+    /// Consume and return the inner value.
+    #[inline]
+    pub fn into_value(self) -> i64 {
+        self.0
+    }
+}
 impl<U: Time64UnitSpec> ArrowBinding for Time64<U>
 where
     U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
@@ -276,7 +378,24 @@ impl DurationUnitSpec for Nanosecond {
 }
 
 /// Duration in the given unit.
-pub struct Duration<U: DurationUnitSpec>(pub i64, pub PhantomData<U>);
+pub struct Duration<U: DurationUnitSpec>(i64, PhantomData<U>);
+impl<U: DurationUnitSpec> Duration<U> {
+    /// Construct a new duration from an `i64` count in unit `U`.
+    #[inline]
+    pub fn new(value: i64) -> Self {
+        Self(value, PhantomData)
+    }
+    /// Return the inner value.
+    #[inline]
+    pub fn value(&self) -> i64 {
+        self.0
+    }
+    /// Consume and return the inner value.
+    #[inline]
+    pub fn into_value(self) -> i64 {
+        self.0
+    }
+}
 impl<U: DurationUnitSpec> ArrowBinding for Duration<U>
 where
     U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,

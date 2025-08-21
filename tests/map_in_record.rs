@@ -15,15 +15,15 @@ fn map_inside_record_build_rows() {
     let mut b = <Row as BuildRows>::new_builders(0);
     b.append_row(Row {
         id: 1,
-        tags: Map(vec![("a".to_string(), 10), ("b".to_string(), 20)]),
-        attrs: Some(Map(vec![
+        tags: Map::new(vec![("a".to_string(), 10), ("b".to_string(), 20)]),
+        attrs: Some(Map::new(vec![
             ("x".to_string(), Some("foo".to_string())),
             ("y".to_string(), None),
         ])),
     });
     b.append_row(Row {
         id: 2,
-        tags: Map(vec![]),
+        tags: Map::new(vec![]),
         attrs: None,
     });
     let arrays = b.finish();

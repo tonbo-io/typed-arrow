@@ -49,7 +49,32 @@ impl<const N: usize> super::ArrowBinding for [u8; N] {
 
 /// Wrapper denoting Arrow `LargeBinary` values. Use when individual binary values
 /// can exceed 2GB or when 64-bit offsets are preferred.
-pub struct LargeBinary(pub Vec<u8>);
+pub struct LargeBinary(Vec<u8>);
+
+impl LargeBinary {
+    /// Construct a new `LargeBinary` from the given bytes.
+    #[inline]
+    pub fn new(value: Vec<u8>) -> Self {
+        Self(value)
+    }
+    /// Return the underlying bytes as a slice.
+    #[inline]
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+    /// Consume and return the underlying byte vector.
+    #[inline]
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0
+    }
+}
+
+impl From<Vec<u8>> for LargeBinary {
+    #[inline]
+    fn from(value: Vec<u8>) -> Self {
+        Self::new(value)
+    }
+}
 
 impl ArrowBinding for LargeBinary {
     type Builder = LargeBinaryBuilder;

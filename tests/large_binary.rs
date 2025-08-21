@@ -9,9 +9,9 @@ fn large_binary_datatype_and_build() {
         DataType::LargeBinary
     );
     let mut b = <LargeBinary as ArrowBinding>::new_builder(3);
-    <LargeBinary as ArrowBinding>::append_value(&mut b, &LargeBinary(vec![1, 2, 3]));
+    <LargeBinary as ArrowBinding>::append_value(&mut b, &LargeBinary::new(vec![1, 2, 3]));
     <LargeBinary as ArrowBinding>::append_null(&mut b);
-    <LargeBinary as ArrowBinding>::append_value(&mut b, &LargeBinary(vec![]));
+    <LargeBinary as ArrowBinding>::append_value(&mut b, &LargeBinary::new(vec![]));
     let a = <LargeBinary as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 3);
 }

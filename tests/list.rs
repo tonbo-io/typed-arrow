@@ -63,10 +63,13 @@ fn list_build_and_values() {
     let mut b = <L as typed_arrow::bridge::ArrowBinding>::new_builder(3);
     <L as typed_arrow::bridge::ArrowBinding>::append_value(
         &mut b,
-        &List(vec!["a".to_string(), "b".to_string()]),
+        &List::new(vec!["a".to_string(), "b".to_string()]),
     );
     <L as typed_arrow::bridge::ArrowBinding>::append_null(&mut b);
-    <L as typed_arrow::bridge::ArrowBinding>::append_value(&mut b, &List(vec!["c".to_string()]));
+    <L as typed_arrow::bridge::ArrowBinding>::append_value(
+        &mut b,
+        &List::new(vec!["c".to_string()]),
+    );
     let arr = <L as typed_arrow::bridge::ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 3);
     let offsets = arr.value_offsets();
@@ -80,8 +83,14 @@ fn list_build_and_values() {
     // Nullable item list nested in Option at column-level: Option<List<Option<i32>>>
     type LN = List<Option<i32>>;
     let mut b = <LN as typed_arrow::bridge::ArrowBinding>::new_builder(0);
-    <LN as typed_arrow::bridge::ArrowBinding>::append_value(&mut b, &List(vec![Some(1), None]));
-    <LN as typed_arrow::bridge::ArrowBinding>::append_value(&mut b, &List::<Option<i32>>(vec![]));
+    <LN as typed_arrow::bridge::ArrowBinding>::append_value(
+        &mut b,
+        &List::new(vec![Some(1), None]),
+    );
+    <LN as typed_arrow::bridge::ArrowBinding>::append_value(
+        &mut b,
+        &List::<Option<i32>>::new(vec![]),
+    );
     let a = <LN as typed_arrow::bridge::ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
     let offs = a.value_offsets();

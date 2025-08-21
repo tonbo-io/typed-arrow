@@ -19,12 +19,12 @@ fn float16_datatype() {
 fn date32_date64_datatype() {
     assert_eq!(<Date32 as ArrowBinding>::data_type(), DataType::Date32);
     let mut b32 = <Date32 as ArrowBinding>::new_builder(1);
-    <Date32 as ArrowBinding>::append_value(&mut b32, &Date32(0));
+    <Date32 as ArrowBinding>::append_value(&mut b32, &Date32::new(0));
     let _ = <Date32 as ArrowBinding>::finish(b32);
 
     assert_eq!(<Date64 as ArrowBinding>::data_type(), DataType::Date64);
     let mut b64 = <Date64 as ArrowBinding>::new_builder(1);
-    <Date64 as ArrowBinding>::append_value(&mut b64, &Date64(0));
+    <Date64 as ArrowBinding>::append_value(&mut b64, &Date64::new(0));
     let _ = <Date64 as ArrowBinding>::finish(b64);
 }
 
@@ -53,7 +53,7 @@ fn time32_time64_datatype() {
     );
 
     let mut b = <T32S as ArrowBinding>::new_builder(1);
-    let v = Time32::<Second>(0, std::marker::PhantomData);
+    let v = Time32::<Second>::new(0);
     <T32S as ArrowBinding>::append_value(&mut b, &v);
     let _ = <T32S as ArrowBinding>::finish(b);
 }
@@ -66,9 +66,6 @@ fn duration_datatype() {
         DataType::Duration(TimeUnit::Millisecond)
     );
     let mut b = <Dms as ArrowBinding>::new_builder(1);
-    <Dms as ArrowBinding>::append_value(
-        &mut b,
-        &Duration::<Millisecond>(1, std::marker::PhantomData),
-    );
+    <Dms as ArrowBinding>::append_value(&mut b, &Duration::<Millisecond>::new(1));
     let _ = <Dms as ArrowBinding>::finish(b);
 }

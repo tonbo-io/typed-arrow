@@ -11,7 +11,7 @@ fn interval_year_month() {
         DataType::Interval(IntervalUnit::YearMonth)
     );
     let mut b = <IntervalYearMonth as ArrowBinding>::new_builder(2);
-    <IntervalYearMonth as ArrowBinding>::append_value(&mut b, &IntervalYearMonth(12));
+    <IntervalYearMonth as ArrowBinding>::append_value(&mut b, &IntervalYearMonth::new(12));
     <IntervalYearMonth as ArrowBinding>::append_null(&mut b);
     let a = <IntervalYearMonth as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
@@ -24,7 +24,7 @@ fn interval_day_time() {
         DataType::Interval(IntervalUnit::DayTime)
     );
     let mut b = <IntervalDayTime as ArrowBinding>::new_builder(2);
-    let v = IntervalDayTime(IntervalDayTimeNative {
+    let v = IntervalDayTime::new(IntervalDayTimeNative {
         days: 0,
         milliseconds: 0,
     });
@@ -41,7 +41,7 @@ fn interval_month_day_nano() {
         DataType::Interval(IntervalUnit::MonthDayNano)
     );
     let mut b = <IntervalMonthDayNano as ArrowBinding>::new_builder(2);
-    let v = IntervalMonthDayNano(IntervalMonthDayNanoNative {
+    let v = IntervalMonthDayNano::new(IntervalMonthDayNanoNative {
         months: 0,
         days: 0,
         nanoseconds: 0,
