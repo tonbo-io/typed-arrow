@@ -13,7 +13,7 @@ name = "typed_arrow_dyn"
 path = "src/lib.rs"
 
 [dependencies]
-typed-arrow = { path = "..", version = "0.1.0", package = "typed-arrow" }
+typed-arrow = { path = "..", version = "0.2.0", package = "typed-arrow" }
 arrow-array = { version = "56" }
 arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }
