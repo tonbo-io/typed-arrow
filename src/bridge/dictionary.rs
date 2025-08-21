@@ -8,7 +8,41 @@ use arrow_schema::DataType;
 use super::{binary::LargeBinary, strings::LargeUtf8, ArrowBinding};
 
 /// Wrapper denoting an Arrow Dictionary column with key type `K` and values of `V`.
-pub struct Dictionary<K, V>(pub V, pub PhantomData<K>);
+///
+/// The inner value is intentionally not exposed. Construct with `Dictionary::new`
+/// and access the contained value via `Dictionary::value` or `Dictionary::into_value`.
+///
+/// This prevents accidental reliance on representation details (e.g., raw keys) and
+/// keeps the API focused on appending logical values. The builder handles interning to keys.
+#[repr(transparent)]
+pub struct Dictionary<K, V>(V, PhantomData<K>);
+
+impl<K, V> Dictionary<K, V> {
+    /// Create a new dictionary value wrapper.
+    #[inline]
+    pub fn new(value: V) -> Self {
+        Self(value, PhantomData)
+    }
+
+    /// Borrow the contained logical value.
+    #[inline]
+    pub fn value(&self) -> &V {
+        &self.0
+    }
+
+    /// Consume and return the contained logical value.
+    #[inline]
+    pub fn into_value(self) -> V {
+        self.0
+    }
+}
+
+impl<K, V> From<V> for Dictionary<K, V> {
+    #[inline]
+    fn from(value: V) -> Self {
+        Self::new(value)
+    }
+}
 
 /// Dictionary key mapping from Rust integer to Arrow key type.
 pub trait DictKey {

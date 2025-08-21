@@ -42,7 +42,7 @@ fn main() {
             id: 1,
             address: Some(Address { city: "NYC".into(), zip: None }),
             tags: Some(List(vec![Some(1), None, Some(3)])),
-            code: Some(Dictionary("gold".into(), std::marker::PhantomData)),
+            code: Some(Dictionary::new("gold".into())),
             joined: TimestampTz::<Millisecond, Utc>(
                 1_700_000_000_000,
                 std::marker::PhantomData,

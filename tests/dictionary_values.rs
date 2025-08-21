@@ -5,10 +5,7 @@ use typed_arrow::{bridge::ArrowBinding, Dictionary, LargeBinary, LargeUtf8};
 fn dict_utf8_value() {
     type D = Dictionary<i32, String>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary("a".to_string(), std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new("a".to_string()));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);
@@ -20,23 +17,11 @@ fn dict_utf8_roundtrip_values() {
     type D = Dictionary<i32, String>;
     let mut b = <D as ArrowBinding>::new_builder(0);
     // Build values: ["apple", "banana", "apple", null, "banana"]
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary("apple".to_string(), std::marker::PhantomData),
-    );
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary("banana".to_string(), std::marker::PhantomData),
-    );
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary("apple".to_string(), std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new("apple".to_string()));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new("banana".to_string()));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new("apple".to_string()));
     <D as ArrowBinding>::append_null(&mut b);
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary("banana".to_string(), std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new("banana".to_string()));
     let arr = <D as ArrowBinding>::finish(b);
 
     let dict_arr = &arr;
@@ -66,7 +51,7 @@ fn dict_utf8_roundtrip_values() {
 fn dict_binary_value() {
     type D = Dictionary<i32, Vec<u8>>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(&mut b, &Dictionary(vec![1, 2], std::marker::PhantomData));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(vec![1, 2]));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);
@@ -78,7 +63,7 @@ fn dict_primitive_values() {
         ($t:ty, $v:expr) => {{
             type D = Dictionary<i32, $t>;
             let mut b = <D as ArrowBinding>::new_builder(0);
-            <D as ArrowBinding>::append_value(&mut b, &Dictionary($v, std::marker::PhantomData));
+            <D as ArrowBinding>::append_value(&mut b, &Dictionary::new($v));
             <D as ArrowBinding>::append_null(&mut b);
             let arr = <D as ArrowBinding>::finish(b);
             assert_eq!(arr.len(), 2);
@@ -103,10 +88,7 @@ fn dict_large_binary_value() {
 
     type D = Dictionary<i32, LargeBinary>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary(LargeBinary(vec![1, 2]), std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(LargeBinary(vec![1, 2])));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);
@@ -122,10 +104,7 @@ fn dict_large_utf8_value() {
 
     type D = Dictionary<i32, LargeUtf8>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary(LargeUtf8("a".into()), std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new(LargeUtf8("a".into())));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 2);
@@ -149,9 +128,9 @@ fn dict_fixed_size_binary_value() {
     );
 
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(&mut b, &Dictionary([1, 2, 3, 4], std::marker::PhantomData));
-    <D as ArrowBinding>::append_value(&mut b, &Dictionary([1, 2, 3, 4], std::marker::PhantomData));
-    <D as ArrowBinding>::append_value(&mut b, &Dictionary([9, 9, 9, 9], std::marker::PhantomData));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new([1, 2, 3, 4]));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new([1, 2, 3, 4]));
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new([9, 9, 9, 9]));
     <D as ArrowBinding>::append_null(&mut b);
     let arr = <D as ArrowBinding>::finish(b);
     assert_eq!(arr.len(), 4);
@@ -161,15 +140,9 @@ fn dict_fixed_size_binary_value() {
 fn dict_fixed_size_binary_roundtrip() {
     type D = Dictionary<i16, [u8; 4]>;
     let mut b = <D as ArrowBinding>::new_builder(0);
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary([0xAA, 0xBB, 0xCC, 0xDD], std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new([0xAA, 0xBB, 0xCC, 0xDD]));
     <D as ArrowBinding>::append_null(&mut b);
-    <D as ArrowBinding>::append_value(
-        &mut b,
-        &Dictionary([0xAA, 0xBB, 0xCC, 0xDD], std::marker::PhantomData),
-    );
+    <D as ArrowBinding>::append_value(&mut b, &Dictionary::new([0xAA, 0xBB, 0xCC, 0xDD]));
     let arr = <D as ArrowBinding>::finish(b);
     let values = arr
         .values()
