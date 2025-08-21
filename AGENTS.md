@@ -1,5 +1,3 @@
-# Compile-Time Arrow Schema (arrow-rs) — Plan & Design
-
 ## TL;DR
 - Provide a compile-time schema for Arrow using Rust types and macros.
 - Generate monomorphized code per column index and base type (no runtime `DataType` switching).
@@ -13,10 +11,6 @@
 - Generate typed Arrow builders/arrays for each column from the compile-time schema.
 - Produce a runtime `arrow_schema::Schema` and `RecordBatch` from the compile-time schema when integration with arrow-rs is needed.
 - Keep ergonomics close to idiomatic Rust: field attributes express Arrow specifics; Option/Nullability is explicit.
-
-## Non-Goals (Initial Phases)
-- Runtime reflection of arbitrary user types. The schema is compile-time and explicit.
-- Note: Timezones are supported via `TimestampTz<U, Z>` (e.g., `Utc`).
 
 ---
 
@@ -190,8 +184,3 @@ fn debug_schema<T: ForEachCol>() { T::for_each_col::<Count>(); }
 - Compile-time schema via `#[derive(Record)]` generates `Record`, `ColAt<I>`, and `ForEachCol`.
 - `ColAt<I>` exposes `Rust` (inner type), `data_type()`, `ColumnBuilder`, and `ColumnArray` — no runtime `DataType` switching.
 - `bridge::ArrowBinding` maps Rust types and wrappers (e.g., primitives, Utf8/Binary, List/LargeList/FixedSizeList, Map/OrderedMap, Decimal128/256, Timestamp/TimestampTz, Dictionary, and Union via derive) to Arrow builders/arrays.
-
----
-
-## Agent Operational Notes
-`narrow-*` deps not in manifests, if you think it's not true, search first with `rg -n "<pattern>"` across the workspace.
