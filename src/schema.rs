@@ -18,8 +18,8 @@ pub trait Record {
 
 /// Per-column metadata for a record at index `I`.
 pub trait ColAt<const I: usize>: Record {
-    /// The Rust value type of this column (without nullability).
-    type Rust;
+    /// The Native value type of this column (without nullability).
+    type Native;
 
     /// The typed Arrow array for this column.
     type ColumnArray: Array;

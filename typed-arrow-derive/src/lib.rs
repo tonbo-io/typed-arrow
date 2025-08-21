@@ -76,7 +76,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // impl ColAt<I> for Type
         let col_impl = quote! {
             impl ::typed_arrow::schema::ColAt<{ #idx }> for #name {
-                type Rust = #inner_ty_ts;
+                type Native = #inner_ty_ts;
                 type ColumnArray = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Array;
                 type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
                 const NULLABLE: bool = #nullable_lit;

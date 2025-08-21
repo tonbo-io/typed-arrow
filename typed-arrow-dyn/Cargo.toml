@@ -1,6 +1,6 @@
 [package]
 name = "typed-arrow-dyn"
-version = { workspace = true }
+version = "0.0.0-alpha0"
 edition = { workspace = true }
 description = "Dynamic Arrow facade for typed-arrow (runtime schema/builders)."
 license = { workspace = true }

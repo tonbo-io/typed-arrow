@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "typed-arrow-dyn"
-version = "0.2.0"
+version = "0.0.0-alpha0"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -440,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "typed-arrow-unified"
-version = "0.2.0"
+version = "0.0.0-alpha0"
 dependencies = [
  "arrow-array",
  "arrow-schema",

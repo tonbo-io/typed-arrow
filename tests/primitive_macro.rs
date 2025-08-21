@@ -112,12 +112,12 @@ fn rust_types_exposed() {
     fn _r4<T: Same<Vec<u8>>>() {}
     fn _r5<T: Same<bool>>() {}
 
-    type R0 = <Person as ColAt<0>>::Rust;
-    type R1 = <Person as ColAt<1>>::Rust;
-    type R2 = <Person as ColAt<2>>::Rust;
-    type R3 = <Person as ColAt<3>>::Rust;
-    type R4 = <Person as ColAt<4>>::Rust;
-    type R5 = <Person as ColAt<5>>::Rust;
+    type R0 = <Person as ColAt<0>>::Native;
+    type R1 = <Person as ColAt<1>>::Native;
+    type R2 = <Person as ColAt<2>>::Native;
+    type R3 = <Person as ColAt<3>>::Native;
+    type R4 = <Person as ColAt<4>>::Native;
+    type R5 = <Person as ColAt<5>>::Native;
 
     _r0::<R0>();
     _r1::<R1>();
