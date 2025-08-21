@@ -1,5 +1,3 @@
-# Compile-Time Arrow Schema (arrow-rs) — Plan & Design
-
 ## TL;DR
 - Provide a compile-time schema for Arrow using Rust types and macros.
 - Generate monomorphized code per column index and base type (no runtime `DataType` switching).
@@ -17,10 +15,6 @@
 - Surface errors in the dynamic path (row arity, type mismatches, builder failures) via a structured error type.
 - Keep ergonomics close to idiomatic Rust: field attributes express Arrow specifics; Option/Nullability is explicit.
 - Keep projection helpers out of the unified facade to maintain focus and minimal surface area.
-
-## Non-Goals (Initial Phases)
-- Runtime reflection of arbitrary user types. The schema is compile-time and explicit.
-- Note: Timezones are supported via `TimestampTz<U, Z>` (e.g., `Utc`).
 
 ---
 

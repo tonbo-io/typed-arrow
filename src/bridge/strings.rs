@@ -28,7 +28,40 @@ impl ArrowBinding for String {
 
 /// Wrapper denoting Arrow `LargeUtf8` values. Use when individual strings can be
 /// extremely large or when 64-bit offsets are preferred.
-pub struct LargeUtf8(pub String);
+pub struct LargeUtf8(String);
+
+impl LargeUtf8 {
+    /// Construct a new `LargeUtf8` from a `String`.
+    #[inline]
+    pub fn new(value: String) -> Self {
+        Self(value)
+    }
+    /// Return the underlying string slice.
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+    /// Consume and return the underlying `String`.
+    #[inline]
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl From<String> for LargeUtf8 {
+    /// Convert a `String` into a `LargeUtf8`.
+    #[inline]
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+impl From<&str> for LargeUtf8 {
+    /// Convert a `&str` into a `LargeUtf8` by allocating a `String`.
+    #[inline]
+    fn from(s: &str) -> Self {
+        Self::new(s.to_string())
+    }
+}
 
 impl ArrowBinding for LargeUtf8 {
     type Builder = LargeStringBuilder;

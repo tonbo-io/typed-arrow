@@ -41,22 +41,16 @@ fn main() {
         Person {
             id: 1,
             address: Some(Address { city: "NYC".into(), zip: None }),
-            tags: Some(List(vec![Some(1), None, Some(3)])),
-            code: Some(Dictionary("gold".into(), std::marker::PhantomData)),
-            joined: TimestampTz::<Millisecond, Utc>(
-                1_700_000_000_000,
-                std::marker::PhantomData,
-            ),
+            tags: Some(List::new(vec![Some(1), None, Some(3)])),
+            code: Some(Dictionary::new("gold".into())),
+            joined: TimestampTz::<Millisecond, Utc>::new(1_700_000_000_000),
         },
         Person {
             id: 2,
             address: None,
             tags: None,
             code: None,
-            joined: TimestampTz::<Millisecond, Utc>(
-                1_700_000_100_000,
-                std::marker::PhantomData,
-            ),
+            joined: TimestampTz::<Millisecond, Utc>::new(1_700_000_100_000),
         },
     ];
 

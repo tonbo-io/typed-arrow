@@ -8,7 +8,41 @@ use arrow_schema::DataType;
 use super::{binary::LargeBinary, strings::LargeUtf8, ArrowBinding};
 
 /// Wrapper denoting an Arrow Dictionary column with key type `K` and values of `V`.
-pub struct Dictionary<K, V>(pub V, pub PhantomData<K>);
+///
+/// The inner value is intentionally not exposed. Construct with `Dictionary::new`
+/// and access the contained value via `Dictionary::value` or `Dictionary::into_value`.
+///
+/// This prevents accidental reliance on representation details (e.g., raw keys) and
+/// keeps the API focused on appending logical values. The builder handles interning to keys.
+#[repr(transparent)]
+pub struct Dictionary<K, V>(V, PhantomData<K>);
+
+impl<K, V> Dictionary<K, V> {
+    /// Create a new dictionary value wrapper.
+    #[inline]
+    pub fn new(value: V) -> Self {
+        Self(value, PhantomData)
+    }
+
+    /// Borrow the contained logical value.
+    #[inline]
+    pub fn value(&self) -> &V {
+        &self.0
+    }
+
+    /// Consume and return the contained logical value.
+    #[inline]
+    pub fn into_value(self) -> V {
+        self.0
+    }
+}
+
+impl<K, V> From<V> for Dictionary<K, V> {
+    #[inline]
+    fn from(value: V) -> Self {
+        Self::new(value)
+    }
+}
 
 /// Dictionary key mapping from Rust integer to Arrow key type.
 pub trait DictKey {
@@ -57,7 +91,7 @@ where
         StringDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0.as_str());
+        let _ = b.append(v.value().as_str());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -85,7 +119,7 @@ where
         BinaryDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0.as_slice());
+        let _ = b.append(v.value().as_slice());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -114,7 +148,7 @@ where
         FixedSizeBinaryDictionaryBuilder::new(N as i32)
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0);
+        let _ = b.append(*v.value());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -142,7 +176,7 @@ where
         LargeBinaryDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0 .0.as_slice());
+        let _ = b.append(v.value().as_slice());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -170,7 +204,7 @@ where
         LargeStringDictionaryBuilder::new()
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        let _ = b.append(v.0 .0.as_str());
+        let _ = b.append(v.value().as_str());
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -197,7 +231,7 @@ macro_rules! impl_dict_primitive_value {
                 PrimitiveDictionaryBuilder::<_, $atype>::new()
             }
             fn append_value(b: &mut Self::Builder, v: &Self) {
-                let _ = b.append(v.0);
+                let _ = b.append(*v.value());
             }
             fn append_null(b: &mut Self::Builder) {
                 b.append_null();

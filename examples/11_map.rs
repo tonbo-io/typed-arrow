@@ -13,7 +13,7 @@ fn main() {
     let mut b = <Map<String, i32> as ArrowBinding>::new_builder(0);
     <Map<String, i32> as ArrowBinding>::append_value(
         &mut b,
-        &Map(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
+        &Map::new(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
     );
     <Map<String, i32> as ArrowBinding>::append_null(&mut b);
     let a = <Map<String, i32> as ArrowBinding>::finish(b);
@@ -33,7 +33,7 @@ fn main() {
     ord.insert("b".to_string(), 2);
     ord.insert("a".to_string(), 1);
     let mut ob = <OrderedMap<String, i32> as ArrowBinding>::new_builder(0);
-    <OrderedMap<String, i32> as ArrowBinding>::append_value(&mut ob, &OrderedMap(ord));
+    <OrderedMap<String, i32> as ArrowBinding>::append_value(&mut ob, &OrderedMap::new(ord));
     let oa = <OrderedMap<String, i32> as ArrowBinding>::finish(ob);
     println!("ordered map entries={}", oa.entries().len());
 
@@ -41,15 +41,15 @@ fn main() {
     let rows = vec![
         Row {
             id: 1,
-            tags: Map(vec![("x".to_string(), 10)]),
-            notes: Some(Map(vec![
+            tags: Map::new(vec![("x".to_string(), 10)]),
+            notes: Some(Map::new(vec![
                 ("hello".to_string(), Some("world".to_string())),
                 ("empty".to_string(), None),
             ])),
         },
         Row {
             id: 2,
-            tags: Map(vec![]),
+            tags: Map::new(vec![]),
             notes: None,
         },
     ];
