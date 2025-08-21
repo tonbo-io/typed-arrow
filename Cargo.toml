@@ -3,7 +3,7 @@ members = [".", "typed-arrow-derive"]
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
 package.license = "Apache-2.0"
-package.version = "0.1.0"
+package.version = "0.2.0"
 package.edition = "2021"
 
 [package]
@@ -25,7 +25,7 @@ default = ["derive"]
 derive = ["dep:typed-arrow-derive"]
 
 [dependencies]
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.1.0", optional = true, package = "typed-arrow-derive" }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.2.0", optional = true, package = "typed-arrow-derive" }
 arrow-array = { version = "56" }
 arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }
