@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "typed-arrow-derive"]
+members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-unified"]
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
 package.license = "Apache-2.0"
