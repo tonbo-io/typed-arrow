@@ -156,3 +156,12 @@ pub trait AppendStruct {
     /// Caller is responsible for `append(false)` for the parent validity.
     fn append_null_into(b: &mut StructBuilder);
 }
+
+/// Trait implemented by `#[derive(Record)]` structs to append their fields into a
+/// `StructBuilder` from a borrowed reference. This enables container builders (e.g.,
+/// lists of structs) to append child values without taking ownership of the struct.
+pub trait AppendStructRef {
+    /// Append this struct's child values into the provided `StructBuilder` using borrows.
+    /// Caller is responsible for setting the parent validity via `append(true)`.
+    fn append_borrowed_into(&self, b: &mut StructBuilder);
+}
