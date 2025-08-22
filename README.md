@@ -95,6 +95,7 @@ Run the included examples to see end-to-end usage:
 - `09_duration_interval` — Duration and Interval types
 - `10_union` — Dense Union as a Record column (with attributes)
 - `11_map` — Map (incl. `Option<V>` values) + as a Record column
+- `12_ext_hooks` — Extend `#[derive(Record)]` with visitor injection and macro callbacks
 
 Run:
 
@@ -156,3 +157,11 @@ Missing:
 - Utf8View
 - ListView, LargeListView
 - RunEndEncoded
+
+## Extensibility
+
+- Derive extension hooks allow user-level customization without changing the core derive:
+  - Inject compile-time visitors: `#[record(visit(MyVisitor))]`
+  - Call your macros per field/record: `#[record(field_macro = my_ext::per_field, record_macro = my_ext::per_record)]`
+  - Tag fields/records with free-form markers: `#[record(ext(key))]`
+- See `docs/extensibility.md` and the runnable example `examples/12_ext_hooks.rs`.
