@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
     parse_macro_input, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Ident, LitStr,
-    Type,
+    Path, Type,
 };
 
 #[proc_macro_derive(Record, attributes(nested, schema_metadata, metadata, record))]
@@ -58,6 +58,32 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             quote! { __m.insert(::std::string::String::from(#k), ::std::string::String::from(#v)); }
         })
         .collect::<Vec<_>>();
+
+    // Extensibility hooks: behind `ext-hooks` feature (off by default)
+    #[cfg(feature = "ext-hooks")]
+    let ext_visitors: Vec<Path> = parse_record_ext_visitors(&input.attrs)?;
+    #[cfg(not(feature = "ext-hooks"))]
+    let ext_visitors: Vec<Path> = Vec::new();
+
+    #[cfg(feature = "ext-hooks")]
+    let field_macros: Vec<Path> = parse_record_field_macros(&input.attrs)?;
+
+    #[cfg(feature = "ext-hooks")]
+    let record_macros: Vec<Path> = parse_record_record_macros(&input.attrs)?;
+    #[cfg(not(feature = "ext-hooks"))]
+    let record_macros: Vec<Path> = Vec::new();
+
+    #[cfg(feature = "ext-hooks")]
+    let record_ext_tokens: Option<Vec<proc_macro2::TokenStream>> =
+        parse_ext_token_list_on_record(&input.attrs)?;
+    #[cfg(not(feature = "ext-hooks"))]
+    let record_ext_tokens: Option<Vec<proc_macro2::TokenStream>> = None;
+
+    // Per-field macro invocations (gated by feature)
+    #[cfg(feature = "ext-hooks")]
+    let mut field_macro_invocations: Vec<proc_macro2::TokenStream> = Vec::new();
+    #[cfg(not(feature = "ext-hooks"))]
+    let field_macro_invocations: Vec<proc_macro2::TokenStream> = Vec::new();
 
     for (i, f) in fields.named.iter().enumerate() {
         let idx = syn::Index::from(i);
@@ -121,6 +147,25 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                     #nullable_lit,
                 ));
             });
+        }
+
+        // Per-field extension: collect tokens under #[record(ext(...))]
+        #[cfg(feature = "ext-hooks")]
+        let field_ext_tokens: Option<Vec<proc_macro2::TokenStream>> =
+            parse_ext_token_list_on_field(&f.attrs)?;
+
+        #[cfg(feature = "ext-hooks")]
+        if !field_macros.is_empty() {
+            for m in &field_macros {
+                let ext_group = if let Some(ts) = &field_ext_tokens {
+                    quote! { ( #( #ts ),* ) }
+                } else {
+                    quote! { () }
+                };
+                field_macro_invocations.push(quote! {
+                    #m!(owner = #name, index = { #idx }, field = #fname, ty = #inner_ty_ts, nullable = #nullable_lit, is_nested = #is_nested, ext = #ext_group);
+                });
+            }
         }
 
         // StructMeta: child builder boxed as ArrayBuilder
@@ -393,9 +438,34 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
     };
 
+    // Invoke any record-level callback macros once, after the main impls
+    let mut record_macro_invocations: Vec<proc_macro2::TokenStream> = Vec::new();
+    if !record_macros.is_empty() {
+        let ext_group = if let Some(ts) = &record_ext_tokens {
+            quote! { ( #( #ts ),* ) }
+        } else {
+            quote! { () }
+        };
+        for m in &record_macros {
+            record_macro_invocations
+                .push(quote! { #m!(owner = #name, len = #len, ext = #ext_group); });
+        }
+    }
+
+    // If any external visitors are registered, instantiate them at compile time.
+    let mut visitor_instantiations: Vec<proc_macro2::TokenStream> = Vec::new();
+    for v in &ext_visitors {
+        visitor_instantiations.push(quote! {
+            const _: () = { <#name as ::typed_arrow::schema::ForEachCol>::for_each_col::<#v>(); };
+        });
+    }
+
     let expanded = quote! {
         #(#col_impls)*
         #rec_impl
+        #(#record_macro_invocations)*
+        #(#field_macro_invocations)*
+        #(#visitor_instantiations)*
     };
     Ok(expanded)
 }
@@ -758,6 +828,13 @@ fn has_nested_attr(attrs: &[Attribute]) -> syn::Result<bool> {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("nested") {
                     is_nested = true;
+                } else {
+                    // Consume unknown nested items so other uses of #[record(...)] don't break parsing
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else {
+                        let _ = meta.parse_nested_meta(|_| Ok(()));
+                    }
                 }
                 Ok(())
             })?;
@@ -824,6 +901,24 @@ fn parse_schema_metadata_pairs(attrs: &[Attribute]) -> syn::Result<Vec<(String, 
                     if let (Some(k), Some(vv)) = (key, val) {
                         out.push((k, vv));
                     }
+                } else {
+                    // Consume unknown nested entries (e.g., visit, field_macro, record_macro, ext)
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else if meta.input.is_empty() {
+                        // bare flag like `nested` — nothing to consume
+                    } else {
+                        meta.parse_nested_meta(|inner| {
+                            if let Ok(v2) = inner.value() {
+                                let _expr: syn::Expr = v2.parse()?;
+                            } else if inner.input.is_empty() {
+                                // bare flag inside list
+                            } else {
+                                let _ = inner.parse_nested_meta(|_| Ok(()));
+                            }
+                            Ok(())
+                        })?;
+                    }
                 }
                 Ok(())
             })?;
@@ -869,6 +964,24 @@ fn parse_field_metadata_pairs(attrs: &[Attribute]) -> syn::Result<Option<Vec<(St
                     })?;
                     if let (Some(k), Some(vv)) = (key, val) {
                         out.get_or_insert_with(Vec::new).push((k, vv));
+                    }
+                } else {
+                    // Consume unknown nested entries
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else if meta.input.is_empty() {
+                        // bare flag like `nested`
+                    } else {
+                        meta.parse_nested_meta(|inner| {
+                            if let Ok(v2) = inner.value() {
+                                let _expr: syn::Expr = v2.parse()?;
+                            } else if inner.input.is_empty() {
+                                // bare flag inside list
+                            } else {
+                                let _ = inner.parse_nested_meta(|_| Ok(()));
+                            }
+                            Ok(())
+                        })?;
                     }
                 }
                 Ok(())
@@ -1020,6 +1133,246 @@ fn eval_i64_expr(e: &syn::Expr) -> syn::Result<i64> {
         }
         _ => Err(syn::Error::new_spanned(e, "expected integer literal")),
     }
+}
+
+// -------- extension hooks parsing --------
+
+// Container-level: #[record(visit(path::ToVisitor, other::Visitor))]
+// Also supports repeated: #[record(visit(path))]
+#[cfg(feature = "ext-hooks")]
+fn parse_record_ext_visitors(attrs: &[Attribute]) -> syn::Result<Vec<Path>> {
+    let mut out: Vec<Path> = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("visit") {
+                    // Accept either visit = path or visit(path)
+                    // First try key-value form
+                    if let Ok(v) = meta.value() {
+                        // Support visit = "path::ToVisitor" or visit = path::ToVisitor
+                        // Prefer string literal for robust attribute grammar
+                        if let Ok(ls) = v.parse::<LitStr>() {
+                            let p: Path = syn::parse_str(&ls.value())?;
+                            out.push(p);
+                        } else {
+                            let ep: syn::ExprPath = v.parse()?;
+                            out.push(ep.path);
+                        }
+                    } else {
+                        // Fallback to nested meta list
+                        meta.parse_nested_meta(|mi| {
+                            // Permit either bare ident or full path
+                            let p: Path = if let Some(id) = mi.path.get_ident() {
+                                let mut path = Path {
+                                    leading_colon: None,
+                                    segments: Default::default(),
+                                };
+                                path.segments.push(syn::PathSegment {
+                                    ident: id.clone(),
+                                    arguments: syn::PathArguments::None,
+                                });
+                                path
+                            } else {
+                                mi.path.clone()
+                            };
+                            out.push(p);
+                            Ok(())
+                        })?;
+                    }
+                } else {
+                    // Consume unknown nested entries to satisfy parser
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else {
+                        meta.parse_nested_meta(|inner| {
+                            if let Ok(v2) = inner.value() {
+                                let _expr: syn::Expr = v2.parse()?;
+                            } else {
+                                let _ = inner.parse_nested_meta(|_| Ok(()));
+                            }
+                            Ok(())
+                        })?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+    }
+    Ok(out)
+}
+
+// Container-level: #[record(field_macro = my_ext::per_field)] (repeatable)
+#[cfg(feature = "ext-hooks")]
+fn parse_record_field_macros(attrs: &[Attribute]) -> syn::Result<Vec<Path>> {
+    let mut out: Vec<Path> = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("field_macro") {
+                    if let Ok(v) = meta.value() {
+                        if let Ok(ls) = v.parse::<LitStr>() {
+                            let p: Path = syn::parse_str(&ls.value())?;
+                            out.push(p);
+                        } else {
+                            let ep: syn::ExprPath = v.parse()?;
+                            out.push(ep.path);
+                        }
+                    } else {
+                        meta.parse_nested_meta(|mi| {
+                            let p: Path = mi.path.clone();
+                            out.push(p);
+                            Ok(())
+                        })?;
+                    }
+                } else if let Ok(v) = meta.value() {
+                    let _expr: syn::Expr = v.parse()?;
+                } else {
+                    meta.parse_nested_meta(|inner| {
+                        if let Ok(v2) = inner.value() {
+                            let _expr: syn::Expr = v2.parse()?;
+                        } else {
+                            let _ = inner.parse_nested_meta(|_| Ok(()));
+                        }
+                        Ok(())
+                    })?;
+                }
+                Ok(())
+            })?;
+        }
+    }
+    Ok(out)
+}
+
+// Container-level: #[record(record_macro = my_ext::per_record)] (repeatable)
+#[cfg(feature = "ext-hooks")]
+fn parse_record_record_macros(attrs: &[Attribute]) -> syn::Result<Vec<Path>> {
+    let mut out: Vec<Path> = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("record_macro") {
+                    if let Ok(v) = meta.value() {
+                        if let Ok(ls) = v.parse::<LitStr>() {
+                            let p: Path = syn::parse_str(&ls.value())?;
+                            out.push(p);
+                        } else {
+                            let ep: syn::ExprPath = v.parse()?;
+                            out.push(ep.path);
+                        }
+                    } else {
+                        meta.parse_nested_meta(|mi| {
+                            let p: Path = mi.path.clone();
+                            out.push(p);
+                            Ok(())
+                        })?;
+                    }
+                } else if let Ok(v) = meta.value() {
+                    let _expr: syn::Expr = v.parse()?;
+                } else {
+                    meta.parse_nested_meta(|inner| {
+                        if let Ok(v2) = inner.value() {
+                            let _expr: syn::Expr = v2.parse()?;
+                        } else {
+                            let _ = inner.parse_nested_meta(|_| Ok(()));
+                        }
+                        Ok(())
+                    })?;
+                }
+                Ok(())
+            })?;
+        }
+    }
+    Ok(out)
+}
+
+// Container-level: #[record(ext(...))] → capture tokens for forwarding
+#[cfg(feature = "ext-hooks")]
+fn parse_ext_token_list_on_record(
+    attrs: &[Attribute],
+) -> syn::Result<Option<Vec<proc_macro2::TokenStream>>> {
+    let mut out: Option<Vec<proc_macro2::TokenStream>> = None;
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("ext") {
+                    let mut items: Vec<proc_macro2::TokenStream> = Vec::new();
+                    meta.parse_nested_meta(|inner| {
+                        let ts = inner.path.to_token_stream();
+                        items.push(ts);
+                        Ok(())
+                    })?;
+                    if !items.is_empty() {
+                        out.get_or_insert_with(Vec::new).extend(items);
+                    }
+                } else {
+                    // Consume others to avoid parse errors when combined with ext
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else if meta.input.is_empty() {
+                        // bare flag
+                    } else {
+                        meta.parse_nested_meta(|inner| {
+                            if let Ok(v2) = inner.value() {
+                                let _expr: syn::Expr = v2.parse()?;
+                            } else if inner.input.is_empty() {
+                                // bare flag
+                            } else {
+                                let _ = inner.parse_nested_meta(|_| Ok(()));
+                            }
+                            Ok(())
+                        })?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+    }
+    Ok(out)
+}
+
+// Field-level: #[record(ext(...))] → capture tokens for forwarding
+#[cfg(feature = "ext-hooks")]
+fn parse_ext_token_list_on_field(
+    attrs: &[Attribute],
+) -> syn::Result<Option<Vec<proc_macro2::TokenStream>>> {
+    let mut out: Option<Vec<proc_macro2::TokenStream>> = None;
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("ext") {
+                    let mut items: Vec<proc_macro2::TokenStream> = Vec::new();
+                    meta.parse_nested_meta(|inner| {
+                        let ts = inner.path.to_token_stream();
+                        items.push(ts);
+                        Ok(())
+                    })?;
+                    if !items.is_empty() {
+                        out.get_or_insert_with(Vec::new).extend(items);
+                    }
+                } else {
+                    // Consume others
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else if meta.input.is_empty() {
+                        // bare flag
+                    } else {
+                        meta.parse_nested_meta(|inner| {
+                            if let Ok(v2) = inner.value() {
+                                let _expr: syn::Expr = v2.parse()?;
+                            } else if inner.input.is_empty() {
+                                // bare flag
+                            } else {
+                                let _ = inner.parse_nested_meta(|_| Ok(()));
+                            }
+                            Ok(())
+                        })?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+    }
+    Ok(out)
 }
 
 fn resolve_union_config(

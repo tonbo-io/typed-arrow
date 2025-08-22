@@ -11,6 +11,9 @@ resolver = "2"
 [lib]
 proc-macro = true
 
+[features]
+ext-hooks = []
+
 [dependencies]
 proc-macro2 = "1"
 quote = "1"
