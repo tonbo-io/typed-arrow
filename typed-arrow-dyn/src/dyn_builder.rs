@@ -6,7 +6,10 @@ use arrow_schema::DataType;
 use crate::{cell::DynCell, DynError};
 
 /// Trait object for a column builder that accepts dynamic cells.
-pub trait DynColumnBuilder {
+///
+/// Marked `Send` so trait objects can be moved across threads without
+/// repeating `+ Send` everywhere.
+pub trait DynColumnBuilder: Send {
     /// The Arrow logical type this builder produces.
     fn data_type(&self) -> &DataType;
 
