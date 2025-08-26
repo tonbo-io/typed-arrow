@@ -31,7 +31,13 @@ impl DynBuilders {
     pub fn append_option_row(&mut self, row: Option<DynRow>) -> Result<(), DynError> {
         match row {
             None => {
-                for c in &mut self.cols {
+                for (i, c) in self.cols.iter_mut().enumerate() {
+                    if !c.is_nullable() {
+                        return Err(DynError::Append {
+                            col: i,
+                            message: "null not allowed for non-nullable column".into(),
+                        });
+                    }
                     c.append_null();
                 }
             }

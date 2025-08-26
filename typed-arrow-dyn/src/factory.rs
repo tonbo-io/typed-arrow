@@ -15,7 +15,7 @@ use crate::{
 /// Factory function that returns a dynamic builder for a given `DataType`.
 ///
 /// This is the only place intended to perform a `match DataType`.
-pub fn new_dyn_builder(dt: &DataType, _nullable: bool) -> Box<dyn DynColumnBuilder> {
+pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilder> {
     enum Inner {
         Null(b::NullBuilder),
         Bool(b::BooleanBuilder),
@@ -85,11 +85,15 @@ pub fn new_dyn_builder(dt: &DataType, _nullable: bool) -> Box<dyn DynColumnBuild
     struct Col {
         dt: DataType,
         inner: Inner,
+        nullable: bool,
     }
 
     impl DynColumnBuilder for Col {
         fn data_type(&self) -> &DataType {
             &self.dt
+        }
+        fn is_nullable(&self) -> bool {
+            self.nullable
         }
         fn append_null(&mut self) {
             match &mut self.inner {
@@ -592,5 +596,6 @@ pub fn new_dyn_builder(dt: &DataType, _nullable: bool) -> Box<dyn DynColumnBuild
     Box::new(Col {
         dt: dt_cloned,
         inner,
+        nullable,
     })
 }

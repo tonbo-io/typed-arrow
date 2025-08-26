@@ -22,13 +22,31 @@ impl DynRow {
 
         // 2) Lightweight pre-validation to avoid partial writes when possible
         for (i, (cell_opt, b)) in self.0.iter().zip(cols.iter()).enumerate() {
-            if let Some(cell) = cell_opt {
-                let dt = b.data_type();
-                if !accepts_cell(dt, cell) {
-                    return Err(DynError::TypeMismatch {
-                        col: i,
-                        expected: dt.clone(),
-                    });
+            match cell_opt {
+                // Null cell provided where field is non-nullable
+                None => {
+                    if !b.is_nullable() {
+                        return Err(DynError::Append {
+                            col: i,
+                            message: "null not allowed for non-nullable column".into(),
+                        });
+                    }
+                }
+                Some(cell) => {
+                    // If explicitly a Null cell, enforce nullability as well
+                    if matches!(cell, DynCell::Null) && !b.is_nullable() {
+                        return Err(DynError::Append {
+                            col: i,
+                            message: "null not allowed for non-nullable column".into(),
+                        });
+                    }
+                    let dt = b.data_type();
+                    if !accepts_cell(dt, cell) {
+                        return Err(DynError::TypeMismatch {
+                            col: i,
+                            expected: dt.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -36,9 +54,36 @@ impl DynRow {
         // 3) Perform the actual appends
         let mut cells = self.0.into_iter();
         for (i, b) in cols.iter_mut().enumerate() {
-            match cells.next().flatten() {
-                None => b.append_null(),
-                Some(v) => b.append_dyn(v).map_err(|e| e.at_col(i))?,
+            match cells.next() {
+                // End of iterator (shouldn't happen due to arity check), treat as null
+                None => {
+                    if !b.is_nullable() {
+                        return Err(DynError::Append {
+                            col: i,
+                            message: "null not allowed for non-nullable column".into(),
+                        });
+                    }
+                    b.append_null();
+                }
+                Some(None) => {
+                    if !b.is_nullable() {
+                        return Err(DynError::Append {
+                            col: i,
+                            message: "null not allowed for non-nullable column".into(),
+                        });
+                    }
+                    b.append_null();
+                }
+                Some(Some(v)) => {
+                    // If explicitly passing Null cell, enforce again before delegating
+                    if matches!(v, DynCell::Null) && !b.is_nullable() {
+                        return Err(DynError::Append {
+                            col: i,
+                            message: "null not allowed for non-nullable column".into(),
+                        });
+                    }
+                    b.append_dyn(v).map_err(|e| e.at_col(i))?;
+                }
             }
         }
         Ok(())
