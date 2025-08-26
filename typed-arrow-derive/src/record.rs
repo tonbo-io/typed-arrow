@@ -12,6 +12,8 @@ use crate::attrs::parse_record_ext_visitors;
 use crate::attrs::parse_record_field_macros;
 #[cfg(feature = "ext-hooks")]
 use crate::attrs::parse_record_record_macros;
+#[cfg(feature = "ext-hooks")]
+use crate::attrs::parse_record_fields_macros;
 use crate::attrs::{parse_field_metadata_pairs, parse_schema_metadata_pairs};
 
 pub(crate) fn derive_record(input: DeriveInput) -> TokenStream {
@@ -78,6 +80,11 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let record_macros: Vec<Path> = parse_record_record_macros(&input.attrs)?;
     #[cfg(not(feature = "ext-hooks"))]
     let record_macros: Vec<Path> = Vec::new();
+
+    #[cfg(feature = "ext-hooks")]
+    let record_fields_macros: Vec<Path> = parse_record_fields_macros(&input.attrs)?;
+    #[cfg(not(feature = "ext-hooks"))]
+    let record_fields_macros: Vec<Path> = Vec::new();
 
     #[cfg(feature = "ext-hooks")]
     let record_ext_tokens: Option<Vec<proc_macro2::TokenStream>> =
@@ -493,6 +500,20 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         for m in &record_macros {
             record_macro_invocations
                 .push(quote! { #m!(owner = #name, len = #len, ext = #ext_group); });
+        }
+    }
+
+    // Optionally invoke record-fields macros with the list of (field: type)
+    if !record_fields_macros.is_empty() {
+        let mut field_pairs: Vec<proc_macro2::TokenStream> = Vec::new();
+        for f in fields.named.iter() {
+            let fname = f.ident.as_ref().expect("named");
+            let (inner_ty, _nullable) = unwrap_option(&f.ty);
+            let inner_ty_ts = inner_ty.to_token_stream();
+            field_pairs.push(quote! { ( #fname : #inner_ty_ts ) });
+        }
+        for m in &record_fields_macros {
+            record_macro_invocations.push(quote! { #m!( #name, #( #field_pairs ),* ); });
         }
     }
 

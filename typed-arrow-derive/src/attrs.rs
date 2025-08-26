@@ -286,6 +286,49 @@ pub(crate) fn parse_record_record_macros(attrs: &[Attribute]) -> syn::Result<Vec
     Ok(out)
 }
 
+// Container-level: #[record(record_fields_macro = my_ext::per_record_fields)] (repeatable)
+// Allows passing the entire field list and types to a user macro.
+#[cfg(feature = "ext-hooks")]
+pub(crate) fn parse_record_fields_macros(attrs: &[Attribute]) -> syn::Result<Vec<Path>> {
+    let mut out: Vec<Path> = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("record_fields_macro") {
+                    if let Ok(v) = meta.value() {
+                        if let Ok(ls) = v.parse::<LitStr>() {
+                            let p: Path = syn::parse_str(&ls.value())?;
+                            out.push(p);
+                        } else {
+                            let ep: syn::ExprPath = v.parse()?;
+                            out.push(ep.path);
+                        }
+                    } else {
+                        meta.parse_nested_meta(|mi| {
+                            let p: Path = mi.path.clone();
+                            out.push(p);
+                            Ok(())
+                        })?;
+                    }
+                } else if let Ok(v) = meta.value() {
+                    let _expr: syn::Expr = v.parse()?;
+                } else {
+                    meta.parse_nested_meta(|inner| {
+                        if let Ok(v2) = inner.value() {
+                            let _expr: syn::Expr = v2.parse()?;
+                        } else {
+                            let _ = inner.parse_nested_meta(|_| Ok(()));
+                        }
+                        Ok(())
+                    })?;
+                }
+                Ok(())
+            })?;
+        }
+    }
+    Ok(out)
+}
+
 // Container-level: #[record(ext(...))] → capture tokens for forwarding
 #[cfg(feature = "ext-hooks")]
 pub(crate) fn parse_ext_token_list_on_record(
