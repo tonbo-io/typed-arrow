@@ -290,85 +290,125 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                 }
                 // Dictionary (Utf8 values)
                 (Inner::DictUtf8I8(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictUtf8I16(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictUtf8I32(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictUtf8I64(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 // Dictionary (LargeUtf8 values)
                 (Inner::DictLargeUtf8I8(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeUtf8I16(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeUtf8I32(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeUtf8I64(b), DynCell::Str(s)) => {
-                    let _ = b.append(s.as_str());
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 // Dictionary (Binary values)
                 (Inner::DictBinaryI8(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictBinaryI16(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictBinaryI32(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictBinaryI64(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeBinaryI8(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeBinaryI16(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeBinaryI32(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictLargeBinaryI64(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictFixedSizeBinaryI8(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictFixedSizeBinaryI16(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictFixedSizeBinaryI32(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 (Inner::DictFixedSizeBinaryI64(b), DynCell::Bin(bs)) => {
-                    let _ = b.append(bs.as_slice());
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
                     Ok(())
                 }
                 // Nested
