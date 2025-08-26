@@ -9,17 +9,11 @@ fn rejects_none_for_non_nullable_primitive() {
     let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
-    // Cell None for non-nullable column should error
-    let err = b
-        .append_option_row(Some(DynRow(vec![None])))
-        .expect_err("expected nullability error");
-    matches_append_err_at_col(err, 0);
-
-    // Explicit DynCell::Null should also error
-    let err = b
-        .append_option_row(Some(DynRow(vec![Some(DynCell::Null)])))
-        .expect_err("expected nullability error");
-    matches_append_err_at_col(err, 0);
+    b.append_option_row(Some(DynRow(vec![None]))).unwrap();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _ = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }
 
 #[test]
@@ -32,9 +26,11 @@ fn rejects_top_level_none_row_when_any_column_required() {
     let schema = Arc::new(Schema::new(fields));
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
-    // Appending a None row should fail because column 0 is non-nullable
-    let err = b.append_option_row(None).expect_err("expected error");
-    matches_append_err_at_col(err, 0);
+    b.append_option_row(None).unwrap();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _ = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }
 
 #[test]
@@ -52,19 +48,15 @@ fn struct_child_non_nullable_rejects_none() {
     // Entire struct null is allowed (masked by parent validity)
     b.append_option_row(Some(DynRow(vec![None]))).unwrap();
 
-    // Child 'name' is non-nullable; providing None for it should error
-    let err = b
-        .append_option_row(Some(DynRow(vec![Some(DynCell::Struct(vec![
-            None,
-            Some(DynCell::I32(10)),
-        ]))])))
-        .expect_err("expected child nullability error");
-
-    // We only assert it's an Append error; nested index may vary
-    match err {
-        DynError::Append { .. } => {}
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    let row = DynRow(vec![Some(DynCell::Struct(vec![
+        None,
+        Some(DynCell::I32(10)),
+    ]))]);
+    b.append_option_row(Some(row)).unwrap();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _ = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }
 
 #[test]
@@ -75,17 +67,12 @@ fn list_item_non_nullable_rejects_none() {
     let schema = Arc::new(Schema::new(vec![tags]));
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
-    // Providing a null item should error
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
-    let err = b
-        .append_option_row(Some(row))
-        .expect_err("expected list item nullability error");
-
-    // For list item errors we expect an Append error at the column index
-    match err {
-        DynError::Append { .. } => {}
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    b.append_option_row(Some(row)).unwrap();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _ = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }
 
 #[test]
@@ -109,13 +96,11 @@ fn large_list_item_non_nullable_rejects_none() {
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
-    let err = b
-        .append_option_row(Some(row))
-        .expect_err("expected large list item nullability error");
-    match err {
-        DynError::Append { .. } => {}
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    b.append_option_row(Some(row)).unwrap();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _ = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }
 
 #[test]
@@ -131,18 +116,67 @@ fn fixed_size_list_item_non_nullable_rejects_none() {
         None,
         Some(DynCell::I32(3)),
     ]))]);
-    let err = b
-        .append_option_row(Some(row))
-        .expect_err("expected fixed-size list item nullability error");
-    match err {
-        DynError::Builder { .. } | DynError::Append { .. } => {}
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    b.append_option_row(Some(row)).unwrap();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _ = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }
 
-fn matches_append_err_at_col(err: DynError, expected_col: usize) {
-    match err {
-        DynError::Append { col, .. } => assert_eq!(col, expected_col),
-        other => panic!("expected Append error, got {other:?}"),
-    }
+#[test]
+fn deferred_allows_appends_but_fails_at_finish_primitive() {
+    // Schema: { a: Int64 (required) }
+    let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
+    let mut b = DynBuilders::new(Arc::clone(&schema), 0);
+
+    // Appending null should be allowed in deferred mode
+    b.append_option_row(Some(DynRow(vec![None]))).unwrap();
+
+    // Finish with checked validation should error
+    // Expect panic from Arrow validation on finish
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _batch = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
+}
+
+#[test]
+fn deferred_struct_child_violation_detected_at_finish() {
+    // person: Struct{name: Utf8 (req), age: Int32 (opt)} (person itself nullable)
+    let person_fields = vec![
+        Arc::new(Field::new("name", DataType::Utf8, false)),
+        Arc::new(Field::new("age", DataType::Int32, true)),
+    ];
+    let person = Field::new("person", DataType::Struct(person_fields.into()), true);
+    let schema = Arc::new(Schema::new(vec![person]));
+
+    let mut b = DynBuilders::new(Arc::clone(&schema), 0);
+    // Child 'name' is non-nullable; providing None should be caught at finish
+    b.append_option_row(Some(DynRow(vec![Some(DynCell::Struct(vec![
+        None,
+        Some(DynCell::I32(10)),
+    ]))])))
+    .unwrap();
+
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _batch = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
+}
+
+#[test]
+fn deferred_list_item_violation_detected_at_finish() {
+    // tags: List<Utf8 (required)>
+    let item = Arc::new(Field::new("item", DataType::Utf8, false));
+    let tags = Field::new("tags", DataType::List(item), true);
+    let schema = Arc::new(Schema::new(vec![tags]));
+    let mut b = DynBuilders::new(Arc::clone(&schema), 0);
+
+    let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
+    b.append_option_row(Some(row)).unwrap();
+
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _batch = b.finish_into_batch();
+    }));
+    assert!(res.is_err(), "expected panic due to nullability violation");
 }

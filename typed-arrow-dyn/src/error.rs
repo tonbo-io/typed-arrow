@@ -15,6 +15,19 @@ pub enum DynError {
         got: usize,
     },
 
+    /// Post-build nullability violation detected by the validator.
+    #[error("nullability violation at column {col} ({path}) index {index}: {message}")]
+    Nullability {
+        /// Top-level column index where the violation occurred.
+        col: usize,
+        /// Dot-annotated path to the offending field (e.g., "struct_field.child[]").
+        path: String,
+        /// Row or value index where the violation was found.
+        index: usize,
+        /// Message describing the violation.
+        message: String,
+    },
+
     /// A cell's Rust value did not match the target Arrow DataType for a column.
     #[error("type mismatch at column {col}: expected {expected:?}")]
     TypeMismatch {

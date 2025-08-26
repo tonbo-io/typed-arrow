@@ -15,7 +15,7 @@ use crate::{
 /// Factory function that returns a dynamic builder for a given `DataType`.
 ///
 /// This is the only place intended to perform a `match DataType`.
-pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilder> {
+pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
     enum Inner {
         Null(b::NullBuilder),
         Bool(b::BooleanBuilder),
@@ -107,16 +107,13 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
     struct Col {
         dt: DataType,
         inner: Inner,
-        nullable: bool,
     }
 
     impl DynColumnBuilder for Col {
         fn data_type(&self) -> &DataType {
             &self.dt
         }
-        fn is_nullable(&self) -> bool {
-            self.nullable
-        }
+
         fn append_null(&mut self) {
             match &mut self.inner {
                 Inner::Null(b) => b.append_null(),
@@ -659,7 +656,7 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                 Inner::DictFixedSizeBinaryI16(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryI32(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryI64(b) => Arc::new(b.finish()),
-                
+
                 Inner::DictFixedSizeBinaryU8(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryU16(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryU32(b) => Arc::new(b.finish()),
@@ -998,20 +995,20 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
         DataType::Struct(fields) => {
             let children = fields
                 .iter()
-                .map(|f| new_dyn_builder(f.data_type(), f.is_nullable()))
+                .map(|f| new_dyn_builder(f.data_type()))
                 .collect();
             Inner::Struct(StructCol::new_with_children(fields.clone(), children))
         }
         DataType::List(item) => {
-            let child = new_dyn_builder(item.data_type(), item.is_nullable());
+            let child = new_dyn_builder(item.data_type());
             Inner::List(ListCol::new_with_child(item.clone(), child))
         }
         DataType::LargeList(item) => {
-            let child = new_dyn_builder(item.data_type(), item.is_nullable());
+            let child = new_dyn_builder(item.data_type());
             Inner::LargeList(LargeListCol::new_with_child(item.clone(), child))
         }
         DataType::FixedSizeList(item, len) => {
-            let child = new_dyn_builder(item.data_type(), item.is_nullable());
+            let child = new_dyn_builder(item.data_type());
             Inner::FixedSizeList(FixedSizeListCol::new_with_child(item.clone(), *len, child))
         }
         _ => Inner::Null(b::NullBuilder::new()),
@@ -1019,6 +1016,5 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
     Box::new(Col {
         dt: dt_cloned,
         inner,
-        nullable,
     })
 }

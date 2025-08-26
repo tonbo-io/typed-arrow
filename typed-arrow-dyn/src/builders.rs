@@ -1,5 +1,6 @@
 //! Builders collection for dynamic schema.
 
+use arrow_array::RecordBatch;
 use arrow_schema::SchemaRef;
 
 use crate::{dyn_builder::DynColumnBuilder, factory::new_dyn_builder, rows::DynRow, DynError};
@@ -17,7 +18,7 @@ impl DynBuilders {
         let cols = schema
             .fields()
             .iter()
-            .map(|f| new_dyn_builder(f.data_type(), f.is_nullable()))
+            .map(|f| new_dyn_builder(f.data_type()))
             .collect();
         let _ = capacity; // reserve in concrete builders once implemented
         Self {
@@ -31,13 +32,7 @@ impl DynBuilders {
     pub fn append_option_row(&mut self, row: Option<DynRow>) -> Result<(), DynError> {
         match row {
             None => {
-                for (i, c) in self.cols.iter_mut().enumerate() {
-                    if !c.is_nullable() {
-                        return Err(DynError::Append {
-                            col: i,
-                            message: "null not allowed for non-nullable column".into(),
-                        });
-                    }
+                for c in self.cols.iter_mut() {
                     c.append_null();
                 }
             }
@@ -50,8 +45,7 @@ impl DynBuilders {
     }
 
     /// Finish and assemble a `RecordBatch`.
-    pub fn finish_into_batch(mut self) -> arrow_array::RecordBatch {
-        use arrow_array::RecordBatch;
+    pub fn finish_into_batch(mut self) -> RecordBatch {
         let arrays: Vec<_> = self.cols.iter_mut().map(|c| c.finish()).collect();
         RecordBatch::try_new(self.schema.clone(), arrays).expect("shape verified")
     }
