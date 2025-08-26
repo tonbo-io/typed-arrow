@@ -989,8 +989,8 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
                 b::FixedSizeBinaryDictionaryBuilder::<t::UInt64Type>::new(*w),
             ),
             // Primitive dictionary values (numeric & float). Use the minimal trait object wrapper.
-            (k, v) if new_prim_dict_inner(k, v).is_some() => new_prim_dict_inner(k, v).unwrap(),
-            _ => Inner::Null(b::NullBuilder::new()),
+            (k, v) => new_prim_dict_inner(k, v)
+                .unwrap_or_else(|| Inner::Null(b::NullBuilder::new())),
         },
         DataType::Struct(fields) => {
             let children = fields

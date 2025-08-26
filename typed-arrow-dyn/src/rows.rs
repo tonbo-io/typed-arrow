@@ -41,8 +41,8 @@ impl DynRow {
         let mut cells = self.0.into_iter();
         for (i, b) in cols.iter_mut().enumerate() {
             match cells.next() {
-                // End of iterator (shouldn't happen due to arity check), treat as null
-                None => b.append_null(),
+                // End of iterator should be impossible due to arity check
+                None => unreachable!("cells length pre-checked to match columns"),
                 Some(None) => b.append_null(),
                 Some(Some(v)) => {
                     b.append_dyn(v).map_err(|e| e.at_col(i))?;
