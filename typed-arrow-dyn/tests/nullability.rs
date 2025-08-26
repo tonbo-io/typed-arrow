@@ -1,22 +1,22 @@
 use std::sync::Arc;
 
 use arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynError, DynRow};
+use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 
 #[test]
+#[should_panic]
 fn rejects_none_for_non_nullable_primitive() {
     // Schema: { a: Int64 (required) }
     let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
     b.append_option_row(Some(DynRow(vec![None]))).unwrap();
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _ = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    // Expect panic due to nullability violation at finish
+    let _ = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn rejects_top_level_none_row_when_any_column_required() {
     // Schema: { a: Int64 (required), b: Utf8 (nullable) }
     let fields = vec![
@@ -27,13 +27,12 @@ fn rejects_top_level_none_row_when_any_column_required() {
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
     b.append_option_row(None).unwrap();
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _ = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    // Expect panic due to nullability violation at finish
+    let _ = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn struct_child_non_nullable_rejects_none() {
     // person: Struct{name: Utf8 (req), age: Int32 (opt)} (person itself nullable)
     let person_fields = vec![
@@ -53,13 +52,12 @@ fn struct_child_non_nullable_rejects_none() {
         Some(DynCell::I32(10)),
     ]))]);
     b.append_option_row(Some(row)).unwrap();
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _ = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    // Expect panic due to nullability violation at finish
+    let _ = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn list_item_non_nullable_rejects_none() {
     // tags: List<Utf8 (required)>
     let item = Arc::new(Field::new("item", DataType::Utf8, false));
@@ -69,10 +67,8 @@ fn list_item_non_nullable_rejects_none() {
 
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
     b.append_option_row(Some(row)).unwrap();
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _ = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    // Expect panic due to nullability violation at finish
+    let _ = b.finish_into_batch();
 }
 
 #[test]
@@ -88,6 +84,7 @@ fn list_nullable_parent_allows_none_even_if_items_required() {
 }
 
 #[test]
+#[should_panic]
 fn large_list_item_non_nullable_rejects_none() {
     // big: LargeList<Utf8 (required)>
     let item = Arc::new(Field::new("item", DataType::Utf8, false));
@@ -97,13 +94,12 @@ fn large_list_item_non_nullable_rejects_none() {
 
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
     b.append_option_row(Some(row)).unwrap();
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _ = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    // Expect panic due to nullability violation at finish
+    let _ = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn fixed_size_list_item_non_nullable_rejects_none() {
     // nums3: FixedSizeList<Int32 (required), 3>
     let item = Arc::new(Field::new("item", DataType::Int32, false));
@@ -117,13 +113,12 @@ fn fixed_size_list_item_non_nullable_rejects_none() {
         Some(DynCell::I32(3)),
     ]))]);
     b.append_option_row(Some(row)).unwrap();
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _ = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    // Expect panic due to nullability violation at finish
+    let _ = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn deferred_allows_appends_but_fails_at_finish_primitive() {
     // Schema: { a: Int64 (required) }
     let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
@@ -132,15 +127,12 @@ fn deferred_allows_appends_but_fails_at_finish_primitive() {
     // Appending null should be allowed in deferred mode
     b.append_option_row(Some(DynRow(vec![None]))).unwrap();
 
-    // Finish with checked validation should error
     // Expect panic from Arrow validation on finish
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _batch = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    let _batch = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn deferred_struct_child_violation_detected_at_finish() {
     // person: Struct{name: Utf8 (req), age: Int32 (opt)} (person itself nullable)
     let person_fields = vec![
@@ -158,13 +150,11 @@ fn deferred_struct_child_violation_detected_at_finish() {
     ]))])))
     .unwrap();
 
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _batch = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    let _batch = b.finish_into_batch();
 }
 
 #[test]
+#[should_panic]
 fn deferred_list_item_violation_detected_at_finish() {
     // tags: List<Utf8 (required)>
     let item = Arc::new(Field::new("item", DataType::Utf8, false));
@@ -175,8 +165,5 @@ fn deferred_list_item_violation_detected_at_finish() {
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
     b.append_option_row(Some(row)).unwrap();
 
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        let _batch = b.finish_into_batch();
-    }));
-    assert!(res.is_err(), "expected panic due to nullability violation");
+    let _batch = b.finish_into_batch();
 }
