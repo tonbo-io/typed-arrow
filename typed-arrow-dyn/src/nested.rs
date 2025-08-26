@@ -41,24 +41,8 @@ impl StructCol {
         }
         for (idx, (child, cell)) in self.children.iter_mut().zip(cells.into_iter()).enumerate() {
             match cell {
-                None => {
-                    if !child.is_nullable() {
-                        return Err(DynError::Append {
-                            col: idx,
-                            message: "null not allowed for non-nullable struct field".into(),
-                        });
-                    }
-                    child.append_null();
-                }
-                Some(v) => {
-                    if matches!(v, DynCell::Null) && !child.is_nullable() {
-                        return Err(DynError::Append {
-                            col: idx,
-                            message: "null not allowed for non-nullable struct field".into(),
-                        });
-                    }
-                    child.append_dyn(v).map_err(|e| e.at_col(idx))?;
-                }
+                None => child.append_null(),
+                Some(v) => child.append_dyn(v).map_err(|e| e.at_col(idx))?,
             }
         }
         self.validity.append(true);
@@ -99,22 +83,8 @@ impl ListCol {
         let mut added = 0i32;
         for it in items.into_iter() {
             match it {
-                None => {
-                    if !self.child.is_nullable() {
-                        return Err(DynError::Builder {
-                            message: "null not allowed for non-nullable list item".into(),
-                        });
-                    }
-                    self.child.append_null();
-                }
-                Some(v) => {
-                    if matches!(v, DynCell::Null) && !self.child.is_nullable() {
-                        return Err(DynError::Builder {
-                            message: "null not allowed for non-nullable list item".into(),
-                        });
-                    }
-                    self.child.append_dyn(v)?;
-                }
+                None => self.child.append_null(),
+                Some(v) => self.child.append_dyn(v)?,
             }
             added += 1;
         }
@@ -160,22 +130,8 @@ impl LargeListCol {
         let mut added = 0i64;
         for it in items.into_iter() {
             match it {
-                None => {
-                    if !self.child.is_nullable() {
-                        return Err(DynError::Builder {
-                            message: "null not allowed for non-nullable list item".into(),
-                        });
-                    }
-                    self.child.append_null();
-                }
-                Some(v) => {
-                    if matches!(v, DynCell::Null) && !self.child.is_nullable() {
-                        return Err(DynError::Builder {
-                            message: "null not allowed for non-nullable list item".into(),
-                        });
-                    }
-                    self.child.append_dyn(v)?;
-                }
+                None => self.child.append_null(),
+                Some(v) => self.child.append_dyn(v)?,
             }
             added += 1;
         }
@@ -234,22 +190,8 @@ impl FixedSizeListCol {
         }
         for it in items.into_iter() {
             match it {
-                None => {
-                    if !self.child.is_nullable() {
-                        return Err(DynError::Builder {
-                            message: "null not allowed for non-nullable list item".into(),
-                        });
-                    }
-                    self.child.append_null();
-                }
-                Some(v) => {
-                    if matches!(v, DynCell::Null) && !self.child.is_nullable() {
-                        return Err(DynError::Builder {
-                            message: "null not allowed for non-nullable list item".into(),
-                        });
-                    }
-                    self.child.append_dyn(v)?;
-                }
+                None => self.child.append_null(),
+                Some(v) => self.child.append_dyn(v)?,
             }
         }
         self.validity.append(true);

@@ -13,9 +13,6 @@ pub trait DynColumnBuilder: Send {
     /// The Arrow logical type this builder produces.
     fn data_type(&self) -> &DataType;
 
-    /// Whether this column allows nulls according to the schema `Field`.
-    fn is_nullable(&self) -> bool;
-
     /// Append a null value.
     fn append_null(&mut self);
 

@@ -20,26 +20,12 @@ impl DynRow {
             });
         }
 
-        // 2) Lightweight pre-validation to avoid partial writes when possible
+        // 2) Lightweight pre-validation to avoid partial writes when possible.
+        // Only validate type compatibility here; Arrow enforces nullability at finish.
         for (i, (cell_opt, b)) in self.0.iter().zip(cols.iter()).enumerate() {
             match cell_opt {
-                // Null cell provided where field is non-nullable
-                None => {
-                    if !b.is_nullable() {
-                        return Err(DynError::Append {
-                            col: i,
-                            message: "null not allowed for non-nullable column".into(),
-                        });
-                    }
-                }
+                None => {}
                 Some(cell) => {
-                    // If explicitly a Null cell, enforce nullability as well
-                    if matches!(cell, DynCell::Null) && !b.is_nullable() {
-                        return Err(DynError::Append {
-                            col: i,
-                            message: "null not allowed for non-nullable column".into(),
-                        });
-                    }
                     let dt = b.data_type();
                     if !accepts_cell(dt, cell) {
                         return Err(DynError::TypeMismatch {
@@ -56,32 +42,9 @@ impl DynRow {
         for (i, b) in cols.iter_mut().enumerate() {
             match cells.next() {
                 // End of iterator (shouldn't happen due to arity check), treat as null
-                None => {
-                    if !b.is_nullable() {
-                        return Err(DynError::Append {
-                            col: i,
-                            message: "null not allowed for non-nullable column".into(),
-                        });
-                    }
-                    b.append_null();
-                }
-                Some(None) => {
-                    if !b.is_nullable() {
-                        return Err(DynError::Append {
-                            col: i,
-                            message: "null not allowed for non-nullable column".into(),
-                        });
-                    }
-                    b.append_null();
-                }
+                None => b.append_null(),
+                Some(None) => b.append_null(),
                 Some(Some(v)) => {
-                    // If explicitly passing Null cell, enforce again before delegating
-                    if matches!(v, DynCell::Null) && !b.is_nullable() {
-                        return Err(DynError::Append {
-                            col: i,
-                            message: "null not allowed for non-nullable column".into(),
-                        });
-                    }
                     b.append_dyn(v).map_err(|e| e.at_col(i))?;
                 }
             }
