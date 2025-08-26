@@ -122,6 +122,17 @@ fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
             DataType::Binary | DataType::LargeBinary | DataType::FixedSizeBinary(_) => {
                 matches!(c, DynCell::Bin(_))
             }
+            // Primitive dictionary values
+            DataType::Int8 => matches!(c, DynCell::I8(_)),
+            DataType::Int16 => matches!(c, DynCell::I16(_)),
+            DataType::Int32 => matches!(c, DynCell::I32(_)),
+            DataType::Int64 => matches!(c, DynCell::I64(_)),
+            DataType::UInt8 => matches!(c, DynCell::U8(_)),
+            DataType::UInt16 => matches!(c, DynCell::U16(_)),
+            DataType::UInt32 => matches!(c, DynCell::U32(_)),
+            DataType::UInt64 => matches!(c, DynCell::U64(_)),
+            DataType::Float32 => matches!(c, DynCell::F32(_)),
+            DataType::Float64 => matches!(c, DynCell::F64(_)),
             _ => false,
         },
         _ => false,

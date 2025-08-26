@@ -59,27 +59,49 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
         DictUtf8I16(b::StringDictionaryBuilder<t::Int16Type>),
         DictUtf8I32(b::StringDictionaryBuilder<t::Int32Type>),
         DictUtf8I64(b::StringDictionaryBuilder<t::Int64Type>),
+        DictUtf8U8(b::StringDictionaryBuilder<t::UInt8Type>),
+        DictUtf8U16(b::StringDictionaryBuilder<t::UInt16Type>),
+        DictUtf8U32(b::StringDictionaryBuilder<t::UInt32Type>),
+        DictUtf8U64(b::StringDictionaryBuilder<t::UInt64Type>),
         DictLargeUtf8I8(b::LargeStringDictionaryBuilder<t::Int8Type>),
         DictLargeUtf8I16(b::LargeStringDictionaryBuilder<t::Int16Type>),
         DictLargeUtf8I32(b::LargeStringDictionaryBuilder<t::Int32Type>),
         DictLargeUtf8I64(b::LargeStringDictionaryBuilder<t::Int64Type>),
+        DictLargeUtf8U8(b::LargeStringDictionaryBuilder<t::UInt8Type>),
+        DictLargeUtf8U16(b::LargeStringDictionaryBuilder<t::UInt16Type>),
+        DictLargeUtf8U32(b::LargeStringDictionaryBuilder<t::UInt32Type>),
+        DictLargeUtf8U64(b::LargeStringDictionaryBuilder<t::UInt64Type>),
         DictBinaryI8(b::BinaryDictionaryBuilder<t::Int8Type>),
         DictBinaryI16(b::BinaryDictionaryBuilder<t::Int16Type>),
         DictBinaryI32(b::BinaryDictionaryBuilder<t::Int32Type>),
         DictBinaryI64(b::BinaryDictionaryBuilder<t::Int64Type>),
+        DictBinaryU8(b::BinaryDictionaryBuilder<t::UInt8Type>),
+        DictBinaryU16(b::BinaryDictionaryBuilder<t::UInt16Type>),
+        DictBinaryU32(b::BinaryDictionaryBuilder<t::UInt32Type>),
+        DictBinaryU64(b::BinaryDictionaryBuilder<t::UInt64Type>),
         DictLargeBinaryI8(b::LargeBinaryDictionaryBuilder<t::Int8Type>),
         DictLargeBinaryI16(b::LargeBinaryDictionaryBuilder<t::Int16Type>),
         DictLargeBinaryI32(b::LargeBinaryDictionaryBuilder<t::Int32Type>),
         DictLargeBinaryI64(b::LargeBinaryDictionaryBuilder<t::Int64Type>),
+        DictLargeBinaryU8(b::LargeBinaryDictionaryBuilder<t::UInt8Type>),
+        DictLargeBinaryU16(b::LargeBinaryDictionaryBuilder<t::UInt16Type>),
+        DictLargeBinaryU32(b::LargeBinaryDictionaryBuilder<t::UInt32Type>),
+        DictLargeBinaryU64(b::LargeBinaryDictionaryBuilder<t::UInt64Type>),
         DictFixedSizeBinaryI8(b::FixedSizeBinaryDictionaryBuilder<t::Int8Type>),
         DictFixedSizeBinaryI16(b::FixedSizeBinaryDictionaryBuilder<t::Int16Type>),
         DictFixedSizeBinaryI32(b::FixedSizeBinaryDictionaryBuilder<t::Int32Type>),
         DictFixedSizeBinaryI64(b::FixedSizeBinaryDictionaryBuilder<t::Int64Type>),
+        DictFixedSizeBinaryU8(b::FixedSizeBinaryDictionaryBuilder<t::UInt8Type>),
+        DictFixedSizeBinaryU16(b::FixedSizeBinaryDictionaryBuilder<t::UInt16Type>),
+        DictFixedSizeBinaryU32(b::FixedSizeBinaryDictionaryBuilder<t::UInt32Type>),
+        DictFixedSizeBinaryU64(b::FixedSizeBinaryDictionaryBuilder<t::UInt64Type>),
         // Nested
         Struct(StructCol),
         List(ListCol),
         LargeList(LargeListCol),
         FixedSizeList(FixedSizeListCol),
+        // Primitive dictionary via trait object
+        DictPrimitive(Box<dyn DictPrimBuilder>),
     }
 
     struct Col {
@@ -132,26 +154,47 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                 Inner::DictUtf8I16(b) => b.append_null(),
                 Inner::DictUtf8I32(b) => b.append_null(),
                 Inner::DictUtf8I64(b) => b.append_null(),
+                Inner::DictUtf8U8(b) => b.append_null(),
+                Inner::DictUtf8U16(b) => b.append_null(),
+                Inner::DictUtf8U32(b) => b.append_null(),
+                Inner::DictUtf8U64(b) => b.append_null(),
                 Inner::DictLargeUtf8I8(b) => b.append_null(),
                 Inner::DictLargeUtf8I16(b) => b.append_null(),
                 Inner::DictLargeUtf8I32(b) => b.append_null(),
                 Inner::DictLargeUtf8I64(b) => b.append_null(),
+                Inner::DictLargeUtf8U8(b) => b.append_null(),
+                Inner::DictLargeUtf8U16(b) => b.append_null(),
+                Inner::DictLargeUtf8U32(b) => b.append_null(),
+                Inner::DictLargeUtf8U64(b) => b.append_null(),
                 Inner::DictBinaryI8(b) => b.append_null(),
                 Inner::DictBinaryI16(b) => b.append_null(),
                 Inner::DictBinaryI32(b) => b.append_null(),
                 Inner::DictBinaryI64(b) => b.append_null(),
+                Inner::DictBinaryU8(b) => b.append_null(),
+                Inner::DictBinaryU16(b) => b.append_null(),
+                Inner::DictBinaryU32(b) => b.append_null(),
+                Inner::DictBinaryU64(b) => b.append_null(),
                 Inner::DictLargeBinaryI8(b) => b.append_null(),
                 Inner::DictLargeBinaryI16(b) => b.append_null(),
                 Inner::DictLargeBinaryI32(b) => b.append_null(),
                 Inner::DictLargeBinaryI64(b) => b.append_null(),
+                Inner::DictLargeBinaryU8(b) => b.append_null(),
+                Inner::DictLargeBinaryU16(b) => b.append_null(),
+                Inner::DictLargeBinaryU32(b) => b.append_null(),
+                Inner::DictLargeBinaryU64(b) => b.append_null(),
                 Inner::DictFixedSizeBinaryI8(b) => b.append_null(),
                 Inner::DictFixedSizeBinaryI16(b) => b.append_null(),
                 Inner::DictFixedSizeBinaryI32(b) => b.append_null(),
                 Inner::DictFixedSizeBinaryI64(b) => b.append_null(),
+                Inner::DictFixedSizeBinaryU8(b) => b.append_null(),
+                Inner::DictFixedSizeBinaryU16(b) => b.append_null(),
+                Inner::DictFixedSizeBinaryU32(b) => b.append_null(),
+                Inner::DictFixedSizeBinaryU64(b) => b.append_null(),
                 Inner::Struct(b) => b.append_null(),
                 Inner::List(b) => b.append_null(),
                 Inner::LargeList(b) => b.append_null(),
                 Inner::FixedSizeList(b) => b.append_null(),
+                Inner::DictPrimitive(b) => b.append_null(),
             }
         }
         fn append_dyn(&mut self, v: DynCell) -> Result<(), DynError> {
@@ -313,6 +356,30 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                     })?;
                     Ok(())
                 }
+                (Inner::DictUtf8U8(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictUtf8U16(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictUtf8U32(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictUtf8U64(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
                 // Dictionary (LargeUtf8 values)
                 (Inner::DictLargeUtf8I8(b), DynCell::Str(s)) => {
                     b.append(s.as_str()).map_err(|e| DynError::Builder {
@@ -333,6 +400,30 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                     Ok(())
                 }
                 (Inner::DictLargeUtf8I64(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeUtf8U8(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeUtf8U16(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeUtf8U32(b), DynCell::Str(s)) => {
+                    b.append(s.as_str()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeUtf8U64(b), DynCell::Str(s)) => {
                     b.append(s.as_str()).map_err(|e| DynError::Builder {
                         message: e.to_string(),
                     })?;
@@ -363,6 +454,30 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                     })?;
                     Ok(())
                 }
+                (Inner::DictBinaryU8(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictBinaryU16(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictBinaryU32(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictBinaryU64(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
                 (Inner::DictLargeBinaryI8(b), DynCell::Bin(bs)) => {
                     b.append(bs.as_slice()).map_err(|e| DynError::Builder {
                         message: e.to_string(),
@@ -382,6 +497,30 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                     Ok(())
                 }
                 (Inner::DictLargeBinaryI64(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeBinaryU8(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeBinaryU16(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeBinaryU32(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictLargeBinaryU64(b), DynCell::Bin(bs)) => {
                     b.append(bs.as_slice()).map_err(|e| DynError::Builder {
                         message: e.to_string(),
                     })?;
@@ -411,6 +550,32 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                     })?;
                     Ok(())
                 }
+                (Inner::DictFixedSizeBinaryU8(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictFixedSizeBinaryU16(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictFixedSizeBinaryU32(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                (Inner::DictFixedSizeBinaryU64(b), DynCell::Bin(bs)) => {
+                    b.append(bs.as_slice()).map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    })?;
+                    Ok(())
+                }
+                // Primitive dictionary values
+                (Inner::DictPrimitive(b), other) => b.append_cell(other),
                 // Nested
                 (Inner::Struct(b), DynCell::Struct(values)) => b.append_struct(values),
                 (Inner::List(b), DynCell::List(values)) => b.append_list(values),
@@ -462,31 +627,184 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
                 Inner::DictUtf8I16(b) => Arc::new(b.finish()),
                 Inner::DictUtf8I32(b) => Arc::new(b.finish()),
                 Inner::DictUtf8I64(b) => Arc::new(b.finish()),
+                Inner::DictUtf8U8(b) => Arc::new(b.finish()),
+                Inner::DictUtf8U16(b) => Arc::new(b.finish()),
+                Inner::DictUtf8U32(b) => Arc::new(b.finish()),
+                Inner::DictUtf8U64(b) => Arc::new(b.finish()),
                 Inner::DictLargeUtf8I8(b) => Arc::new(b.finish()),
                 Inner::DictLargeUtf8I16(b) => Arc::new(b.finish()),
                 Inner::DictLargeUtf8I32(b) => Arc::new(b.finish()),
                 Inner::DictLargeUtf8I64(b) => Arc::new(b.finish()),
+                Inner::DictLargeUtf8U8(b) => Arc::new(b.finish()),
+                Inner::DictLargeUtf8U16(b) => Arc::new(b.finish()),
+                Inner::DictLargeUtf8U32(b) => Arc::new(b.finish()),
+                Inner::DictLargeUtf8U64(b) => Arc::new(b.finish()),
                 Inner::DictBinaryI8(b) => Arc::new(b.finish()),
                 Inner::DictBinaryI16(b) => Arc::new(b.finish()),
                 Inner::DictBinaryI32(b) => Arc::new(b.finish()),
                 Inner::DictBinaryI64(b) => Arc::new(b.finish()),
+                Inner::DictBinaryU8(b) => Arc::new(b.finish()),
+                Inner::DictBinaryU16(b) => Arc::new(b.finish()),
+                Inner::DictBinaryU32(b) => Arc::new(b.finish()),
+                Inner::DictBinaryU64(b) => Arc::new(b.finish()),
                 Inner::DictLargeBinaryI8(b) => Arc::new(b.finish()),
                 Inner::DictLargeBinaryI16(b) => Arc::new(b.finish()),
                 Inner::DictLargeBinaryI32(b) => Arc::new(b.finish()),
                 Inner::DictLargeBinaryI64(b) => Arc::new(b.finish()),
+                Inner::DictLargeBinaryU8(b) => Arc::new(b.finish()),
+                Inner::DictLargeBinaryU16(b) => Arc::new(b.finish()),
+                Inner::DictLargeBinaryU32(b) => Arc::new(b.finish()),
+                Inner::DictLargeBinaryU64(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryI8(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryI16(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryI32(b) => Arc::new(b.finish()),
                 Inner::DictFixedSizeBinaryI64(b) => Arc::new(b.finish()),
+                
+                Inner::DictFixedSizeBinaryU8(b) => Arc::new(b.finish()),
+                Inner::DictFixedSizeBinaryU16(b) => Arc::new(b.finish()),
+                Inner::DictFixedSizeBinaryU32(b) => Arc::new(b.finish()),
+                Inner::DictFixedSizeBinaryU64(b) => Arc::new(b.finish()),
                 Inner::Struct(b) => Arc::new(b.finish()),
                 Inner::List(b) => Arc::new(b.finish()),
                 Inner::LargeList(b) => Arc::new(b.finish()),
                 Inner::FixedSizeList(b) => Arc::new(b.finish()),
+                Inner::DictPrimitive(b) => b.finish(),
             }
         }
     }
 
     let dt_cloned = dt.clone();
+    // Minimal trait object to handle primitive dictionary builders without exploding the enum.
+    trait DictPrimBuilder: Send {
+        fn append_cell(&mut self, v: DynCell) -> Result<(), DynError>;
+        fn append_null(&mut self);
+        fn finish(&mut self) -> ArrayRef;
+    }
+
+    struct DictPrimImpl<K, V>
+    where
+        K: arrow_array::types::ArrowDictionaryKeyType,
+        V: arrow_array::types::ArrowPrimitiveType,
+    {
+        b: b::PrimitiveDictionaryBuilder<K, V>,
+        _phantom: std::marker::PhantomData<(K, V)>,
+    }
+
+    impl<K, V> DictPrimImpl<K, V>
+    where
+        K: arrow_array::types::ArrowDictionaryKeyType,
+        V: arrow_array::types::ArrowPrimitiveType,
+    {
+        fn new() -> Self {
+            Self {
+                b: b::PrimitiveDictionaryBuilder::<K, V>::new(),
+                _phantom: Default::default(),
+            }
+        }
+    }
+
+    macro_rules! impl_dict_prim_builder {
+        ($name:ident, $cell_pat:pat, $val:expr) => {
+            impl<K> DictPrimBuilder for DictPrimImpl<K, t::$name>
+            where
+                K: arrow_array::types::ArrowDictionaryKeyType + Send,
+            {
+                fn append_cell(&mut self, v: DynCell) -> Result<(), DynError> {
+                    match v {
+                        $cell_pat => {
+                            let _ = self.b.append($val);
+                            Ok(())
+                        }
+                        _other => Err(DynError::Builder {
+                            message: format!(
+                                "type mismatch for primitive dict value: expected {:?}",
+                                <t::$name as arrow_array::types::ArrowPrimitiveType>::DATA_TYPE
+                            ),
+                        }),
+                    }
+                }
+                fn append_null(&mut self) {
+                    self.b.append_null();
+                }
+                fn finish(&mut self) -> ArrayRef {
+                    Arc::new(self.b.finish())
+                }
+            }
+        };
+    }
+
+    impl_dict_prim_builder!(Int8Type, DynCell::I8(x), x);
+    impl_dict_prim_builder!(Int16Type, DynCell::I16(x), x);
+    impl_dict_prim_builder!(Int32Type, DynCell::I32(x), x);
+    impl_dict_prim_builder!(Int64Type, DynCell::I64(x), x);
+    impl_dict_prim_builder!(UInt8Type, DynCell::U8(x), x);
+    impl_dict_prim_builder!(UInt16Type, DynCell::U16(x), x);
+    impl_dict_prim_builder!(UInt32Type, DynCell::U32(x), x);
+    impl_dict_prim_builder!(UInt64Type, DynCell::U64(x), x);
+    impl_dict_prim_builder!(Float32Type, DynCell::F32(x), x);
+    impl_dict_prim_builder!(Float64Type, DynCell::F64(x), x);
+
+    fn new_prim_dict_inner(key: &DataType, value: &DataType) -> Option<Inner> {
+        macro_rules! value_switch_for_key {
+            ($K:ty) => {
+                match value {
+                    DataType::Int8 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::Int8Type,
+                    >::new()))),
+                    DataType::Int16 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::Int16Type,
+                    >::new()))),
+                    DataType::Int32 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::Int32Type,
+                    >::new()))),
+                    DataType::Int64 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::Int64Type,
+                    >::new()))),
+                    DataType::UInt8 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::UInt8Type,
+                    >::new()))),
+                    DataType::UInt16 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::UInt16Type,
+                    >::new()))),
+                    DataType::UInt32 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::UInt32Type,
+                    >::new()))),
+                    DataType::UInt64 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::UInt64Type,
+                    >::new()))),
+                    DataType::Float32 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::Float32Type,
+                    >::new()))),
+                    DataType::Float64 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
+                        $K,
+                        t::Float64Type,
+                    >::new()))),
+                    _ => None,
+                }
+            };
+        }
+        match key {
+            DataType::Int8 => value_switch_for_key!(t::Int8Type),
+            DataType::Int16 => value_switch_for_key!(t::Int16Type),
+            DataType::Int32 => value_switch_for_key!(t::Int32Type),
+            DataType::Int64 => value_switch_for_key!(t::Int64Type),
+            DataType::UInt8 => value_switch_for_key!(t::UInt8Type),
+            DataType::UInt16 => value_switch_for_key!(t::UInt16Type),
+            DataType::UInt32 => value_switch_for_key!(t::UInt32Type),
+            DataType::UInt64 => value_switch_for_key!(t::UInt64Type),
+            _ => None,
+        }
+    }
+
     let inner = match &dt_cloned {
         DataType::Null => Inner::Null(b::NullBuilder::new()),
         DataType::Boolean => Inner::Bool(b::BooleanBuilder::new()),
@@ -559,6 +877,19 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
             (DataType::Int64, DataType::Utf8) => {
                 Inner::DictUtf8I64(b::StringDictionaryBuilder::<t::Int64Type>::new())
             }
+            // Utf8 dictionaries with unsigned integer keys
+            (DataType::UInt8, DataType::Utf8) => {
+                Inner::DictUtf8U8(b::StringDictionaryBuilder::<t::UInt8Type>::new())
+            }
+            (DataType::UInt16, DataType::Utf8) => {
+                Inner::DictUtf8U16(b::StringDictionaryBuilder::<t::UInt16Type>::new())
+            }
+            (DataType::UInt32, DataType::Utf8) => {
+                Inner::DictUtf8U32(b::StringDictionaryBuilder::<t::UInt32Type>::new())
+            }
+            (DataType::UInt64, DataType::Utf8) => {
+                Inner::DictUtf8U64(b::StringDictionaryBuilder::<t::UInt64Type>::new())
+            }
             // LargeUtf8 dictionaries with signed integer keys
             (DataType::Int8, DataType::LargeUtf8) => {
                 Inner::DictLargeUtf8I8(b::LargeStringDictionaryBuilder::<t::Int8Type>::new())
@@ -571,6 +902,19 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
             }
             (DataType::Int64, DataType::LargeUtf8) => {
                 Inner::DictLargeUtf8I64(b::LargeStringDictionaryBuilder::<t::Int64Type>::new())
+            }
+            // LargeUtf8 dictionaries with unsigned integer keys
+            (DataType::UInt8, DataType::LargeUtf8) => {
+                Inner::DictLargeUtf8U8(b::LargeStringDictionaryBuilder::<t::UInt8Type>::new())
+            }
+            (DataType::UInt16, DataType::LargeUtf8) => {
+                Inner::DictLargeUtf8U16(b::LargeStringDictionaryBuilder::<t::UInt16Type>::new())
+            }
+            (DataType::UInt32, DataType::LargeUtf8) => {
+                Inner::DictLargeUtf8U32(b::LargeStringDictionaryBuilder::<t::UInt32Type>::new())
+            }
+            (DataType::UInt64, DataType::LargeUtf8) => {
+                Inner::DictLargeUtf8U64(b::LargeStringDictionaryBuilder::<t::UInt64Type>::new())
             }
             // Binary dictionaries with signed integer keys
             (DataType::Int8, DataType::Binary) => {
@@ -585,6 +929,19 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
             (DataType::Int64, DataType::Binary) => {
                 Inner::DictBinaryI64(b::BinaryDictionaryBuilder::<t::Int64Type>::new())
             }
+            // Binary dictionaries with unsigned integer keys
+            (DataType::UInt8, DataType::Binary) => {
+                Inner::DictBinaryU8(b::BinaryDictionaryBuilder::<t::UInt8Type>::new())
+            }
+            (DataType::UInt16, DataType::Binary) => {
+                Inner::DictBinaryU16(b::BinaryDictionaryBuilder::<t::UInt16Type>::new())
+            }
+            (DataType::UInt32, DataType::Binary) => {
+                Inner::DictBinaryU32(b::BinaryDictionaryBuilder::<t::UInt32Type>::new())
+            }
+            (DataType::UInt64, DataType::Binary) => {
+                Inner::DictBinaryU64(b::BinaryDictionaryBuilder::<t::UInt64Type>::new())
+            }
             (DataType::Int8, DataType::LargeBinary) => {
                 Inner::DictLargeBinaryI8(b::LargeBinaryDictionaryBuilder::<t::Int8Type>::new())
             }
@@ -596,6 +953,18 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
             }
             (DataType::Int64, DataType::LargeBinary) => {
                 Inner::DictLargeBinaryI64(b::LargeBinaryDictionaryBuilder::<t::Int64Type>::new())
+            }
+            (DataType::UInt8, DataType::LargeBinary) => {
+                Inner::DictLargeBinaryU8(b::LargeBinaryDictionaryBuilder::<t::UInt8Type>::new())
+            }
+            (DataType::UInt16, DataType::LargeBinary) => {
+                Inner::DictLargeBinaryU16(b::LargeBinaryDictionaryBuilder::<t::UInt16Type>::new())
+            }
+            (DataType::UInt32, DataType::LargeBinary) => {
+                Inner::DictLargeBinaryU32(b::LargeBinaryDictionaryBuilder::<t::UInt32Type>::new())
+            }
+            (DataType::UInt64, DataType::LargeBinary) => {
+                Inner::DictLargeBinaryU64(b::LargeBinaryDictionaryBuilder::<t::UInt64Type>::new())
             }
             // FixedSizeBinary dictionaries (enforce width at builder init)
             (DataType::Int8, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryI8(
@@ -610,6 +979,20 @@ pub fn new_dyn_builder(dt: &DataType, nullable: bool) -> Box<dyn DynColumnBuilde
             (DataType::Int64, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryI64(
                 b::FixedSizeBinaryDictionaryBuilder::<t::Int64Type>::new(*w),
             ),
+            (DataType::UInt8, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU8(
+                b::FixedSizeBinaryDictionaryBuilder::<t::UInt8Type>::new(*w),
+            ),
+            (DataType::UInt16, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU16(
+                b::FixedSizeBinaryDictionaryBuilder::<t::UInt16Type>::new(*w),
+            ),
+            (DataType::UInt32, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU32(
+                b::FixedSizeBinaryDictionaryBuilder::<t::UInt32Type>::new(*w),
+            ),
+            (DataType::UInt64, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU64(
+                b::FixedSizeBinaryDictionaryBuilder::<t::UInt64Type>::new(*w),
+            ),
+            // Primitive dictionary values (numeric & float). Use the minimal trait object wrapper.
+            (k, v) if new_prim_dict_inner(k, v).is_some() => new_prim_dict_inner(k, v).unwrap(),
             _ => Inner::Null(b::NullBuilder::new()),
         },
         DataType::Struct(fields) => {
