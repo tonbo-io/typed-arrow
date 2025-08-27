@@ -30,6 +30,9 @@ pub trait DynColumnBuilder: Send {
     ///
     /// Default implementation delegates to `finish()` for builder types
     /// that are infallible at construction time.
+    ///
+    /// # Errors
+    /// Returns a `DynError` if the builder is in an invalid state.
     fn try_finish(&mut self) -> Result<ArrayRef, DynError> {
         Ok(self.finish())
     }

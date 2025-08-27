@@ -34,7 +34,6 @@ pub struct AddressO {
 #[derive(typed_arrow::Record)]
 pub struct PersonNO {
     pub id: i64,
-    #[nested]
     pub address: Option<AddressO>,
 }
 

@@ -21,7 +21,7 @@ What the derive forwards to your macros
   - `field = ident`: the field identifier
   - `ty = Type`: the field Rust type with nullability unwrapped
   - `nullable = true|false`: whether the column is nullable
-  - `is_nested = true|false`: whether `#[record(nested)]` is set
+  - `is_nested = true|false`: deprecated (nested structs are the default; flag is no longer meaningful)
   - `ext = ( ... )`: tokens from `#[record(ext(...))]` on the field (or `()` if absent)
 
 - Per-record macro invocation receives:

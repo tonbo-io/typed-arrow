@@ -28,7 +28,6 @@ struct Address { city: String, zip: Option<i32> }
 #[derive(typed_arrow::Record)]
 struct Person {
     id: i64,
-    #[record(nested)]
     address: Option<Address>,
     tags: Option<List<Option<i32>>>,          // List column with nullable items
     code: Option<Dictionary<i32, String>>,    // Dictionary<i32, Utf8>
@@ -90,7 +89,7 @@ Run the included examples to see end-to-end usage:
 - `04b_timestamps_tz` — `TimestampTz<U, Z>` with `Utc` and custom markers
 - `05_structs` — nested structs → `StructArray`
 - `06_rows_flat` — row-based building for flat records
-- `07_rows_nested` — row-based building with `#[record(nested)]`
+- `07_rows_nested` — row-based building with nested struct fields
 - `08_record_batch` — compile-time schema + `RecordBatch`
 - `09_duration_interval` — Duration and Interval types
 - `10_union` — Dense Union as a Record column (with attributes)
@@ -120,7 +119,7 @@ cargo run --example 08_record_batch
 
 ### Nested Type Wrappers
 
-- Struct fields: use `#[record(nested)]` (or `#[nested]`) on a struct-typed field to treat it as an Arrow `Struct`. Make the parent struct nullable with `Option<Nested>`; child nullability is independent.
+- Struct fields: struct-typed fields map to Arrow `Struct` columns by default. Make the parent field nullable with `Option<Nested>`; child nullability is independent.
 - Lists: `List<T>` (items non-null) and `List<Option<T>>` (items nullable). Use `Option<List<_>>` for list-level nulls.
 - LargeList: `LargeList<T>` and `LargeList<Option<T>>` for 64-bit offsets; wrap with `Option<_>` for column nulls.
 - FixedSizeList: `FixedSizeList<T, N>` (items non-null) and `FixedSizeListNullable<T, N>` (items nullable). Wrap with `Option<_>` for list-level nulls.

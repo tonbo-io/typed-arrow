@@ -17,7 +17,7 @@ trait PrimaryKey {
 
 // Per-field macro: generates a PrimaryKey impl only when `ext(key)` appears
 macro_rules! per_field {
-    (owner = $owner:ty, index = $idx:tt, field = $fname:ident, ty = $ty:ty, nullable = $nul:expr, is_nested = $nested:expr, ext = (key $($rest:tt)*)) => {
+    (owner = $owner:ty, index = $idx:tt, field = $fname:ident, ty = $ty:ty, nullable = $nul:expr, ext = (key $($rest:tt)*)) => {
         impl PrimaryKey for $owner {
             type Key = $ty;
             const FIELD_INDEX: usize = $idx;
@@ -25,7 +25,7 @@ macro_rules! per_field {
         }
     };
     // default: no-op for other fields
-    (owner = $owner:ty, index = $idx:tt, field = $fname:ident, ty = $ty:ty, nullable = $nul:expr, is_nested = $nested:expr, ext = ($($rest:tt)*)) => {};
+    (owner = $owner:ty, index = $idx:tt, field = $fname:ident, ty = $ty:ty, nullable = $nul:expr, ext = ($($rest:tt)*)) => {};
 }
 
 // Per-record macro: just define a const with the number of columns
