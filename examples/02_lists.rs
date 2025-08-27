@@ -1,4 +1,4 @@
-//! Showcase: List and item-nullable lists via List<Option<T>> for Arrow ListArray.
+//! Showcase: List and item-nullable lists via List<Option<T>> for Arrow `ListArray`.
 
 use arrow_array::Array;
 use typed_arrow::{bridge::ArrowBinding, prelude::*, List};
@@ -29,13 +29,16 @@ fn main() {
     );
 
     // Build a nullable-list of nullable i32 items
-    let mut nlb = <List<Option<i32>> as ArrowBinding>::new_builder(2);
-    <List<Option<i32>> as ArrowBinding>::append_value(&mut nlb, &List::new(vec![Some(1), None]));
-    <List<Option<i32>> as ArrowBinding>::append_null(&mut nlb);
-    let nla = <List<Option<i32>> as ArrowBinding>::finish(nlb);
+    let mut nullable_builder = <List<Option<i32>> as ArrowBinding>::new_builder(2);
+    <List<Option<i32>> as ArrowBinding>::append_value(
+        &mut nullable_builder,
+        &List::new(vec![Some(1), None]),
+    );
+    <List<Option<i32>> as ArrowBinding>::append_null(&mut nullable_builder);
+    let nullable_arr = <List<Option<i32>> as ArrowBinding>::finish(nullable_builder);
     println!(
         "List<Nullable<i32>> len={}, second_is_null={}",
-        nla.len(),
-        nla.is_null(1)
+        nullable_arr.len(),
+        nullable_arr.is_null(1)
     );
 }

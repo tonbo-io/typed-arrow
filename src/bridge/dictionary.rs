@@ -2,7 +2,16 @@
 
 use std::marker::PhantomData;
 
-use arrow_array::{builder::*, types::*};
+use arrow_array::{
+    builder::{
+        BinaryDictionaryBuilder, FixedSizeBinaryDictionaryBuilder, LargeBinaryDictionaryBuilder,
+        LargeStringDictionaryBuilder, PrimitiveDictionaryBuilder, StringDictionaryBuilder,
+    },
+    types::{
+        Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
+        UInt32Type, UInt64Type, UInt8Type,
+    },
+};
 use arrow_schema::DataType;
 
 use super::{binary::LargeBinary, strings::LargeUtf8, ArrowBinding};
@@ -140,12 +149,14 @@ where
     fn data_type() -> DataType {
         DataType::Dictionary(
             Box::new(<K as DictKey>::data_type()),
-            Box::new(DataType::FixedSizeBinary(N as i32)),
+            Box::new(DataType::FixedSizeBinary(
+                i32::try_from(N).expect("width fits i32"),
+            )),
         )
     }
     fn new_builder(_capacity: usize) -> Self::Builder {
         // Builder enforces width on appended values; pass byte width
-        FixedSizeBinaryDictionaryBuilder::new(N as i32)
+        FixedSizeBinaryDictionaryBuilder::new(i32::try_from(N).expect("width fits i32"))
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
         let _ = b.append(*v.value());

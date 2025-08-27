@@ -26,16 +26,23 @@ fn struct_datatype_and_associated_types() {
     );
     assert_eq!(<PersonS as ColAt<1>>::data_type(), expected);
 
-    // Associated types are StructBuilder/StructArray
-    type AB = <PersonS as ColAt<1>>::ColumnBuilder;
-    type AA = <PersonS as ColAt<1>>::ColumnArray;
+    // Associated types are StructBuilder/StructArray — verified in a dedicated scope
+    {
+        type AB = <PersonS as ColAt<1>>::ColumnBuilder;
+        type AA = <PersonS as ColAt<1>>::ColumnArray;
 
-    trait Same<T> {}
-    impl<T> Same<T> for T {}
-    fn _b<T: Same<StructBuilder>>() {}
-    fn _a<T: Same<arrow_array::StructArray>>() {}
-    _b::<AB>();
-    _a::<AA>();
+        trait Same<T> {}
+        impl<T> Same<T> for T {}
+        #[allow(clippy::used_underscore_items)]
+        fn _b<T: Same<StructBuilder>>() {}
+        #[allow(clippy::used_underscore_items)]
+        fn _a<T: Same<arrow_array::StructArray>>() {}
+        #[allow(clippy::used_underscore_items)]
+        {
+            _b::<AB>();
+            _a::<AA>();
+        }
+    }
 }
 
 #[test]

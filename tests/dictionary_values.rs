@@ -40,7 +40,7 @@ fn dict_utf8_roundtrip_values() {
             None => assert!(dict_arr.is_null(i)),
             Some(s) => {
                 assert!(dict_arr.is_valid(i));
-                let k = keys.value(i) as usize;
+                let k = usize::try_from(keys.value(i)).expect("non-negative dictionary key");
                 assert_eq!(values.value(k), s);
             }
         }
@@ -151,7 +151,7 @@ fn dict_fixed_size_binary_roundtrip() {
         .unwrap();
     let keys = arr.keys();
     for &i in &[0usize, 2usize] {
-        let k = keys.value(i) as usize;
+        let k = usize::try_from(keys.value(i)).expect("non-negative dictionary key");
         assert_eq!(values.value(k), &[0xAA, 0xBB, 0xCC, 0xDD]);
     }
 }

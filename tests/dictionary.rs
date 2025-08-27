@@ -42,14 +42,21 @@ fn dictionary_schema_and_types() {
         DataType::Dictionary(Box::new(DataType::Int8), Box::new(DataType::Utf8))
     );
 
-    // Associated types
-    type A0 = <Row as ColAt<0>>::ColumnArray;
-    type B0 = <Row as ColAt<0>>::ColumnBuilder;
-    // Compile-type checks
-    trait Same<T> {}
-    impl<T> Same<T> for T {}
-    fn _a0<T: Same<arrow_array::DictionaryArray<arrow_array::types::Int32Type>>>() {}
-    fn _b0<T: Same<arrow_array::builder::PrimitiveDictionaryBuilder<Int32Type, Int32Type>>>() {}
-    _a0::<A0>();
-    _b0::<B0>();
+    // Associated types: compile-time checks in an inner block to avoid clippy
+    // items-after-statements
+    {
+        type A0 = <Row as ColAt<0>>::ColumnArray;
+        type B0 = <Row as ColAt<0>>::ColumnBuilder;
+        trait Same<T> {}
+        impl<T> Same<T> for T {}
+        #[allow(clippy::used_underscore_items)]
+        fn _a0<T: Same<arrow_array::DictionaryArray<arrow_array::types::Int32Type>>>() {}
+        #[allow(clippy::used_underscore_items)]
+        fn _b0<T: Same<arrow_array::builder::PrimitiveDictionaryBuilder<Int32Type, Int32Type>>>() {}
+        #[allow(clippy::used_underscore_items)]
+        {
+            _a0::<A0>();
+            _b0::<B0>();
+        }
+    }
 }

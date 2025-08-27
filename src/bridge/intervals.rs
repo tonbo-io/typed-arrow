@@ -1,25 +1,32 @@
-//! Interval types: YearMonth, DayTime, MonthDayNano.
+//! Interval types: `YearMonth`, `DayTime`, `MonthDayNano`.
 
-use arrow_array::{builder::PrimitiveBuilder, types::*, PrimitiveArray};
+use arrow_array::{
+    builder::PrimitiveBuilder,
+    types::{IntervalDayTimeType, IntervalMonthDayNanoType, IntervalYearMonthType},
+    PrimitiveArray,
+};
 use arrow_schema::{DataType, IntervalUnit};
 
 use super::ArrowBinding;
 
-/// Interval with unit YearMonth (i32 months since epoch).
+/// Interval with unit `YearMonth` (i32 months since epoch).
 pub struct IntervalYearMonth(i32);
 impl IntervalYearMonth {
-    /// Construct a new YearMonth interval value from months since epoch.
+    /// Construct a new `YearMonth` interval value from months since epoch.
     #[inline]
+    #[must_use]
     pub fn new(value: i32) -> Self {
         Self(value)
     }
     /// Return the months since epoch.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i32 {
         self.0
     }
     /// Consume and return the months since epoch.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i32 {
         self.0
     }
@@ -44,21 +51,24 @@ impl ArrowBinding for IntervalYearMonth {
     }
 }
 
-/// Interval with unit DayTime (packed days and milliseconds).
+/// Interval with unit `DayTime` (packed days and milliseconds).
 pub struct IntervalDayTime(arrow_array::types::IntervalDayTime);
 impl IntervalDayTime {
-    /// Construct a new DayTime interval from the native Arrow struct.
+    /// Construct a new `DayTime` interval from the native Arrow struct.
     #[inline]
+    #[must_use]
     pub fn new(value: arrow_array::types::IntervalDayTime) -> Self {
         Self(value)
     }
-    /// Return the underlying Arrow DayTime interval value.
+    /// Return the underlying Arrow `DayTime` interval value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> arrow_array::types::IntervalDayTime {
         self.0
     }
-    /// Consume and return the underlying Arrow DayTime interval value.
+    /// Consume and return the underlying Arrow `DayTime` interval value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> arrow_array::types::IntervalDayTime {
         self.0
     }
@@ -83,21 +93,24 @@ impl ArrowBinding for IntervalDayTime {
     }
 }
 
-/// Interval with unit MonthDayNano (packed months, days, and nanoseconds).
+/// Interval with unit `MonthDayNano` (packed months, days, and nanoseconds).
 pub struct IntervalMonthDayNano(arrow_array::types::IntervalMonthDayNano);
 impl IntervalMonthDayNano {
-    /// Construct a new MonthDayNano interval from the native Arrow struct.
+    /// Construct a new `MonthDayNano` interval from the native Arrow struct.
     #[inline]
+    #[must_use]
     pub fn new(value: arrow_array::types::IntervalMonthDayNano) -> Self {
         Self(value)
     }
-    /// Return the underlying Arrow MonthDayNano interval value.
+    /// Return the underlying Arrow `MonthDayNano` interval value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> arrow_array::types::IntervalMonthDayNano {
         self.0
     }
-    /// Consume and return the underlying Arrow MonthDayNano interval value.
+    /// Consume and return the underlying Arrow `MonthDayNano` interval value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> arrow_array::types::IntervalMonthDayNano {
         self.0
     }

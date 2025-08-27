@@ -56,7 +56,7 @@ fn dictionary_utf8_roundtrip() {
             None => assert!(arr.is_null(i)),
             Some(exp) => {
                 assert!(arr.is_valid(i));
-                let k = keys.value(i) as usize;
+                let k = usize::try_from(keys.value(i)).expect("non-negative dictionary key");
                 assert_eq!(dict_values.value(k), exp);
             }
         }
@@ -117,7 +117,7 @@ fn dictionary_binary_and_fixed_size() {
         .unwrap();
     // Decode row0 and row2 back to the byte sequences
     for &i in &[0usize, 2usize] {
-        let k = bin_keys.value(i) as usize;
+        let k = usize::try_from(bin_keys.value(i)).expect("non-negative dictionary key");
         assert_eq!(bin_values.value(k), &[1u8, 2u8]);
     }
 
@@ -138,7 +138,7 @@ fn dictionary_binary_and_fixed_size() {
         .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
         .unwrap();
     for &i in &[0usize, 2usize] {
-        let k = f4_keys.value(i) as usize;
+        let k = usize::try_from(f4_keys.value(i)).expect("non-negative dictionary key");
         assert_eq!(f4_values.value(k), &[0xAA, 0xBB, 0xCC, 0xDD]);
     }
 }

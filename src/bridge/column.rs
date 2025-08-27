@@ -8,6 +8,7 @@ use super::ArrowBinding;
 use crate::schema::{ColAt, Record};
 
 /// Returns the Arrow `DataType` for column `I` of record `R`.
+#[must_use]
 pub fn data_type_of<R: Record + ColAt<I>, const I: usize>() -> DataType
 where
     <R as ColAt<I>>::Native: ArrowBinding,
@@ -29,6 +30,7 @@ where
     <R as ColAt<I>>::Native: ArrowBinding,
 {
     /// Create a builder with `capacity`.
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: <<R as ColAt<I>>::Native as ArrowBinding>::new_builder(capacity),
@@ -38,7 +40,7 @@ where
 
     /// Append a value.
     pub fn append_value(&mut self, v: &<R as ColAt<I>>::Native) {
-        <<R as ColAt<I>>::Native as ArrowBinding>::append_value(&mut self.inner, v)
+        <<R as ColAt<I>>::Native as ArrowBinding>::append_value(&mut self.inner, v);
     }
 
     /// Append an optional value; `None` appends a null.
@@ -50,6 +52,7 @@ where
     }
 
     /// Finish and produce the typed Arrow array for this column.
+    #[must_use]
     pub fn finish(self) -> <<R as ColAt<I>>::Native as ArrowBinding>::Array {
         <<R as ColAt<I>>::Native as ArrowBinding>::finish(self.inner)
     }

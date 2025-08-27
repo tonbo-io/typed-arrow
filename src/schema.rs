@@ -33,7 +33,7 @@ pub trait ColAt<const I: usize>: Record {
     /// Column name.
     const NAME: &'static str;
 
-    /// Arrow-rs DataType for this column.
+    /// Arrow-rs `DataType` for this column.
     fn data_type() -> DataType;
 }
 
@@ -50,6 +50,7 @@ pub struct FieldMeta<R> {
 
 impl<R> FieldMeta<R> {
     /// Construct a new `FieldMeta`.
+    #[must_use]
     pub const fn new(name: &'static str, nullable: bool) -> Self {
         Self {
             name,
@@ -84,12 +85,13 @@ pub trait StructMeta: Record {
 
 /// Arrow runtime schema metadata for a top-level Record.
 pub trait SchemaMeta: Record {
-    /// Top-level fields: (name, data_type, nullable) represented as `Field`s.
+    /// Top-level fields: (name, `data_type`, nullable) represented as `Field`s.
     fn fields() -> Vec<Field>;
 
     /// Optional top-level schema key/value metadata.
+    #[must_use]
     fn metadata() -> HashMap<String, String> {
-        Default::default()
+        HashMap::default()
     }
 
     /// Construct an `Arc<arrow_schema::Schema>` from `fields()`.

@@ -1,4 +1,4 @@
-//! Showcase: TimestampTz<U, Z> with timezone markers.
+//! Showcase: `TimestampTz`<U, Z> with timezone markers.
 
 use arrow_array::Array;
 use typed_arrow::{prelude::*, Millisecond, Nanosecond, Second, TimestampTz, Utc};
@@ -28,12 +28,11 @@ fn main() {
     );
 
     // Build seconds-with-UTC array
-    type B0 = <RowTz as ColAt<0>>::ColumnBuilder;
-    type A0 = <RowTz as ColAt<0>>::ColumnArray;
-    let mut b0: B0 = PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(2);
+    let mut b0: <RowTz as ColAt<0>>::ColumnBuilder =
+        PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(2);
     b0.append_value(1);
     b0.append_null();
-    let a0: A0 = b0.finish();
+    let a0: <RowTz as ColAt<0>>::ColumnArray = b0.finish();
     println!("len={}, is_null1={}", a0.len(), a0.is_null(1));
 
     // Sanity check a DataType

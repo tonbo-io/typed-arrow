@@ -81,7 +81,7 @@ impl ListCol {
     }
     pub(crate) fn append_list(&mut self, items: Vec<Option<DynCell>>) -> Result<(), DynError> {
         let mut added = 0i32;
-        for it in items.into_iter() {
+        for it in items {
             match it {
                 None => self.child.append_null(),
                 Some(v) => self.child.append_dyn(v)?,
@@ -96,7 +96,7 @@ impl ListCol {
     pub(crate) fn finish(&mut self) -> arrow_array::ListArray {
         let values = self.child.finish();
         let offsets: OffsetBuffer<i32> =
-            OffsetBuffer::new(ScalarBuffer::from_iter(self.offsets.iter().copied()));
+            OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(arrow_buffer::NullBuffer::new(v.finish()));
@@ -128,7 +128,7 @@ impl LargeListCol {
     }
     pub(crate) fn append_list(&mut self, items: Vec<Option<DynCell>>) -> Result<(), DynError> {
         let mut added = 0i64;
-        for it in items.into_iter() {
+        for it in items {
             match it {
                 None => self.child.append_null(),
                 Some(v) => self.child.append_dyn(v)?,
@@ -143,7 +143,7 @@ impl LargeListCol {
     pub(crate) fn finish(&mut self) -> arrow_array::LargeListArray {
         let values = self.child.finish();
         let offsets: OffsetBuffer<i64> =
-            OffsetBuffer::new(ScalarBuffer::from_iter(self.offsets.iter().copied()));
+            OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(arrow_buffer::NullBuffer::new(v.finish()));
@@ -179,7 +179,7 @@ impl FixedSizeListCol {
         self.validity.append(false);
     }
     pub(crate) fn append_fixed(&mut self, items: Vec<Option<DynCell>>) -> Result<(), DynError> {
-        if items.len() as i32 != self.len {
+        if usize::try_from(self.len).ok() != Some(items.len()) {
             return Err(DynError::Builder {
                 message: format!(
                     "fixed-size list length mismatch: expected {}, got {}",
@@ -188,7 +188,7 @@ impl FixedSizeListCol {
                 ),
             });
         }
-        for it in items.into_iter() {
+        for it in items {
             match it {
                 None => self.child.append_null(),
                 Some(v) => self.child.append_dyn(v)?,

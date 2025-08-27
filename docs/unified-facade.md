@@ -8,7 +8,7 @@
 - Shared core: `bridge::ArrowBinding` drives Rust type → Arrow builder/array/DataType for both static and dynamic paths.
 - Static API: `Record`, `ColAt<I>`, `ForEachCol`, `BuildRows`, `SchemaMeta` (unchanged). No runtime `DataType` switches; all code monomorphizes.
 - Dynamic API: Minimal runtime builders facade with a single `DataType` switch in a factory. Produces `ArrayRef`s and `RecordBatch` for arbitrary `SchemaRef`.
-- Unifying enum: `UnifiedRecord<R = DynMarker>` wraps either compile-time type info or a runtime schema. It exposes the shared operations; typed-only operations remain gated behind `R: Record`.
+- Unified facade: Implemented as traits in `typed-arrow-unified` — `SchemaLike` and `BuildersLike` — with `Typed<R>`, `DynSchema`, and `Arc<Schema>` as implementors. Shared operations include building `RecordBatch`es from rows and constructing builders with capacity. Builders expose `finish_into_batch()` and `try_finish_into_batch()`; the latter returns diagnostic errors when available (dynamic path).
 
 ## Workspace Structure (Crates + Features)
 
@@ -26,12 +26,12 @@ Keep everything in a single repository as a workspace with focused crates. Make 
   - Depends only on syn/quote/proc-macro2; no Arrow runtime.
 
 - typed-arrow-dyn (dynamic facade)
-  - Contents: `DynSchema`, `DynBuilders`, `DynColumnBuilder`, `DynCell`/`DynRow`, and `new_dyn_builder(dt, nullable)` factory. Holds the only `match DataType`.
+  - Contents: `DynSchema`, `DynBuilders`, `DynColumnBuilder`, `DynCell`/`DynRow`, and `new_dyn_builder(dt)` factory. Holds the only `match DataType`. Column/field/item nullability is not passed to the factory; Arrow enforces nullability when arrays/RecordBatches are constructed.
   - Dependencies: `typed-arrow` (for ArrowBinding/wrappers), `arrow-array`, `arrow-schema`, `arrow-buffer`.
   - Feature gates: optional per-container coverage or Arrow version gates if needed.
 
-- typed-arrow-unified (enum facade)
-  - Contents: `DynMarker`, `UnifiedRecord<R = DynMarker>`, `UnifiedBuilders`, `UnifiedRow`, downcast helpers (`try_bind`/`try_as_static`).
+- typed-arrow-unified (unified traits facade)
+  - Contents: `SchemaLike`, `BuildersLike`, `Typed<R>` marker, and implementations for `DynSchema` and `Arc<Schema>`.
   - Dependencies: `typed-arrow` and `typed-arrow-dyn`.
 
 Developer ergonomics and re-exports
@@ -47,127 +47,86 @@ CI/test matrix
 
 ## Types and API Surface
 
-### Marker and Enum
+### Unified Traits and Types
 ```rust
-pub struct DynMarker;
-
-pub enum UnifiedRecord<R = DynMarker> {
-    CompileTime(std::marker::PhantomData<R>),
-    Runtime(DynSchema),
+// typed-arrow-unified
+pub trait BuildersLike {
+    type Row;
+    type Error: std::error::Error;
+    fn append_row(&mut self, row: Self::Row) -> Result<(), Self::Error>;
+    fn append_option_row(&mut self, row: Option<Self::Row>) -> Result<(), Self::Error>;
+    fn finish_into_batch(self) -> arrow_array::RecordBatch;
+    fn try_finish_into_batch(self) -> Result<arrow_array::RecordBatch, Self::Error> where Self: Sized { /* default: Ok(finish) */ }
 }
+
+pub trait SchemaLike {
+    type Row;
+    type Builders: BuildersLike<Row = Self::Row>;
+    fn schema_ref(&self) -> std::sync::Arc<arrow_schema::Schema>;
+    fn new_builders(&self, capacity: usize) -> Self::Builders;
+    fn build_batch<I>(&self, rows: I) -> Result<arrow_array::RecordBatch, <Self::Builders as BuildersLike>::Error>
+    where
+        I: IntoIterator<Item = Self::Row>;
+}
+
+// Implementors
+pub struct Typed<R> { /* marker */ }
+impl<R: typed_arrow::schema::BuildRows + typed_arrow::schema::SchemaMeta> SchemaLike for Typed<R> { /* ... */ }
+
+impl SchemaLike for typed_arrow_dyn::DynSchema { /* ... */ }
+impl SchemaLike for std::sync::Arc<arrow_schema::Schema> { /* ... */ }
 ```
 
-- Default type parameter `DynMarker` enables `UnifiedRecord` to be used without generics for dynamic-only scenarios.
-- The enum itself is unbounded; typed-only methods are provided in an inherent `impl<R: Record>` block.
-
-### Typed Surface (only when R: Record)
+### Typed Path
 ```rust
-impl<R: Record> UnifiedRecord<R> {
-    pub fn compile_time() -> Self { Self::CompileTime(std::marker::PhantomData) }
+use typed_arrow::schema::{BuildRows, SchemaMeta};
+use typed_arrow_unified::{SchemaLike, Typed};
 
-    pub fn schema_ref(&self) -> arrow_schema::SchemaRef {
-        match self {
-            Self::CompileTime(_) => typed_arrow::schema::<R>(),
-            Self::Runtime(d) => d.schema.clone(),
-        }
-    }
+#[derive(typed_arrow::Record)]
+struct Person { id: i64, name: Option<String> }
 
-    pub fn builders(&self, cap: usize) -> UnifiedBuilders<R> {
-        match self {
-            Self::CompileTime(_) => UnifiedBuilders::CompileTime(<R as BuildRows>::new_builders(cap)),
-            Self::Runtime(d) => UnifiedBuilders::Runtime(DynBuilders::new(d.schema.clone(), cap)),
-        }
-    }
-
-    pub fn with_static<T>(&self, f: impl FnOnce(StaticFacade<R>) -> T) -> Option<T> {
-        match self {
-            Self::CompileTime(_) => Some(f(StaticFacade::<R> { _pd: std::marker::PhantomData })),
-            Self::Runtime(_) => None,
-        }
-    }
-
-    pub fn try_as_static(&self) -> Result<StaticFacade<R>, DynMismatch> {
-        match self {
-            Self::CompileTime(_) => Ok(StaticFacade::<R> { _pd: std::marker::PhantomData }),
-            Self::Runtime(d) => {
-                if typed_arrow::schema::<R>().equals_deterministic(&d.schema) {
-                    Ok(StaticFacade::<R> { _pd: std::marker::PhantomData })
-                } else {
-                    Err(DynMismatch { /* shape details */ })
-                }
-            }
-        }
-    }
-}
-
-pub struct StaticFacade<R: Record> { pub(crate) _pd: std::marker::PhantomData<R> }
+let schema = Typed::<Person>::default();
+let rows = vec![
+    Person { id: 1, name: Some("a".into()) },
+    Person { id: 2, name: None },
+];
+let batch = schema.build_batch(rows).unwrap();
 ```
 
-### Dynamic Surface (when R = DynMarker)
+### Dynamic Path
 ```rust
-pub struct DynSchema { pub schema: arrow_schema::SchemaRef }
+use std::sync::Arc;
+use arrow_schema::{Field, Schema, DataType};
+use typed_arrow_unified::SchemaLike;
+use typed_arrow_dyn::{DynRow, DynCell, DynSchema};
 
-impl UnifiedRecord<DynMarker> {
-    pub fn runtime(schema: arrow_schema::SchemaRef) -> Self { Self::Runtime(DynSchema { schema }) }
-
-    pub fn schema_ref(&self) -> arrow_schema::SchemaRef {
-        match self {
-            Self::Runtime(d) => d.schema.clone(),
-            Self::CompileTime(_) => unreachable!("dynamic-only"),
-        }
-    }
-
-    pub fn builders(&self, cap: usize) -> UnifiedBuilders<DynMarker> {
-        match self {
-            Self::Runtime(d) => UnifiedBuilders::Runtime(DynBuilders::new(d.schema.clone(), cap)),
-            Self::CompileTime(_) => unreachable!("dynamic-only"),
-        }
-    }
-
-    pub fn try_bind<R: Record>(&self) -> Result<UnifiedRecord<R>, DynMismatch> {
-        let d = match self { UnifiedRecord::Runtime(d) => d, _ => unreachable!() };
-        if typed_arrow::schema::<R>().equals_deterministic(&d.schema) {
-            Ok(UnifiedRecord::<R>::CompileTime(std::marker::PhantomData))
-        } else {
-            Err(DynMismatch { /* shape details */ })
-        }
-    }
-}
+let schema = Schema::new(vec![
+    Field::new("id", DataType::Int64, false),
+    Field::new("name", DataType::Utf8, true),
+]);
+let dyn_schema = DynSchema::new(schema);
+let rows = vec![
+    DynRow(vec![Some(DynCell::I64(1)), Some(DynCell::Str("a".into()))]),
+    DynRow(vec![Some(DynCell::I64(2)), None]),
+];
+let batch = dyn_schema.build_batch(rows).unwrap();
 ```
 
-### Unified Builders
+### Builders Interface
+The unified builders interface is provided by `BuildersLike`.
+
 ```rust
-pub enum UnifiedBuilders<R = DynMarker> {
-    CompileTime(<R as BuildRows>::Builders),
-    Runtime(DynBuilders),
-}
+use typed_arrow_unified::SchemaLike;
 
-pub enum UnifiedRow<R = DynMarker> {
-    Static(Option<R>),
-    Dynamic(Option<DynRow>),
-}
+// Typed
+let mut b = typed_arrow_unified::Typed::<Person>::default().new_builders(2);
+b.append_row(Person { id: 1, name: None })?;
+let batch = b.finish_into_batch();
 
-impl<R: Record> UnifiedBuilders<R> {
-    pub fn append_null_row(&mut self) { match self {
-        Self::CompileTime(b) => b.append_null_row(),
-        Self::Runtime(b) => b.append_null_row(),
-    } }
-
-    pub fn append_unified_row(&mut self, row: UnifiedRow<R>) -> Result<(), AppendError> {
-        match (self, row) {
-            (Self::CompileTime(b), UnifiedRow::Static(r)) => { b.append_option_row(r); Ok(()) }
-            (Self::Runtime(b), UnifiedRow::Dynamic(r)) => { b.append_option_row(r); Ok(()) }
-            _ => Err(AppendError::RowVariantMismatch),
-        }
-    }
-
-    pub fn finish(self) -> <R as BuildRows>::Arrays {
-        match self {
-            Self::CompileTime(b) => b.finish(),
-            Self::Runtime(_) => panic!("use UnifiedRecord<DynMarker> for dynamic path"),
-        }
-    }
-}
+// Dynamic
+let mut b = dyn_schema.new_builders(2);
+b.append_row(DynRow(vec![Some(DynCell::I64(1)), None]))?;
+let batch = b.finish_into_batch();
 ```
 
 ### Dynamic Builders and Factory
@@ -175,7 +134,7 @@ impl<R: Record> UnifiedBuilders<R> {
 pub trait DynColumnBuilder {
     fn data_type(&self) -> &arrow_schema::DataType;
     fn append_null(&mut self);
-    fn append_dyn(&mut self, v: DynCell) -> Result<(), AppendError>;
+    fn append_dyn(&mut self, v: DynCell) -> Result<(), DynError>;
     fn finish(&mut self) -> arrow_array::ArrayRef;
 }
 
@@ -190,7 +149,7 @@ impl DynBuilders {
         let cols = schema
             .fields()
             .iter()
-            .map(|f| new_dyn_builder(f.data_type(), f.is_nullable()))
+            .map(|f| new_dyn_builder(f.data_type()))
             .collect();
         Self { schema, cols, len: 0 }
     }
@@ -212,85 +171,81 @@ impl DynBuilders {
                 m
             }))
         } else { self.schema.clone() };
+// Dynamic builders validate nullability at try-finish and return errors with path context.
         arrow_array::RecordBatch::try_new(schema, arrays).expect("shape verified")
     }
 }
 ```
 
+Notes on nullability in the dynamic path
+- Appends treat `None`/`DynCell::Null` as null and do not check field/item nullability at append-time.
+- Arrow enforces column/field/item nullability when building arrays and the `RecordBatch`. If a non-nullable field/item contains nulls, construction will panic at finish.
+
 ## What Unifies vs. What Doesn’t
 - Unifies well:
-  - Schema: `schema_ref()` returns `SchemaRef` from both variants.
-  - Ingestion: one builders handle; `finish()` yields typed arrays on static and `RecordBatch` on dynamic. Use `finish_batch()` extension to always get `RecordBatch`.
-  - Dynamic column iteration: visit index/name/`DataType`/nullable.
-  - Downcast: `try_as_static`/`try_bind` when runtime schema matches `R` by shape.
+  - Schema: `SchemaLike::schema_ref()` returns `Arc<Schema>` for both typed and dynamic.
+  - Ingestion: `BuildersLike` unifies append and finish across typed and dynamic builders; `SchemaLike::build_batch` builds `RecordBatch` from rows.
 - Does not unify:
-  - Typed column-generic kernels (`ForEachCol::for_each_col::<V>()`) need compile-time `T`; cannot run over the dynamic variant. Provide dynamic visitors for name/`DataType` if needed.
+  - Typed column-generic kernels (`ForEachCol::for_each_col::<V>()`) require compile-time `R`; dynamic schemas don’t participate. Iterate `Schema::fields()` for dynamic inspection.
 
 ## Column Iteration
+- Typed: use `ForEachCol::for_each_col::<V>()` to visit columns at compile time.
+- Dynamic: iterate `schema_ref().fields()` directly.
+
 ```rust
-pub trait DynColumnVisitor {
-    fn visit(&mut self, i: usize, name: &str, dt: &arrow_schema::DataType, nullable: bool);
-}
-
-impl<R: ForEachCol> StaticFacade<R> {
-    pub fn for_each_typed<V: ColumnVisitor>(&self) { R::for_each_col::<V>(); }
-}
-
-impl DynSchema {
-    pub fn for_each_dyn<V: DynColumnVisitor>(&self, v: &mut V) {
-        for (i, f) in self.schema.fields().iter().enumerate() {
-            v.visit(i, f.name(), f.data_type(), f.is_nullable());
-        }
-    }
+let schema = dyn_schema.schema.clone();
+for (i, f) in schema.fields().iter().enumerate() {
+    println!("{}: {:?} nullable={}", i, f.data_type(), f.is_nullable());
 }
 ```
 
 ## Examples
-### Static-only
+### Typed-only
 ```rust
+use typed_arrow::prelude::*;
+use typed_arrow_unified::{SchemaLike, Typed};
+
 #[derive(Record)]
 struct Person { id: i64, email: Option<String> }
 
-let rec = UnifiedRecord::<Person>::compile_time();
-let mut b = rec.builders(2);
-b.append_unified_row(UnifiedRow::Static(Some(Person { id: 1, email: None })));
-b.append_null_row();
-// Either keep typed arrays:
-let arrays = b.finish();
-// Or convert to RecordBatch via helper:
-use typed_arrow_unified::FinishBatchExt;
-let batch = b.finish_batch();
+let rows = vec![
+    Person { id: 1, email: None },
+    Person { id: 2, email: Some("x".into()) },
+];
+let schema = Typed::<Person>::default();
+let batch = schema.build_batch(rows).unwrap();
 ```
 
 ### Dynamic-only
 ```rust
-let schema: arrow_schema::SchemaRef = load_schema_somehow();
-let rec: UnifiedRecord = UnifiedRecord::runtime(schema.clone()); // DynMarker default
-let mut b = rec.builders(1);
-b.append_unified_row(UnifiedRow::Dynamic(Some(dyn_row_from_values(&schema))));
-use typed_arrow_unified::FinishBatchExt;
-let batch = b.finish_batch();
-```
+use std::sync::Arc;
+use arrow_schema::{Field, Schema, DataType};
+use typed_arrow_unified::SchemaLike;
+use typed_arrow_dyn::{DynCell, DynRow, DynSchema};
 
-### Downcast dynamic to static (if shapes match)
-```rust
-let dyn_rec: UnifiedRecord = UnifiedRecord::runtime(schema.clone());
-if let Ok(static_rec) = dyn_rec.try_bind::<Person>() {
-    static_rec.with_static(|s| s.for_each_typed::<DebugColumns>());
-}
+let schema = Schema::new(vec![
+    Field::new("id", DataType::Int64, false),
+    Field::new("email", DataType::Utf8, true),
+]);
+let dyn_schema = DynSchema::new(schema);
+let rows = vec![
+    DynRow(vec![Some(DynCell::I64(1)), None]),
+    DynRow(vec![Some(DynCell::I64(2)), Some(DynCell::Str("x".into()))]),
+];
+let batch = dyn_schema.build_batch(rows).unwrap();
 ```
 
 ## Validation and Errors
-- `RowVariantMismatch`: returned when a `UnifiedBuilders::CompileTime` receives a `UnifiedRow::Dynamic` (or vice versa).
-- Shape mismatch (`DynMismatch`): returned by `try_bind`/`try_as_static` when the runtime `Schema` is not identical to the static `R` schema (use deterministic equality).
-- Dynamic builder factory is the only place with a `DataType` switch. It must reject unsupported types with precise errors.
+- Typed builders: appends are infallible (`NoError`), finish returns typed arrays converted to `RecordBatch`.
+- Dynamic builders: appends return `DynError` for arity/type/builder issues. Nullability violations are enforced by arrow-rs at array/RecordBatch construction and will panic on violation.
+- Factory is the only place with a `DataType` switch for dynamic builders.
 
 ## Rollout Plan
 - Phase A0: Scaffold crates `typed-arrow-dyn` and `typed-arrow-unified`. Add `unified` feature to `typed-arrow` that re-exports the unified API.
-- Phase A: Introduce `DynMarker`, `UnifiedRecord`, `UnifiedBuilders`, `UnifiedRow`, and `DynSchema` types (no external behavior change). Add docs and an example that builds a `RecordBatch` from both static and dynamic paths.
-- Phase B: Implement `DynColumnBuilder` + factory for primitives, Utf8, Binary, and Struct. Add `RecordBatch` assembly.
-- Phase C: Extend dynamic support to List/LargeList/FixedSizeList/Map and Timestamp/Decimal wrappers via the same `ArrowBinding` mapping.
-- Phase D: Optional Dictionary and Union dynamic builders.
+- Phase A: Implement `SchemaLike`/`BuildersLike` with `Typed<R>`, `DynSchema`, and `Arc<Schema>`; add examples that build a `RecordBatch` from both typed and dynamic paths.
+- Phase B: Implement dynamic factory for primitives, Utf8, Binary, Struct, Lists and FixedSizeList; `RecordBatch` assembly.
+- Phase C: Extend dynamic support to Map/Timestamp/Decimal/Dictionary (values and primitives) via the same `ArrowBinding` mapping.
+- Phase D: Optional Union dynamic builders.
 
 ## Open Questions
 - Dynamic row representation (`DynRow`/`DynCell`): JSON-like shape, or a typed enum of supported scalars/containers? Favor a thin enum tree mirroring Arrow logical types for zero-copy where possible.

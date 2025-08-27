@@ -4,19 +4,19 @@ use arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 
 #[test]
-#[should_panic]
 fn rejects_none_for_non_nullable_primitive() {
     // Schema: { a: Int64 (required) }
     let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
     b.append_option_row(Some(DynRow(vec![None]))).unwrap();
-    // Expect panic due to nullability violation at finish
-    let _ = b.finish_into_batch();
+    // Expect error due to nullability violation at try-finish
+    let err = b.try_finish_into_batch().unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("nullability"));
 }
 
 #[test]
-#[should_panic]
 fn rejects_top_level_none_row_when_any_column_required() {
     // Schema: { a: Int64 (required), b: Utf8 (nullable) }
     let fields = vec![
@@ -27,12 +27,12 @@ fn rejects_top_level_none_row_when_any_column_required() {
     let mut b = DynBuilders::new(Arc::clone(&schema), 0);
 
     b.append_option_row(None).unwrap();
-    // Expect panic due to nullability violation at finish
-    let _ = b.finish_into_batch();
+    let err = b.try_finish_into_batch().unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("nullability"));
 }
 
 #[test]
-#[should_panic]
 fn struct_child_non_nullable_rejects_none() {
     // person: Struct{name: Utf8 (req), age: Int32 (opt)} (person itself nullable)
     let person_fields = vec![
@@ -52,12 +52,12 @@ fn struct_child_non_nullable_rejects_none() {
         Some(DynCell::I32(10)),
     ]))]);
     b.append_option_row(Some(row)).unwrap();
-    // Expect panic due to nullability violation at finish
-    let _ = b.finish_into_batch();
+    let err = b.try_finish_into_batch().unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("StructArray") || msg.contains("struct field"));
 }
 
 #[test]
-#[should_panic]
 fn list_item_non_nullable_rejects_none() {
     // tags: List<Utf8 (required)>
     let item = Arc::new(Field::new("item", DataType::Utf8, false));
@@ -67,8 +67,9 @@ fn list_item_non_nullable_rejects_none() {
 
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
     b.append_option_row(Some(row)).unwrap();
-    // Expect panic due to nullability violation at finish
-    let _ = b.finish_into_batch();
+    let err = b.try_finish_into_batch().unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("ListArray") || msg.contains("list item"));
 }
 
 #[test]
@@ -84,7 +85,6 @@ fn list_nullable_parent_allows_none_even_if_items_required() {
 }
 
 #[test]
-#[should_panic]
 fn large_list_item_non_nullable_rejects_none() {
     // big: LargeList<Utf8 (required)>
     let item = Arc::new(Field::new("item", DataType::Utf8, false));
@@ -94,12 +94,12 @@ fn large_list_item_non_nullable_rejects_none() {
 
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
     b.append_option_row(Some(row)).unwrap();
-    // Expect panic due to nullability violation at finish
-    let _ = b.finish_into_batch();
+    let err = b.try_finish_into_batch().unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("LargeListArray") || msg.contains("large-list"));
 }
 
 #[test]
-#[should_panic]
 fn fixed_size_list_item_non_nullable_rejects_none() {
     // nums3: FixedSizeList<Int32 (required), 3>
     let item = Arc::new(Field::new("item", DataType::Int32, false));
@@ -113,12 +113,12 @@ fn fixed_size_list_item_non_nullable_rejects_none() {
         Some(DynCell::I32(3)),
     ]))]);
     b.append_option_row(Some(row)).unwrap();
-    // Expect panic due to nullability violation at finish
-    let _ = b.finish_into_batch();
+    let err = b.try_finish_into_batch().unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("FixedSizeListArray") || msg.contains("fixed-size"));
 }
 
 #[test]
-#[should_panic]
 fn deferred_allows_appends_but_fails_at_finish_primitive() {
     // Schema: { a: Int64 (required) }
     let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
@@ -127,12 +127,11 @@ fn deferred_allows_appends_but_fails_at_finish_primitive() {
     // Appending null should be allowed in deferred mode
     b.append_option_row(Some(DynRow(vec![None]))).unwrap();
 
-    // Expect panic from Arrow validation on finish
-    let _batch = b.finish_into_batch();
+    // Expect error from validator at try-finish
+    assert!(b.try_finish_into_batch().is_err());
 }
 
 #[test]
-#[should_panic]
 fn deferred_struct_child_violation_detected_at_finish() {
     // person: Struct{name: Utf8 (req), age: Int32 (opt)} (person itself nullable)
     let person_fields = vec![
@@ -150,11 +149,10 @@ fn deferred_struct_child_violation_detected_at_finish() {
     ]))])))
     .unwrap();
 
-    let _batch = b.finish_into_batch();
+    assert!(b.try_finish_into_batch().is_err());
 }
 
 #[test]
-#[should_panic]
 fn deferred_list_item_violation_detected_at_finish() {
     // tags: List<Utf8 (required)>
     let item = Arc::new(Field::new("item", DataType::Utf8, false));
@@ -165,5 +163,5 @@ fn deferred_list_item_violation_detected_at_finish() {
     let row = DynRow(vec![Some(DynCell::List(vec![None]))]);
     b.append_option_row(Some(row)).unwrap();
 
-    let _batch = b.finish_into_batch();
+    assert!(b.try_finish_into_batch().is_err());
 }

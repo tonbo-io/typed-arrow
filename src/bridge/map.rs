@@ -1,4 +1,4 @@
-//! Map and OrderedMap bindings.
+//! `Map` and `OrderedMap` bindings.
 
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -16,16 +16,19 @@ pub struct Map<K, V, const SORTED: bool = false>(Vec<(K, V)>);
 impl<K, V, const SORTED: bool> Map<K, V, SORTED> {
     /// Construct a new map from a vector of `(key, value)` pairs.
     #[inline]
+    #[must_use]
     pub fn new(entries: Vec<(K, V)>) -> Self {
         Self(entries)
     }
     /// Borrow the underlying `(key, value)` entries.
     #[inline]
+    #[must_use]
     pub fn entries(&self) -> &Vec<(K, V)> {
         &self.0
     }
     /// Consume and return the underlying `(key, value)` entries.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> Vec<(K, V)> {
         self.0
     }
@@ -122,23 +125,26 @@ where
     }
 }
 
-/// Sorted-keys Map: entries sourced from `BTreeMap<K, V>`, declaring `keys_sorted = true`.
-/// Keys are non-nullable; the value field is nullable per MapBuilder semantics, but this
+/// Sorted-keys `Map`: entries sourced from `BTreeMap<K, V>`, declaring `keys_sorted = true`.
+/// Keys are non-nullable; the value field is nullable per `MapBuilder` semantics, but this
 /// wrapper does not write null values.
 pub struct OrderedMap<K, V>(BTreeMap<K, V>);
 impl<K, V> OrderedMap<K, V> {
     /// Construct a new ordered-map from a `BTreeMap` (keys sorted).
     #[inline]
+    #[must_use]
     pub fn new(map: BTreeMap<K, V>) -> Self {
         Self(map)
     }
     /// Borrow the underlying `BTreeMap`.
     #[inline]
+    #[must_use]
     pub fn map(&self) -> &BTreeMap<K, V> {
         &self.0
     }
     /// Consume and return the underlying `BTreeMap`.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> BTreeMap<K, V> {
         self.0
     }
@@ -165,7 +171,7 @@ where
         MapBuilder::new(None, kb, vb)
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        for (k, val) in v.0.iter() {
+        for (k, val) in &v.0 {
             <K as ArrowBinding>::append_value(b.keys(), k);
             <V as ArrowBinding>::append_value(b.values(), val);
         }
@@ -201,7 +207,7 @@ where
         MapBuilder::new(None, kb, vb)
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        for (k, val_opt) in v.0.iter() {
+        for (k, val_opt) in &v.0 {
             <K as ArrowBinding>::append_value(b.keys(), k);
             match val_opt {
                 Some(val) => <V as ArrowBinding>::append_value(b.values(), val),

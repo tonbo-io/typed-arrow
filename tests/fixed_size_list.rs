@@ -11,8 +11,7 @@ fn fixed_size_list_datatype() {
         DataType::FixedSizeList(Field::new("item", DataType::Int32, false).into(), 3)
     );
 
-    type LN = FixedSizeListNullable<i32, 2>;
-    let dtn = <LN as ArrowBinding>::data_type();
+    let dtn = <FixedSizeListNullable<i32, 2> as ArrowBinding>::data_type();
     assert_eq!(
         dtn,
         DataType::FixedSizeList(Field::new("item", DataType::Int32, true).into(), 2)

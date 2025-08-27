@@ -82,7 +82,7 @@ fn dictionary_primitive_values_roundtrip() {
         match exp_opt {
             None => assert!(arr.is_null(i)),
             Some(exp) => {
-                let k = keys.value(i) as usize;
+                let k = usize::try_from(keys.value(i)).expect("non-negative dictionary key");
                 assert_eq!(values.value(k), exp);
             }
         }

@@ -11,6 +11,9 @@ impl DynRow {
     /// Append this row into the builders (1:1 by index).
     /// Returns an error if the number of cells does not match the number of
     /// columns, or if any cell fails type validation for the target column.
+    ///
+    /// # Errors
+    /// Returns a `DynError` for arity mismatches or type/builder errors while appending.
     pub fn append_into(self, cols: &mut [Box<dyn DynColumnBuilder>]) -> Result<(), DynError> {
         // 1) Validate arity
         if self.0.len() != cols.len() {
@@ -51,8 +54,65 @@ impl DynRow {
         }
         Ok(())
     }
+
+    /// Append this row into the builders using field metadata to enrich errors.
+    ///
+    /// Use this from `DynBuilders` so type mismatches can report column names
+    /// and expected vs found types.
+    ///
+    /// # Errors
+    /// Returns a `DynError` for arity mismatches or type/builder errors while appending.
+    pub fn append_into_with_fields(
+        self,
+        fields: &arrow_schema::Fields,
+        cols: &mut [Box<dyn DynColumnBuilder>],
+    ) -> Result<(), DynError> {
+        // 1) Validate arity
+        if self.0.len() != cols.len() {
+            return Err(DynError::ArityMismatch {
+                expected: cols.len(),
+                got: self.0.len(),
+            });
+        }
+
+        // 2) Pre-validate types to avoid partial writes
+        for (i, (cell_opt, b)) in self.0.iter().zip(cols.iter()).enumerate() {
+            match cell_opt {
+                None => {}
+                Some(cell) => {
+                    let dt = b.data_type();
+                    if !accepts_cell(dt, cell) {
+                        let name = fields.get(i).map_or("?", |f| f.name().as_str());
+                        return Err(DynError::Append {
+                            col: i,
+                            message: format!(
+                                "type mismatch at column '{}' expected {:?}, found {}",
+                                name,
+                                dt,
+                                cell.type_name()
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+
+        // 3) Perform the actual appends
+        let mut cells = self.0.into_iter();
+        for (i, b) in cols.iter_mut().enumerate() {
+            match cells.next() {
+                None => unreachable!("cells length pre-checked to match columns"),
+                Some(None) => b.append_null(),
+                Some(Some(v)) => {
+                    b.append_dyn(v).map_err(|e| e.at_col(i))?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
+#[allow(clippy::match_same_arms)]
 fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
     match (dt, cell) {
         (_, DynCell::Null) => true,

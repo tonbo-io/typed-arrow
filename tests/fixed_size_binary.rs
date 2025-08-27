@@ -7,7 +7,7 @@ fn fixed_size_binary_datatype_and_build() {
     const N: usize = 16;
     assert_eq!(
         <[u8; N] as ArrowBinding>::data_type(),
-        DataType::FixedSizeBinary(N as i32)
+        DataType::FixedSizeBinary(i32::try_from(N).expect("N fits in i32"))
     );
 
     let mut b = <[u8; N] as ArrowBinding>::new_builder(2);
@@ -15,7 +15,7 @@ fn fixed_size_binary_datatype_and_build() {
     <[u8; N] as ArrowBinding>::append_null(&mut b);
     let a = <[u8; N] as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
-    assert_eq!(a.value_length(), N as i32);
+    assert_eq!(a.value_length(), i32::try_from(N).expect("N fits in i32"));
 }
 
 #[derive(typed_arrow::Record)]
@@ -32,12 +32,10 @@ fn fixed_size_binary_in_record() {
     assert_eq!(<Row as ColAt<1>>::data_type(), DataType::FixedSizeBinary(8));
 
     // Build column 0 directly via the typed builder
-    type B0 = <Row as ColAt<0>>::ColumnBuilder;
-    type A0 = <Row as ColAt<0>>::ColumnArray;
-    let mut b0: B0 = <[u8; 4] as ArrowBinding>::new_builder(2);
+    let mut b0: <Row as ColAt<0>>::ColumnBuilder = <[u8; 4] as ArrowBinding>::new_builder(2);
     <[u8; 4] as ArrowBinding>::append_value(&mut b0, &[9, 9, 9, 9]);
     <[u8; 4] as ArrowBinding>::append_value(&mut b0, &[1, 2, 3, 4]);
-    let a0: A0 = <[u8; 4] as ArrowBinding>::finish(b0);
+    let a0: <Row as ColAt<0>>::ColumnArray = <[u8; 4] as ArrowBinding>::finish(b0);
     assert_eq!(a0.len(), 2);
 
     // Schema contains both fields

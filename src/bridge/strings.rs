@@ -1,6 +1,9 @@
-//! Utf8 and LargeUtf8 string bindings.
+//! `Utf8` and `LargeUtf8` string bindings.
 
-use arrow_array::{builder::*, LargeStringArray, StringArray};
+use arrow_array::{
+    builder::{LargeStringBuilder, StringBuilder},
+    LargeStringArray, StringArray,
+};
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
@@ -33,16 +36,19 @@ pub struct LargeUtf8(String);
 impl LargeUtf8 {
     /// Construct a new `LargeUtf8` from a `String`.
     #[inline]
+    #[must_use]
     pub fn new(value: String) -> Self {
         Self(value)
     }
     /// Return the underlying string slice.
     #[inline]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
     /// Consume and return the underlying `String`.
     #[inline]
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }

@@ -20,7 +20,7 @@ pub enum DynError {
     Nullability {
         /// Top-level column index where the violation occurred.
         col: usize,
-        /// Dot-annotated path to the offending field (e.g., "struct_field.child[]").
+        /// Dot-annotated path to the offending field (e.g., "`struct_field.child`[]").
         path: String,
         /// Row or value index where the violation was found.
         index: usize,
@@ -28,7 +28,7 @@ pub enum DynError {
         message: String,
     },
 
-    /// A cell's Rust value did not match the target Arrow DataType for a column.
+    /// A cell's Rust value did not match the target Arrow `DataType` for a column.
     #[error("type mismatch at column {col}: expected {expected:?}")]
     TypeMismatch {
         /// The zero-based column index where the mismatch occurred.
@@ -56,6 +56,7 @@ pub enum DynError {
 
 impl DynError {
     /// Add column context to a builder error.
+    #[must_use]
     pub fn at_col(self, col: usize) -> DynError {
         match self {
             DynError::Builder { message } => DynError::Append { col, message },

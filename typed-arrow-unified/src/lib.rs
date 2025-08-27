@@ -29,7 +29,7 @@ pub struct Typed<R> {
 impl<R> Default for Typed<R> {
     fn default() -> Self {
         Self {
-            _phantom: Default::default(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -43,13 +43,31 @@ pub trait BuildersLike {
     type Error: std::error::Error;
 
     /// Append a non-null row to all columns.
+    ///
+    /// # Errors
+    /// Returns an error if the dynamic path detects an append/type/builder issue.
     fn append_row(&mut self, row: Self::Row) -> Result<(), Self::Error>;
 
     /// Append an optional row; `None` appends a null to all columns.
+    ///
+    /// # Errors
+    /// Returns an error if the dynamic path detects an append/type/builder issue.
     fn append_option_row(&mut self, row: Option<Self::Row>) -> Result<(), Self::Error>;
 
     /// Finish building and convert accumulated arrays into a `RecordBatch`.
     fn finish_into_batch(self) -> RecordBatch;
+
+    /// Try to finish building a `RecordBatch`, returning an error with
+    /// richer diagnostics when available (e.g., dynamic nullability).
+    ///
+    /// # Errors
+    /// Returns an error when batch assembly fails (e.g., dynamic nullability).
+    fn try_finish_into_batch(self) -> Result<RecordBatch, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(self.finish_into_batch())
+    }
 }
 
 /// Unified schema abstraction: exposes Arrow schema and row/builder types.
@@ -71,6 +89,8 @@ pub trait SchemaLike {
     /// Capacity is inferred from the iterator's size hint (upper bound if
     /// present, otherwise the lower bound). For `ExactSizeIterator`s like
     /// `Vec` and slices this yields exact preallocation.
+    /// # Errors
+    /// Returns an error if row appends or batch finishing fails on the dynamic path.
     fn build_batch<I>(
         &self,
         rows: I,
@@ -85,7 +105,7 @@ pub trait SchemaLike {
         for r in iter {
             b.append_row(r)?;
         }
-        Ok(b.finish_into_batch())
+        b.try_finish_into_batch()
     }
 }
 
@@ -168,7 +188,7 @@ impl SchemaLike for DynSchema {
     }
 }
 
-/// Convenience: treat an `Arc<Schema>` (aka SchemaRef) as a dynamic schema.
+/// Convenience: treat an `Arc<Schema>` (aka `SchemaRef`) as a dynamic schema.
 impl SchemaLike for Arc<Schema> {
     type Row = DynRow;
 
@@ -199,5 +219,9 @@ impl BuildersLike for DynBuilders {
 
     fn finish_into_batch(self) -> RecordBatch {
         typed_arrow_dyn::DynBuilders::finish_into_batch(self)
+    }
+
+    fn try_finish_into_batch(self) -> Result<RecordBatch, DynError> {
+        typed_arrow_dyn::DynBuilders::try_finish_into_batch(self)
     }
 }

@@ -38,20 +38,34 @@ fn list_datatypes_and_associated_types() {
     assert_eq!(<Row as ColAt<1>>::data_type(), expected_scores);
 
     // Associated ColumnArray is ListArray
-    type A0 = <Row as ColAt<0>>::ColumnArray;
-    type A1 = <Row as ColAt<1>>::ColumnArray;
-    fn _arr0<T: Same<ListArray>>() {}
-    fn _arr1<T: Same<ListArray>>() {}
-    _arr0::<A0>();
-    _arr1::<A1>();
+    {
+        type A0 = <Row as ColAt<0>>::ColumnArray;
+        type A1 = <Row as ColAt<1>>::ColumnArray;
+        #[allow(clippy::used_underscore_items)]
+        fn _arr0<T: Same<ListArray>>() {}
+        #[allow(clippy::used_underscore_items)]
+        fn _arr1<T: Same<ListArray>>() {}
+        #[allow(clippy::used_underscore_items)]
+        {
+            _arr0::<A0>();
+            _arr1::<A1>();
+        }
+    }
 
     // Associated ColumnBuilder is ListBuilder<ChildBuilder>
-    type B0 = <Row as ColAt<0>>::ColumnBuilder;
-    type B1 = <Row as ColAt<1>>::ColumnBuilder;
-    fn _b0<T: Same<ListBuilder<StringBuilder>>>() {}
-    fn _b1<T: Same<ListBuilder<PrimitiveBuilder<Int32Type>>>>() {}
-    _b0::<B0>();
-    _b1::<B1>();
+    {
+        type B0 = <Row as ColAt<0>>::ColumnBuilder;
+        type B1 = <Row as ColAt<1>>::ColumnBuilder;
+        #[allow(clippy::used_underscore_items)]
+        fn _b0<T: Same<ListBuilder<StringBuilder>>>() {}
+        #[allow(clippy::used_underscore_items)]
+        fn _b1<T: Same<ListBuilder<PrimitiveBuilder<Int32Type>>>>() {}
+        #[allow(clippy::used_underscore_items)]
+        {
+            _b0::<B0>();
+            _b1::<B1>();
+        }
+    }
 }
 
 #[test]
@@ -81,17 +95,16 @@ fn list_build_and_values() {
     assert_eq!(values.value(2), "c");
 
     // Nullable item list nested in Option at column-level: Option<List<Option<i32>>>
-    type LN = List<Option<i32>>;
-    let mut b = <LN as typed_arrow::bridge::ArrowBinding>::new_builder(0);
-    <LN as typed_arrow::bridge::ArrowBinding>::append_value(
+    let mut b = <List<Option<i32>> as typed_arrow::bridge::ArrowBinding>::new_builder(0);
+    <List<Option<i32>> as typed_arrow::bridge::ArrowBinding>::append_value(
         &mut b,
         &List::new(vec![Some(1), None]),
     );
-    <LN as typed_arrow::bridge::ArrowBinding>::append_value(
+    <List<Option<i32>> as typed_arrow::bridge::ArrowBinding>::append_value(
         &mut b,
         &List::<Option<i32>>::new(vec![]),
     );
-    let a = <LN as typed_arrow::bridge::ArrowBinding>::finish(b);
+    let a = <List<Option<i32>> as typed_arrow::bridge::ArrowBinding>::finish(b);
     assert_eq!(a.len(), 2);
     let offs = a.value_offsets();
     assert_eq!(offs, &[0, 2, 2]);

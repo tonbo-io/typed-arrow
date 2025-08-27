@@ -16,13 +16,14 @@ use crate::attrs::parse_record_fields_macros;
 use crate::attrs::parse_record_record_macros;
 use crate::attrs::{parse_field_metadata_pairs, parse_schema_metadata_pairs};
 
-pub(crate) fn derive_record(input: DeriveInput) -> TokenStream {
-    match impl_record(&input) {
+pub(crate) fn derive_record(input: &DeriveInput) -> TokenStream {
+    match impl_record(input) {
         Ok(ts) => ts.into(),
         Err(e) => e.into_compile_error().into(),
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
     let builders_ident = Ident::new(&format!("{name}Builders"), name.span());
@@ -506,7 +507,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Optionally invoke record-fields macros with the list of (field: type)
     if !record_fields_macros.is_empty() {
         let mut field_pairs: Vec<proc_macro2::TokenStream> = Vec::new();
-        for f in fields.named.iter() {
+        for f in &fields.named {
             let fname = f.ident.as_ref().expect("named");
             let (inner_ty, _nullable) = unwrap_option(&f.ty);
             let inner_ty_ts = inner_ty.to_token_stream();

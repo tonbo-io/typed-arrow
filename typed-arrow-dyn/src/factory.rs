@@ -15,6 +15,9 @@ use crate::{
 /// Factory function that returns a dynamic builder for a given `DataType`.
 ///
 /// This is the only place intended to perform a `match DataType`.
+#[must_use]
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::items_after_statements)]
 pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
     enum Inner {
         Null(b::NullBuilder),
@@ -695,7 +698,7 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
         fn new() -> Self {
             Self {
                 b: b::PrimitiveDictionaryBuilder::<K, V>::new(),
-                _phantom: Default::default(),
+                _phantom: std::marker::PhantomData,
             }
         }
     }
@@ -803,7 +806,6 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
     }
 
     let inner = match &dt_cloned {
-        DataType::Null => Inner::Null(b::NullBuilder::new()),
         DataType::Boolean => Inner::Bool(b::BooleanBuilder::new()),
         DataType::Int8 => Inner::I8(b::PrimitiveBuilder::<t::Int8Type>::new()),
         DataType::Int16 => Inner::I16(b::PrimitiveBuilder::<t::Int16Type>::new()),
@@ -989,8 +991,9 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
                 b::FixedSizeBinaryDictionaryBuilder::<t::UInt64Type>::new(*w),
             ),
             // Primitive dictionary values (numeric & float). Use the minimal trait object wrapper.
-            (k, v) => new_prim_dict_inner(k, v)
-                .unwrap_or_else(|| Inner::Null(b::NullBuilder::new())),
+            (k, v) => {
+                new_prim_dict_inner(k, v).unwrap_or_else(|| Inner::Null(b::NullBuilder::new()))
+            }
         },
         DataType::Struct(fields) => {
             let children = fields

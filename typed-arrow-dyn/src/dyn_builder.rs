@@ -17,6 +17,10 @@ pub trait DynColumnBuilder: Send {
     fn append_null(&mut self);
 
     /// Append a dynamic value.
+    ///
+    /// # Errors
+    /// Returns a `DynError` if the value is incompatible with the underlying Arrow type
+    /// or if the Arrow builder reports an error while appending.
     fn append_dyn(&mut self, v: DynCell) -> Result<(), DynError>;
 
     /// Finish the builder into an `ArrayRef`.

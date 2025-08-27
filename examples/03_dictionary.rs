@@ -18,13 +18,12 @@ fn main() {
     );
 
     // Build a dictionary<i32, Utf8> via StringDictionaryBuilder
-    type A0 = <Row as ColAt<0>>::ColumnArray;
-    type B0 = <Row as ColAt<0>>::ColumnBuilder;
-    let mut b: B0 = arrow_array::builder::StringDictionaryBuilder::new();
+    let mut b: <Row as ColAt<0>>::ColumnBuilder =
+        arrow_array::builder::StringDictionaryBuilder::new();
     let _ = b.append("foo");
     let _ = b.append("bar");
     let _ = b.append("foo");
-    let a: A0 = b.finish();
+    let a: <Row as ColAt<0>>::ColumnArray = b.finish();
     let dict: &DictionaryArray<arrow_array::types::Int32Type> = &a;
     println!("dict_len={}, keys_type={:?}", dict.len(), dict.data_type());
 }

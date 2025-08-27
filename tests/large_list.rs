@@ -10,9 +10,8 @@ fn large_list_datatype() {
         DataType::LargeList(Field::new("item", DataType::Int32, false).into())
     );
 
-    type LN = LargeList<Option<i32>>;
     assert_eq!(
-        <LN as ArrowBinding>::data_type(),
+        <LargeList<Option<i32>> as ArrowBinding>::data_type(),
         DataType::LargeList(Field::new("item", DataType::Int32, true).into())
     );
 }

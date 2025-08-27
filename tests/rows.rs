@@ -9,6 +9,7 @@ pub struct PersonR {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn build_from_rows_flat() {
     // Prepare rows
     let rows = vec![

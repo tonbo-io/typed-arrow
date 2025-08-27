@@ -13,6 +13,7 @@ pub struct DynSchema {
 
 impl DynSchema {
     /// Construct from owned `Schema`.
+    #[must_use]
     pub fn new(schema: Schema) -> Self {
         Self {
             schema: Arc::new(schema),
@@ -20,6 +21,7 @@ impl DynSchema {
     }
 
     /// Construct from an existing `SchemaRef`.
+    #[must_use]
     pub fn from_ref(schema: SchemaRef) -> Self {
         Self { schema }
     }
