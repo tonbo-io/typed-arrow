@@ -1,6 +1,6 @@
-//! List, LargeList, and FixedSizeList bindings.
+//! `List`, `LargeList`, and `FixedSizeList` bindings.
 
-use arrow_array::builder::*;
+use arrow_array::builder::{ArrayBuilder, FixedSizeListBuilder, LargeListBuilder, ListBuilder};
 use arrow_schema::{DataType, Field};
 
 use super::ArrowBinding;
@@ -14,16 +14,19 @@ pub struct List<T>(Vec<T>);
 impl<T> List<T> {
     /// Construct a new list from a vector of values.
     #[inline]
+    #[must_use]
     pub fn new(values: Vec<T>) -> Self {
         Self(values)
     }
     /// Borrow the underlying values.
     #[inline]
+    #[must_use]
     pub fn values(&self) -> &Vec<T> {
         &self.0
     }
     /// Consume and return the underlying vector of values.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> Vec<T> {
         self.0
     }
@@ -73,7 +76,7 @@ where
     }
 }
 
-/// Provide ArrowBinding for `List<Option<T>>` so users can express
+/// Provide `ArrowBinding` for `List<Option<T>>` so users can express
 /// item-nullability via `Option` in the type parameter.
 impl<T> ArrowBinding for List<Option<T>>
 where
@@ -111,16 +114,19 @@ pub struct FixedSizeList<T, const N: usize>([T; N]);
 impl<T, const N: usize> FixedSizeList<T, N> {
     /// Construct a new fixed-size list from an array of length `N`.
     #[inline]
+    #[must_use]
     pub fn new(values: [T; N]) -> Self {
         Self(values)
     }
     /// Borrow the underlying fixed-size array of values.
     #[inline]
+    #[must_use]
     pub fn values(&self) -> &[T; N] {
         &self.0
     }
     /// Consume and return the underlying fixed-size array of values.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> [T; N] {
         self.0
     }
@@ -134,15 +140,20 @@ where
     type Builder = arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
     type Array = arrow_array::FixedSizeListArray;
     fn data_type() -> DataType {
+        let n_i32 = i32::try_from(N).expect("FixedSizeList N fits in i32");
         DataType::FixedSizeList(
             Field::new("item", <T as ArrowBinding>::data_type(), false).into(),
-            N as i32,
+            n_i32,
         )
     }
     fn new_builder(capacity: usize) -> Self::Builder {
         let child = <T as ArrowBinding>::new_builder(0);
-        arrow_array::builder::FixedSizeListBuilder::with_capacity(child, N as i32, capacity)
-            .with_field(Field::new("item", <T as ArrowBinding>::data_type(), false))
+        let n_i32 = i32::try_from(N).expect("FixedSizeList N fits in i32");
+        FixedSizeListBuilder::with_capacity(child, n_i32, capacity).with_field(Field::new(
+            "item",
+            <T as ArrowBinding>::data_type(),
+            false,
+        ))
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
         for it in &v.0 {
@@ -166,16 +177,19 @@ pub struct FixedSizeListNullable<T, const N: usize>([Option<T>; N]);
 impl<T, const N: usize> FixedSizeListNullable<T, N> {
     /// Construct a new fixed-size list with nullable items from an array of length `N`.
     #[inline]
+    #[must_use]
     pub fn new(values: [Option<T>; N]) -> Self {
         Self(values)
     }
     /// Borrow the underlying fixed-size array of optional values.
     #[inline]
+    #[must_use]
     pub fn values(&self) -> &[Option<T>; N] {
         &self.0
     }
     /// Consume and return the underlying fixed-size array of optional values.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> [Option<T>; N] {
         self.0
     }
@@ -189,15 +203,20 @@ where
     type Builder = arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
     type Array = arrow_array::FixedSizeListArray;
     fn data_type() -> DataType {
+        let n_i32 = i32::try_from(N).expect("FixedSizeList N fits in i32");
         DataType::FixedSizeList(
             Field::new("item", <T as ArrowBinding>::data_type(), true).into(),
-            N as i32,
+            n_i32,
         )
     }
     fn new_builder(capacity: usize) -> Self::Builder {
         let child = <T as ArrowBinding>::new_builder(0);
-        arrow_array::builder::FixedSizeListBuilder::with_capacity(child, N as i32, capacity)
-            .with_field(Field::new("item", <T as ArrowBinding>::data_type(), true))
+        let n_i32 = i32::try_from(N).expect("FixedSizeList N fits in i32");
+        FixedSizeListBuilder::with_capacity(child, n_i32, capacity).with_field(Field::new(
+            "item",
+            <T as ArrowBinding>::data_type(),
+            true,
+        ))
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
         for it in &v.0 {
@@ -224,16 +243,19 @@ pub struct LargeList<T>(Vec<T>);
 impl<T> LargeList<T> {
     /// Construct a new large-list from a vector of values.
     #[inline]
+    #[must_use]
     pub fn new(values: Vec<T>) -> Self {
         Self(values)
     }
     /// Borrow the underlying values.
     #[inline]
+    #[must_use]
     pub fn values(&self) -> &Vec<T> {
         &self.0
     }
     /// Consume and return the underlying vector of values.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> Vec<T> {
         self.0
     }
@@ -283,8 +305,8 @@ where
     }
 }
 
-/// Provide ArrowBinding for `LargeList<Option<T>>` so users can express
-/// item-nullability via `Option` in the type parameter for LargeList.
+/// Provide `ArrowBinding` for `LargeList<Option<T>>` so users can express
+/// item-nullability via `Option` in the type parameter for `LargeList`.
 impl<T> ArrowBinding for LargeList<Option<T>>
 where
     T: ArrowBinding,

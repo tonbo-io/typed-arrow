@@ -26,13 +26,11 @@ fn arrow_types_exposed_via_colat() {
     assert_eq!(<Person as ColAt<5>>::data_type(), DataType::Boolean);
 
     // Assert ColumnBuilder/Array associated items exist and are usable
-    type BId = <Person as ColAt<0>>::ColumnBuilder;
-    type AId = <Person as ColAt<0>>::ColumnArray;
-    let mut b: BId =
+    let mut b: <Person as ColAt<0>>::ColumnBuilder =
         arrow_array::builder::PrimitiveBuilder::<arrow_array::types::Int64Type>::with_capacity(2);
     b.append_value(1);
     b.append_value(2);
-    let _: AId = b.finish();
+    let _: <Person as ColAt<0>>::ColumnArray = b.finish();
 }
 
 #[test]
@@ -43,35 +41,30 @@ fn build_arrays_via_associated_types() {
     };
 
     // Int64 column (id)
-    type IdBuilder = <Person as ColAt<0>>::ColumnBuilder;
-    type IdArray = <Person as ColAt<0>>::ColumnArray;
-    let mut idb: IdBuilder = PrimitiveBuilder::<Int64Type>::with_capacity(3);
-    idb.append_value(10);
-    idb.append_value(20);
-    idb.append_value(30);
-    let ida: IdArray = idb.finish();
-    assert_eq!(ida.len(), 3);
-    assert_eq!(ida.value(1), 20);
+    let mut id_builder: <Person as ColAt<0>>::ColumnBuilder =
+        PrimitiveBuilder::<Int64Type>::with_capacity(3);
+    id_builder.append_value(10);
+    id_builder.append_value(20);
+    id_builder.append_value(30);
+    let id_arr: <Person as ColAt<0>>::ColumnArray = id_builder.finish();
+    assert_eq!(id_arr.len(), 3);
+    assert_eq!(id_arr.value(1), 20);
 
     // Utf8 column (name)
-    type NameBuilder = <Person as ColAt<1>>::ColumnBuilder;
-    type NameArray = <Person as ColAt<1>>::ColumnArray;
-    let mut nb: NameBuilder = StringBuilder::with_capacity(3, 0);
+    let mut nb: <Person as ColAt<1>>::ColumnBuilder = StringBuilder::with_capacity(3, 0);
     nb.append_value("alice");
     nb.append_null();
     nb.append_value("carol");
-    let na: NameArray = nb.finish();
+    let na: <Person as ColAt<1>>::ColumnArray = nb.finish();
     assert_eq!(na.len(), 3);
     assert_eq!(na.value(0), "alice");
     assert!(na.is_null(1));
 
     // Binary column (blob)
-    type BlobBuilder = <Person as ColAt<4>>::ColumnBuilder;
-    type BlobArray = <Person as ColAt<4>>::ColumnArray;
-    let mut bb: BlobBuilder = BinaryBuilder::with_capacity(2, 0);
+    let mut bb: <Person as ColAt<4>>::ColumnBuilder = BinaryBuilder::with_capacity(2, 0);
     bb.append_value(b"ab");
     bb.append_null();
-    let ba: BlobArray = bb.finish();
+    let ba: <Person as ColAt<4>>::ColumnArray = bb.finish();
     assert_eq!(ba.len(), 2);
     assert_eq!(ba.value(0), b"ab");
     assert!(ba.is_null(1));
@@ -105,11 +98,17 @@ fn record_len_and_names_and_nullability() {
 #[test]
 fn rust_types_exposed() {
     // Rust content types (non-Option inner types)
+    #[allow(clippy::used_underscore_items)]
     fn _r0<T: Same<i64>>() {}
+    #[allow(clippy::used_underscore_items)]
     fn _r1<T: Same<String>>() {}
+    #[allow(clippy::used_underscore_items)]
     fn _r2<T: Same<String>>() {}
+    #[allow(clippy::used_underscore_items)]
     fn _r3<T: Same<f32>>() {}
+    #[allow(clippy::used_underscore_items)]
     fn _r4<T: Same<Vec<u8>>>() {}
+    #[allow(clippy::used_underscore_items)]
     fn _r5<T: Same<bool>>() {}
 
     type R0 = <Person as ColAt<0>>::Native;
@@ -119,12 +118,15 @@ fn rust_types_exposed() {
     type R4 = <Person as ColAt<4>>::Native;
     type R5 = <Person as ColAt<5>>::Native;
 
-    _r0::<R0>();
-    _r1::<R1>();
-    _r2::<R2>();
-    _r3::<R3>();
-    _r4::<R4>();
-    _r5::<R5>();
+    #[allow(clippy::used_underscore_items)]
+    {
+        _r0::<R0>();
+        _r1::<R1>();
+        _r2::<R2>();
+        _r3::<R3>();
+        _r4::<R4>();
+        _r5::<R5>();
+    }
 }
 
 #[test]

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use arrow_array::Array;
 use typed_arrow::{bridge::ArrowBinding, Map, OrderedMap, Record};
 
@@ -28,7 +30,6 @@ fn main() {
     println!("sorted map datatype = {dt_sorted:?}");
 
     // OrderedMap using BTreeMap row layout
-    use std::collections::BTreeMap;
     let mut ord = BTreeMap::new();
     ord.insert("b".to_string(), 2);
     ord.insert("a".to_string(), 1);

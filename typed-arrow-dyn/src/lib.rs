@@ -12,6 +12,7 @@ mod factory;
 mod nested;
 mod rows;
 mod schema;
+mod validate;
 
 pub use builders::DynBuilders;
 pub use cell::DynCell;
@@ -20,3 +21,4 @@ pub use error::DynError;
 pub use factory::new_dyn_builder;
 pub use rows::DynRow;
 pub use schema::DynSchema;
+pub use validate::validate_nullability;

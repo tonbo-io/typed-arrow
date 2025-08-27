@@ -2,13 +2,14 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Attribute, Data, DataEnum, DeriveInput, Fields, Ident, LitStr};
 
-pub(crate) fn derive_union(input: DeriveInput) -> TokenStream {
-    match impl_union(&input) {
+pub(crate) fn derive_union(input: &DeriveInput) -> TokenStream {
+    match impl_union(input) {
         Ok(ts) => ts.into(),
         Err(e) => e.into_compile_error().into(),
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
 
@@ -53,7 +54,7 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let builder_ident = Ident::new(&format!("{name}UnionDenseBuilder"), name.span());
 
     // Container-level attributes on the enum itself
-    let var_names: Vec<String> = var_idents.iter().map(|i| i.to_string()).collect();
+    let var_names: Vec<String> = var_idents.iter().map(ToString::to_string).collect();
     let cont_attrs = parse_union_container_attrs(&input.attrs, &var_names)?;
     let is_sparse = matches!(cont_attrs.mode.as_deref(), Some("sparse"));
 
@@ -377,13 +378,14 @@ fn parse_union_container_attrs(
                             let name = ident.to_string();
                             let val_expr: syn::Expr = mi.value()?.parse()?;
                             let n = eval_i64_expr(&val_expr)?;
-                            if !(i8::MIN as i64..=i8::MAX as i64).contains(&n) {
+                            if !(i64::from(i8::MIN)..=i64::from(i8::MAX)).contains(&n) {
                                 return Err(syn::Error::new_spanned(
                                     &val_expr,
                                     "#[union] tag must fit in i8 (-128..=127)",
                                 ));
                             }
-                            out.tags.push((name, n as i8));
+                            let tag = i8::try_from(n).expect("validated range");
+                            out.tags.push((name, tag));
                         }
                         Ok(())
                     })?;
@@ -410,7 +412,7 @@ fn parse_union_container_attrs(
     }
 
     // Validate unknown names in container-level maps
-    let known: std::collections::HashSet<&str> = variant_names.iter().map(|s| s.as_str()).collect();
+    let known: std::collections::HashSet<&str> = variant_names.iter().map(String::as_str).collect();
     for (k, _) in &out.tags {
         if !known.contains(k.as_str()) {
             return Err(syn::Error::new(
@@ -439,13 +441,13 @@ fn parse_union_variant_attrs(attrs: &[Attribute]) -> syn::Result<UnionVariantAtt
                 if meta.path.is_ident("tag") {
                     let val_expr: syn::Expr = meta.value()?.parse()?;
                     let n = eval_i64_expr(&val_expr)?;
-                    if !(i8::MIN as i64..=i8::MAX as i64).contains(&n) {
+                    if !(i64::from(i8::MIN)..=i64::from(i8::MAX)).contains(&n) {
                         return Err(syn::Error::new_spanned(
                             &val_expr,
                             "#[union(tag = ...)] must fit in i8 (-128..=127)",
                         ));
                     }
-                    out.tag = Some(n as i8);
+                    out.tag = Some(i8::try_from(n).expect("validated range"));
                 } else if meta.path.is_ident("field") {
                     let s: LitStr = meta.value()?.parse()?;
                     out.field = Some(s.value());
@@ -552,9 +554,11 @@ fn resolve_union_config(
     // Assign remaining tags with auto-increment, skipping used
     let mut used: std::collections::HashSet<i8> = tags.iter().filter_map(|&t| t).collect();
     let mut next: i16 = 0; // use wider type to avoid overflow in loop
-    for t in tags.iter_mut() {
+    for t in &mut tags {
         if t.is_none() {
-            while next < i16::from(i8::MAX) + 1 && used.contains(&(next as i8)) {
+            while next < i16::from(i8::MAX) + 1
+                && used.contains(&i8::try_from(next).unwrap_or(i8::MAX))
+            {
                 next += 1;
             }
             if next > i16::from(i8::MAX) {
@@ -563,7 +567,7 @@ fn resolve_union_config(
                     "exhausted i8 tag space while auto-assigning tags",
                 ));
             }
-            let v = next as i8;
+            let v = i8::try_from(next).expect("<= i8::MAX");
             *t = Some(v);
             used.insert(v);
             next += 1;

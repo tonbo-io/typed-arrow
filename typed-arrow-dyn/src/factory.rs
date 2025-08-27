@@ -15,6 +15,9 @@ use crate::{
 /// Factory function that returns a dynamic builder for a given `DataType`.
 ///
 /// This is the only place intended to perform a `match DataType`.
+#[must_use]
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::items_after_statements)]
 pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
     enum Inner {
         Null(b::NullBuilder),
@@ -668,6 +671,109 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
                 Inner::DictPrimitive(b) => b.finish(),
             }
         }
+
+        fn try_finish(&mut self) -> Result<ArrayRef, DynError> {
+            match &mut self.inner {
+                Inner::Null(b) => Ok(Arc::new(b.finish())),
+                Inner::Bool(b) => Ok(Arc::new(b.finish())),
+                Inner::I8(b) => Ok(Arc::new(b.finish())),
+                Inner::I16(b) => Ok(Arc::new(b.finish())),
+                Inner::I32(b) => Ok(Arc::new(b.finish())),
+                Inner::I64(b) => Ok(Arc::new(b.finish())),
+                Inner::U8(b) => Ok(Arc::new(b.finish())),
+                Inner::U16(b) => Ok(Arc::new(b.finish())),
+                Inner::U32(b) => Ok(Arc::new(b.finish())),
+                Inner::U64(b) => Ok(Arc::new(b.finish())),
+                Inner::F32(b) => Ok(Arc::new(b.finish())),
+                Inner::F64(b) => Ok(Arc::new(b.finish())),
+                Inner::FixedSizeBinary(b) => Ok(Arc::new(b.finish())),
+                Inner::Date32(b) => Ok(Arc::new(b.finish())),
+                Inner::Date64(b) => Ok(Arc::new(b.finish())),
+                Inner::Time32Second(b) => Ok(Arc::new(b.finish())),
+                Inner::Time32Millisecond(b) => Ok(Arc::new(b.finish())),
+                Inner::Time64Microsecond(b) => Ok(Arc::new(b.finish())),
+                Inner::Time64Nanosecond(b) => Ok(Arc::new(b.finish())),
+                Inner::DurationSecond(b) => Ok(Arc::new(b.finish())),
+                Inner::DurationMillisecond(b) => Ok(Arc::new(b.finish())),
+                Inner::DurationMicrosecond(b) => Ok(Arc::new(b.finish())),
+                Inner::DurationNanosecond(b) => Ok(Arc::new(b.finish())),
+                Inner::TimestampSecond(b) => Ok(Arc::new(b.finish())),
+                Inner::TimestampMillisecond(b) => Ok(Arc::new(b.finish())),
+                Inner::TimestampMicrosecond(b) => Ok(Arc::new(b.finish())),
+                Inner::TimestampNanosecond(b) => Ok(Arc::new(b.finish())),
+                Inner::Utf8(b) => Ok(Arc::new(b.finish())),
+                Inner::LargeUtf8(b) => Ok(Arc::new(b.finish())),
+                Inner::Binary(b) => Ok(Arc::new(b.finish())),
+                Inner::LargeBinary(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8I8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8I16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8I32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8I64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8U8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8U16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8U32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictUtf8U64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8I8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8I16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8I32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8I64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8U8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8U16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8U32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeUtf8U64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryI8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryI16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryI32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryI64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryU8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryU16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryU32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictBinaryU64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryI8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryI16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryI32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryI64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryU8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryU16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryU32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictLargeBinaryU64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryI8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryI16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryI32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryI64(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryU8(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryU16(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryU32(b) => Ok(Arc::new(b.finish())),
+                Inner::DictFixedSizeBinaryU64(b) => Ok(Arc::new(b.finish())),
+                Inner::Struct(b) => b
+                    .try_finish()
+                    .map(|a| Arc::new(a) as ArrayRef)
+                    .map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    }),
+                Inner::List(b) => b
+                    .try_finish()
+                    .map(|a| Arc::new(a) as ArrayRef)
+                    .map_err(|e| DynError::Builder {
+                        message: e.to_string(),
+                    }),
+                Inner::LargeList(b) => {
+                    b.try_finish()
+                        .map(|a| Arc::new(a) as ArrayRef)
+                        .map_err(|e| DynError::Builder {
+                            message: e.to_string(),
+                        })
+                }
+                Inner::FixedSizeList(b) => {
+                    b.try_finish()
+                        .map(|a| Arc::new(a) as ArrayRef)
+                        .map_err(|e| DynError::Builder {
+                            message: e.to_string(),
+                        })
+                }
+                Inner::DictPrimitive(b) => Ok(b.finish()),
+            }
+        }
     }
 
     let dt_cloned = dt.clone();
@@ -695,7 +801,7 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
         fn new() -> Self {
             Self {
                 b: b::PrimitiveDictionaryBuilder::<K, V>::new(),
-                _phantom: Default::default(),
+                _phantom: std::marker::PhantomData,
             }
         }
     }
@@ -803,7 +909,6 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
     }
 
     let inner = match &dt_cloned {
-        DataType::Null => Inner::Null(b::NullBuilder::new()),
         DataType::Boolean => Inner::Bool(b::BooleanBuilder::new()),
         DataType::Int8 => Inner::I8(b::PrimitiveBuilder::<t::Int8Type>::new()),
         DataType::Int16 => Inner::I16(b::PrimitiveBuilder::<t::Int16Type>::new()),
@@ -989,8 +1094,9 @@ pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
                 b::FixedSizeBinaryDictionaryBuilder::<t::UInt64Type>::new(*w),
             ),
             // Primitive dictionary values (numeric & float). Use the minimal trait object wrapper.
-            (k, v) => new_prim_dict_inner(k, v)
-                .unwrap_or_else(|| Inner::Null(b::NullBuilder::new())),
+            (k, v) => {
+                new_prim_dict_inner(k, v).unwrap_or_else(|| Inner::Null(b::NullBuilder::new()))
+            }
         },
         DataType::Struct(fields) => {
             let children = fields

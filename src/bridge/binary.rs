@@ -1,6 +1,9 @@
-//! Binary family bindings (Binary, LargeBinary, FixedSizeBinary).
+//! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`).
 
-use arrow_array::{builder::*, FixedSizeBinaryArray, LargeBinaryArray};
+use arrow_array::{
+    builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
+    FixedSizeBinaryArray, LargeBinaryArray,
+};
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
@@ -31,10 +34,10 @@ impl<const N: usize> super::ArrowBinding for [u8; N] {
     type Builder = FixedSizeBinaryBuilder;
     type Array = FixedSizeBinaryArray;
     fn data_type() -> DataType {
-        DataType::FixedSizeBinary(N as i32)
+        DataType::FixedSizeBinary(i32::try_from(N).expect("width fits i32"))
     }
     fn new_builder(capacity: usize) -> Self::Builder {
-        FixedSizeBinaryBuilder::with_capacity(capacity, N as i32)
+        FixedSizeBinaryBuilder::with_capacity(capacity, i32::try_from(N).expect("width fits i32"))
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
         let _ = b.append_value(v);
@@ -54,16 +57,19 @@ pub struct LargeBinary(Vec<u8>);
 impl LargeBinary {
     /// Construct a new `LargeBinary` from the given bytes.
     #[inline]
+    #[must_use]
     pub fn new(value: Vec<u8>) -> Self {
         Self(value)
     }
     /// Return the underlying bytes as a slice.
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }
     /// Consume and return the underlying byte vector.
     #[inline]
+    #[must_use]
     pub fn into_vec(self) -> Vec<u8> {
         self.0
     }

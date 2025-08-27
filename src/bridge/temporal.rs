@@ -2,7 +2,16 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use arrow_array::{builder::PrimitiveBuilder, types::*, PrimitiveArray};
+use arrow_array::{
+    builder::PrimitiveBuilder,
+    types::{
+        Date32Type, Date64Type, DurationMicrosecondType, DurationMillisecondType,
+        DurationNanosecondType, DurationSecondType, Time32MillisecondType, Time32SecondType,
+        Time64MicrosecondType, Time64NanosecondType, TimestampMicrosecondType,
+        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType,
+    },
+    PrimitiveArray,
+};
 use arrow_schema::{DataType, TimeUnit};
 
 use super::ArrowBinding;
@@ -58,16 +67,19 @@ pub struct Timestamp<U: TimeUnitSpec>(i64, PhantomData<U>);
 impl<U: TimeUnitSpec> Timestamp<U> {
     /// Construct a new timestamp from an epoch value in the unit `U`.
     #[inline]
+    #[must_use]
     pub fn new(value: i64) -> Self {
         Self(value, PhantomData)
     }
     /// Return the inner epoch value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i64 {
         self.0
     }
     /// Consume and return the inner epoch value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i64 {
         self.0
     }
@@ -109,16 +121,19 @@ pub struct TimestampTz<U: TimeUnitSpec, Z: TimeZoneSpec>(i64, PhantomData<(U, Z)
 impl<U: TimeUnitSpec, Z: TimeZoneSpec> TimestampTz<U, Z> {
     /// Construct a new timezone-aware timestamp from an epoch value in the unit `U`.
     #[inline]
+    #[must_use]
     pub fn new(value: i64) -> Self {
         Self(value, PhantomData)
     }
     /// Return the inner epoch value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i64 {
         self.0
     }
     /// Consume and return the inner epoch value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i64 {
         self.0
     }
@@ -150,16 +165,19 @@ pub struct Date32(i32);
 impl Date32 {
     /// Construct a new `Date32` from days since UNIX epoch.
     #[inline]
+    #[must_use]
     pub fn new(value: i32) -> Self {
         Self(value)
     }
     /// Return the days since UNIX epoch.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i32 {
         self.0
     }
     /// Consume and return the days since UNIX epoch.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i32 {
         self.0
     }
@@ -189,16 +207,19 @@ pub struct Date64(i64);
 impl Date64 {
     /// Construct a new `Date64` from milliseconds since UNIX epoch.
     #[inline]
+    #[must_use]
     pub fn new(value: i64) -> Self {
         Self(value)
     }
     /// Return the milliseconds since UNIX epoch.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i64 {
         self.0
     }
     /// Consume and return the milliseconds since UNIX epoch.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i64 {
         self.0
     }
@@ -248,16 +269,19 @@ pub struct Time32<U: Time32UnitSpec>(i32, PhantomData<U>);
 impl<U: Time32UnitSpec> Time32<U> {
     /// Construct a new `Time32` value from an `i32` count in unit `U`.
     #[inline]
+    #[must_use]
     pub fn new(value: i32) -> Self {
         Self(value, PhantomData)
     }
     /// Return the inner value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i32 {
         self.0
     }
     /// Consume and return the inner value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i32 {
         self.0
     }
@@ -308,16 +332,19 @@ pub struct Time64<U: Time64UnitSpec>(i64, PhantomData<U>);
 impl<U: Time64UnitSpec> Time64<U> {
     /// Construct a new `Time64` value from an `i64` count in unit `U`.
     #[inline]
+    #[must_use]
     pub fn new(value: i64) -> Self {
         Self(value, PhantomData)
     }
     /// Return the inner value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i64 {
         self.0
     }
     /// Consume and return the inner value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i64 {
         self.0
     }
@@ -382,16 +409,19 @@ pub struct Duration<U: DurationUnitSpec>(i64, PhantomData<U>);
 impl<U: DurationUnitSpec> Duration<U> {
     /// Construct a new duration from an `i64` count in unit `U`.
     #[inline]
+    #[must_use]
     pub fn new(value: i64) -> Self {
         Self(value, PhantomData)
     }
     /// Return the inner value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i64 {
         self.0
     }
     /// Consume and return the inner value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i64 {
         self.0
     }

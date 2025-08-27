@@ -27,11 +27,10 @@ fn timestamp_tz_schema_and_types() {
     );
 
     // Associated builder/array types are identical to non-tz counterparts
-    type B0 = <RowTz as ColAt<0>>::ColumnBuilder; // PrimitiveBuilder<TimestampSecondType>
-    type A0 = <RowTz as ColAt<0>>::ColumnArray; // PrimitiveArray<TimestampSecondType>
-    let mut b0: B0 = PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(1);
+    let mut b0: <RowTz as ColAt<0>>::ColumnBuilder =
+        PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(1);
     b0.append_value(42);
-    let a0: A0 = b0.finish();
+    let a0: <RowTz as ColAt<0>>::ColumnArray = b0.finish();
     assert_eq!(a0.len(), 1);
 }
 

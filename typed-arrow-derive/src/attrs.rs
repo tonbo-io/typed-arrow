@@ -166,7 +166,7 @@ pub(crate) fn parse_record_ext_visitors(attrs: &[Attribute]) -> syn::Result<Vec<
                             let p: Path = if let Some(id) = mi.path.get_ident() {
                                 let mut path = Path {
                                     leading_colon: None,
-                                    segments: Default::default(),
+                                    segments: syn::punctuated::Punctuated::default(),
                                 };
                                 path.segments.push(syn::PathSegment {
                                     ident: id.clone(),

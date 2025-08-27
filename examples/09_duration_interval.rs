@@ -50,19 +50,17 @@ fn main() {
 
     // Build a couple arrays for demonstration
     // Duration<Millisecond>
-    type B0 = <RowDurInt as ColAt<0>>::ColumnBuilder;
-    type A0 = <RowDurInt as ColAt<0>>::ColumnArray;
-    let mut b0: B0 = PrimitiveBuilder::<t::DurationMillisecondType>::with_capacity(3);
+    let mut b0: <RowDurInt as ColAt<0>>::ColumnBuilder =
+        PrimitiveBuilder::<t::DurationMillisecondType>::with_capacity(3);
     b0.append_value(1);
     b0.append_value(2);
     b0.append_null();
-    let a0: A0 = b0.finish();
+    let a0: <RowDurInt as ColAt<0>>::ColumnArray = b0.finish();
     println!("d_ms_len={}, null2={}", a0.len(), a0.is_null(2));
 
     // IntervalDayTime
-    type B3 = <RowDurInt as ColAt<3>>::ColumnBuilder;
-    type A3 = <RowDurInt as ColAt<3>>::ColumnArray;
-    let mut b3: B3 = PrimitiveBuilder::<t::IntervalDayTimeType>::with_capacity(2);
+    let mut b3: <RowDurInt as ColAt<3>>::ColumnBuilder =
+        PrimitiveBuilder::<t::IntervalDayTimeType>::with_capacity(2);
     b3.append_value(t::IntervalDayTime {
         days: 1,
         milliseconds: 500,
@@ -71,6 +69,6 @@ fn main() {
         days: 0,
         milliseconds: 0,
     });
-    let a3: A3 = b3.finish();
+    let a3: <RowDurInt as ColAt<3>>::ColumnArray = b3.finish();
     println!("i_dt_len={}", a3.len());
 }

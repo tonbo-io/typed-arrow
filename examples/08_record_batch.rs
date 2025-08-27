@@ -1,4 +1,4 @@
-//! Showcase: Compile-time Schema + RecordBatch from typed arrays.
+//! Showcase: Compile-time Schema + `RecordBatch` from typed arrays.
 
 use arrow_array::{cast::as_string_array, RecordBatch};
 use typed_arrow::{prelude::*, schema::SchemaMeta};

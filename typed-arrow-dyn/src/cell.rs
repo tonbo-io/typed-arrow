@@ -51,3 +51,29 @@ pub enum DynCell {
     /// Each item may be `None` (null) or a nested `DynCell` matching the child type.
     FixedSizeList(Vec<Option<DynCell>>),
 }
+
+impl DynCell {
+    /// A short, human-readable type name for diagnostics.
+    #[must_use]
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            DynCell::Null => "null",
+            DynCell::Bool(_) => "bool",
+            DynCell::I8(_) => "i8",
+            DynCell::I16(_) => "i16",
+            DynCell::I32(_) => "i32",
+            DynCell::I64(_) => "i64",
+            DynCell::U8(_) => "u8",
+            DynCell::U16(_) => "u16",
+            DynCell::U32(_) => "u32",
+            DynCell::U64(_) => "u64",
+            DynCell::F32(_) => "f32",
+            DynCell::F64(_) => "f64",
+            DynCell::Str(_) => "utf8",
+            DynCell::Bin(_) => "binary",
+            DynCell::Struct(_) => "struct",
+            DynCell::List(_) => "list",
+            DynCell::FixedSizeList(_) => "fixed_size_list",
+        }
+    }
+}

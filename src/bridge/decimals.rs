@@ -15,16 +15,19 @@ pub struct Decimal128<const P: u8, const S: i8>(i128);
 impl<const P: u8, const S: i8> Decimal128<P, S> {
     /// Construct a new `Decimal128<P,S>` from a scaled integer value.
     #[inline]
+    #[must_use]
     pub fn new(value: i128) -> Self {
         Self(value)
     }
     /// Return the scaled integer value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i128 {
         self.0
     }
     /// Consume and return the scaled integer value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i128 {
         self.0
     }
@@ -61,16 +64,19 @@ pub struct Decimal256<const P: u8, const S: i8>(i256);
 impl<const P: u8, const S: i8> Decimal256<P, S> {
     /// Construct a new `Decimal256<P,S>` from a scaled integer value.
     #[inline]
+    #[must_use]
     pub fn new(value: i256) -> Self {
         Self(value)
     }
     /// Return the scaled integer value.
     #[inline]
+    #[must_use]
     pub fn value(&self) -> i256 {
         self.0
     }
     /// Consume and return the scaled integer value.
     #[inline]
+    #[must_use]
     pub fn into_value(self) -> i256 {
         self.0
     }

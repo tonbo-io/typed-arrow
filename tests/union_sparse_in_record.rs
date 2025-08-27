@@ -25,12 +25,10 @@ fn union_sparse_as_record_field() {
     }
 
     // Build via typed builder
-    type B1 = <Row as ColAt<1>>::ColumnBuilder; // == <Value as ArrowBinding>::Builder
-    type A1 = <Row as ColAt<1>>::ColumnArray; // == UnionArray
-    let mut b: B1 = <Value as ArrowBinding>::new_builder(3);
+    let mut b: <Row as ColAt<1>>::ColumnBuilder = <Value as ArrowBinding>::new_builder(3);
     <Value as ArrowBinding>::append_value(&mut b, &Value::I(1));
     <Value as ArrowBinding>::append_value(&mut b, &Value::S("x".into()));
     <Value as ArrowBinding>::append_null(&mut b);
-    let a: A1 = <Value as ArrowBinding>::finish(b);
+    let a: <Row as ColAt<1>>::ColumnArray = <Value as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 3);
 }

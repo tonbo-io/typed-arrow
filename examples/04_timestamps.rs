@@ -24,13 +24,12 @@ fn main() {
     );
 
     // Build seconds array
-    type B0 = <RowTs as ColAt<0>>::ColumnBuilder;
-    type A0 = <RowTs as ColAt<0>>::ColumnArray;
-    let mut b0: B0 = PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(3);
+    let mut b0: <RowTs as ColAt<0>>::ColumnBuilder =
+        PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(3);
     b0.append_value(1);
     b0.append_null();
     b0.append_value(3);
-    let a0: A0 = b0.finish();
+    let a0: <RowTs as ColAt<0>>::ColumnArray = b0.finish();
     println!("ts_second len={}, is_null[1]={}", a0.len(), a0.is_null(1));
 
     // Sanity check the data types

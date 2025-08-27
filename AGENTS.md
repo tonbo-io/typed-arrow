@@ -2,7 +2,7 @@
 - Provide a compile-time schema for Arrow using Rust types and macros.
 - Generate monomorphized code per column index and base type (no runtime `DataType` switching).
 - Add a unified facade to build `RecordBatch`es from rows for both compile-time and runtime schemas, inferring capacity from iterator size hints.
-- Surface structured errors for the dynamic path (no silent mismatches); keep the typed path infallible/zero-cost.
+- Surface structured errors for the dynamic path (arity/type/builder/nullability errors). Nullability is validated before finishing via `try_finish_into_batch` to return a descriptive error instead of panicking. Keep the typed path infallible/zero-cost by default.
 - Keep the unified facade focused on batch building (projection helpers are out of scope).
 
 ---
@@ -12,7 +12,7 @@
 - Enable compile-time dispatch across columns and base types using traits/const-generics (no `match DataType` at runtime).
 - Generate typed Arrow builders/arrays for each column from the compile-time schema.
 - Provide a unified facade to build `RecordBatch`es from rows for both typed and dynamic schemas with inferred capacity.
-- Surface errors in the dynamic path (row arity, type mismatches, builder failures) via a structured error type.
+- Surface errors in the dynamic path (row arity, type mismatches, builder failures, nullability violations) via a structured error type; `try_finish_into_batch` validates nullability for columns/fields/items and returns an error with path context.
 - Keep ergonomics close to idiomatic Rust: field attributes express Arrow specifics; Option/Nullability is explicit.
 - Keep projection helpers out of the unified facade to maintain focus and minimal surface area.
 
@@ -89,8 +89,9 @@
   - Typed: `Typed<R>` where `R: SchemaMeta + BuildRows` with `TypedBuilders<R>` adapter; typed appends are infallible and use a `NoError` type for zero-cost.
   - Dynamic: `DynSchema` and `Arc<Schema>` produce `DynBuilders` and accept `DynRow`s.
 - Behavior:
-  - `SchemaLike::build_batch` infers capacity from iterator `size_hint` (uses upper bound if present, else lower bound).
+  - `SchemaLike::build_batch` infers capacity from iterator `size_hint` (uses upper bound if present, else lower bound) and calls `try_finish_into_batch` to return diagnostic errors when possible.
   - No projection helpers included; focus is batch building from rows only.
+  - Dynamic builds: appends return `Result` for arity/type/builder issues; nullability violations are validated at `try_finish_into_batch` and returned as `DynError::Nullability { col, path, index, message }`.
 
 ## Dynamic Runtime (typed-arrow-dyn)
 - Row/cell types:
@@ -99,6 +100,8 @@
 - Builders and schema:
   - `DynSchema(Arc<Schema>)` and `DynBuilders` create and finish batches for runtime schemas.
   - `DynRow::append_into` validates arity and value compatibility before appending.
+- Nullability enforcement: dynamic builders do not check column/field/item nullability during appends; a validator runs at `try_finish_into_batch` to catch violations and return a structured error with the offending path and index.
+  - Factory: `new_dyn_builder(dt: &DataType)` selects a concrete builder implementation; nullability is not passed to the factory and is enforced by Arrow.
 - Errors:
   - `DynError` variants: `ArityMismatch`, `TypeMismatch { col, expected }`, `Builder { message }`, `Append { col, message }`.
   - All dynamic append operations return `Result` and propagate context; no silent mismatches.

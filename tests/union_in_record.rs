@@ -24,12 +24,10 @@ fn union_as_record_field_builders() {
     }
 
     // Build via typed builder
-    type B0 = <Test as ColAt<0>>::ColumnBuilder; // == <Value as ArrowBinding>::Builder
-    type A0 = <Test as ColAt<0>>::ColumnArray; // == UnionArray
-    let mut b: B0 = <Value as ArrowBinding>::new_builder(3);
+    let mut b: <Test as ColAt<0>>::ColumnBuilder = <Value as ArrowBinding>::new_builder(3);
     <Value as ArrowBinding>::append_value(&mut b, &Value::I(1));
     <Value as ArrowBinding>::append_value(&mut b, &Value::S("x".into()));
     <Value as ArrowBinding>::append_null(&mut b);
-    let a: A0 = <Value as ArrowBinding>::finish(b);
+    let a: <Test as ColAt<0>>::ColumnArray = <Value as ArrowBinding>::finish(b);
     assert_eq!(a.len(), 3);
 }

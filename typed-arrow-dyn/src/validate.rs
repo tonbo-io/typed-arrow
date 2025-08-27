@@ -1,0 +1,293 @@
+//! Validate nullability invariants in nested Arrow arrays using the schema.
+
+use std::sync::Arc;
+
+use arrow_array::{Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, StructArray};
+use arrow_buffer::OffsetBuffer;
+use arrow_schema::{DataType, Field, Fields, Schema};
+
+use crate::DynError;
+
+/// Validate that arrays satisfy nullability constraints declared by `schema`.
+/// Returns the first violation encountered with a descriptive path.
+///
+/// # Errors
+/// Returns a `DynError::Nullability` describing the first violation encountered.
+pub fn validate_nullability(schema: &Schema, arrays: &[ArrayRef]) -> Result<(), DynError> {
+    for (col, (field, array)) in schema.fields().iter().zip(arrays.iter()).enumerate() {
+        // Top-level field nullability
+        if !field.is_nullable() && array.null_count() > 0 {
+            if let Some(idx) = first_null_index(array.as_ref()) {
+                return Err(DynError::Nullability {
+                    col,
+                    path: field.name().to_string(),
+                    index: idx,
+                    message: "non-nullable field contains null".to_string(),
+                });
+            }
+        }
+
+        // Nested
+        validate_nested(field.name(), field.data_type(), array, col, None)?;
+    }
+    Ok(())
+}
+
+fn validate_nested(
+    col_name: &str,
+    dt: &DataType,
+    array: &ArrayRef,
+    col: usize,
+    // An optional mask: when present, only indices with `true` are considered.
+    parent_valid_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    match dt {
+        DataType::Struct(children) => {
+            validate_struct(col_name, children, array, col, parent_valid_mask)
+        }
+        DataType::List(item) => validate_list(col_name, item, array, col, parent_valid_mask),
+        DataType::LargeList(item) => {
+            validate_large_list(col_name, item, array, col, parent_valid_mask)
+        }
+        DataType::FixedSizeList(item, _len) => {
+            validate_fixed_list(col_name, item, array, col, parent_valid_mask)
+        }
+        // Other data types have no nested children.
+        _ => Ok(()),
+    }
+}
+
+fn validate_struct(
+    col_name: &str,
+    fields: &Fields,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let s = array
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .expect("array/DataType mismatch");
+
+    // Compute mask of valid parent rows: respect parent validity if provided, else
+    // derive from the struct's own validity.
+    let arr: &dyn Array = s;
+    let mask = parent_mask.unwrap_or_else(|| validity_mask(arr));
+
+    for (child_field, child_array) in fields.iter().zip(s.columns().iter()) {
+        // Enforce child field nullability only where parent struct is valid.
+        if !child_field.is_nullable() {
+            let child = child_array.as_ref();
+            for (i, &pvalid) in mask.iter().enumerate() {
+                if pvalid && child.is_null(i) {
+                    return Err(DynError::Nullability {
+                        col,
+                        path: format!("{}.{}", col_name, child_field.name()),
+                        index: i,
+                        message: "non-nullable struct field contains null".to_string(),
+                    });
+                }
+            }
+        }
+
+        // Recurse into nested children with the same row mask.
+        validate_nested(
+            &format!("{}.{}", col_name, child_field.name()),
+            child_field.data_type(),
+            child_array,
+            col,
+            Some(mask.clone()),
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_list(
+    col_name: &str,
+    item: &Arc<Field>,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let l = array
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .expect("array/DataType mismatch");
+
+    let arr: &dyn Array = l;
+    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
+    let offsets: &OffsetBuffer<i32> = l.offsets();
+    let child = l.values().clone();
+
+    if !item.is_nullable() {
+        for (row, &pvalid) in parent_valid.iter().enumerate() {
+            if !pvalid {
+                continue;
+            }
+            let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+                .expect("non-negative offset");
+            let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+                .expect("non-negative offset");
+            for idx in start..end {
+                if child.is_null(idx) {
+                    return Err(DynError::Nullability {
+                        col,
+                        path: format!("{col_name}[]"),
+                        index: idx,
+                        message: "non-nullable list item contains null".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Recurse into child type. Construct mask of child indices belonging to
+    // valid parent rows.
+    let mut child_mask = vec![false; child.len()];
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+            .expect("non-negative offset");
+        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+            .expect("non-negative offset");
+        for item in child_mask.iter_mut().take(end).skip(start) {
+            *item = true;
+        }
+    }
+
+    validate_nested(
+        &format!("{col_name}[]"),
+        item.data_type(),
+        &child,
+        col,
+        Some(child_mask),
+    )
+}
+
+fn validate_large_list(
+    col_name: &str,
+    item: &Arc<Field>,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let l = array
+        .as_any()
+        .downcast_ref::<LargeListArray>()
+        .expect("array/DataType mismatch");
+    let arr: &dyn Array = l;
+    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
+    let offsets = l.offsets();
+    let child = l.values().clone();
+
+    if !item.is_nullable() {
+        for (row, &pvalid) in parent_valid.iter().enumerate() {
+            if !pvalid {
+                continue;
+            }
+            let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+                .expect("non-negative offset");
+            let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+                .expect("non-negative offset");
+            for idx in start..end {
+                if child.is_null(idx) {
+                    return Err(DynError::Nullability {
+                        col,
+                        path: format!("{col_name}[]"),
+                        index: idx,
+                        message: "non-nullable large-list item contains null".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    let mut child_mask = vec![false; child.len()];
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+            .expect("non-negative offset");
+        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+            .expect("non-negative offset");
+        for item in child_mask.iter_mut().take(end).skip(start) {
+            *item = true;
+        }
+    }
+
+    validate_nested(
+        &format!("{col_name}[]"),
+        item.data_type(),
+        &child,
+        col,
+        Some(child_mask),
+    )
+}
+
+fn validate_fixed_list(
+    col_name: &str,
+    item: &Arc<Field>,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let l = array
+        .as_any()
+        .downcast_ref::<FixedSizeListArray>()
+        .expect("array/DataType mismatch");
+    let arr: &dyn Array = l;
+    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
+    let child = l.values().clone();
+    let width = usize::try_from(l.value_length()).expect("non-negative width");
+
+    if !item.is_nullable() {
+        for (row, &pvalid) in parent_valid.iter().enumerate() {
+            if !pvalid {
+                continue;
+            }
+            let start = row * width;
+            let end = start + width;
+            for idx in start..end {
+                if child.is_null(idx) {
+                    return Err(DynError::Nullability {
+                        col,
+                        path: format!("{col_name}[{row}]"),
+                        index: idx,
+                        message: "non-nullable fixed-size list item contains null".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    let mut child_mask = vec![false; child.len()];
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = row * width;
+        let end = start + width;
+        for item in child_mask.iter_mut().take(end).skip(start) {
+            *item = true;
+        }
+    }
+
+    validate_nested(
+        &format!("{col_name}[]"),
+        item.data_type(),
+        &child,
+        col,
+        Some(child_mask),
+    )
+}
+
+fn validity_mask(array: &dyn Array) -> Vec<bool> {
+    (0..array.len()).map(|i| array.is_valid(i)).collect()
+}
+
+fn first_null_index(array: &dyn Array) -> Option<usize> {
+    (0..array.len()).find(|&i| array.is_null(i))
+}
