@@ -20,23 +20,19 @@ pub struct Geo {
 pub struct Address {
     pub city: String,
     pub zip: Option<i32>,
-    #[nested]
     pub geo: Option<Geo>,
 }
 
 #[derive(typed_arrow::Record)]
 pub struct Company {
     pub name: String,
-    #[nested]
     pub hq: Option<Address>,
 }
 
 #[derive(typed_arrow::Record)]
 pub struct PersonDeep {
     pub id: i64,
-    #[nested]
     pub company: Option<Company>,
-    #[nested]
     pub address: Option<Address>,
     // Also include a nested container field to ensure non-struct siblings behave
     pub scores: Option<typed_arrow::List<Option<i32>>>,

@@ -71,7 +71,7 @@ impl DynBuilders {
     pub fn try_finish_into_batch(mut self) -> Result<RecordBatch, DynError> {
         let schema = self.schema.clone();
         let mut arrays = Vec::with_capacity(self.cols.len());
-        for col in self.cols.iter_mut() {
+        for col in &mut self.cols {
             arrays.push(col.try_finish()?);
         }
         // Validate nullability using the schema before constructing the RecordBatch.

@@ -104,7 +104,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let fname = f.ident.as_ref().expect("named");
         field_idents.push(fname);
         let (inner_ty, nullable) = unwrap_option(&f.ty);
-        let is_nested = has_nested_attr(&f.attrs)?;
+        // Backward-compat cleanup: #[record(nested)] and #[nested] are no longer supported.
+        // Nested structs are now the default behavior.
+        check_no_legacy_nested_attr(&f.attrs)?;
 
         let inner_ty_ts = inner_ty.to_token_stream();
         let nullable_lit = if nullable {
@@ -177,7 +179,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                     quote! { () }
                 };
                 field_macro_invocations.push(quote! {
-                    #m!(owner = #name, index = { #idx }, field = #fname, ty = #inner_ty_ts, nullable = #nullable_lit, is_nested = #is_nested, ext = #ext_group);
+                    #m!(owner = #name, index = { #idx }, field = #fname, ty = #inner_ty_ts, nullable = #nullable_lit, ext = #ext_group);
                 });
             }
         }
@@ -200,39 +202,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity)
         });
         // Append row logic per field
-        if is_nested {
-            if nullable {
-                append_row_stmts.push(quote! {
-                    match #fname {
-                        Some(v) => {
-                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(v, &mut self.#fname);
-                            self.#fname.append(true);
-                        }
-                        None => {
-                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(&mut self.#fname);
-                            self.#fname.append(false);
-                        }
-                    }
-                });
-                // Null-row handling for nested optional struct field: append nulls to children then
-                // mark invalid
-                append_null_row_stmts.push(quote! {
-                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(&mut self.#fname);
-                    self.#fname.append(false);
-                });
-            } else {
-                append_row_stmts.push(quote! {
-                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(#fname, &mut self.#fname);
-                    self.#fname.append(true);
-                });
-                // Null-row handling for nested required struct field: append nulls to children then
-                // mark invalid
-                append_null_row_stmts.push(quote! {
-                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(&mut self.#fname);
-                    self.#fname.append(false);
-                });
-            }
-        } else if nullable {
+        if nullable {
             append_row_stmts.push(quote! {
                 match #fname {
                     Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &v),
@@ -257,102 +227,45 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // Generate AppendStruct implementations' bodies for this struct's fields
         let child_builder_ty =
             quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder };
-        if is_nested {
-            if nullable {
-                append_struct_owned_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    match #fname {
-                        Some(v) => {
-                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(v, cb);
-                            cb.append(true);
-                        }
-                        None => {
-                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(cb);
-                            cb.append(false);
-                        }
-                    }
-                });
-                append_struct_borrowed_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    match &#fname {
-                        Some(v) => {
-                            <#inner_ty_ts as ::typed_arrow::schema::AppendStructRef>::append_borrowed_into(v, cb);
-                            cb.append(true);
-                        }
-                        None => {
-                            <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(cb);
-                            cb.append(false);
-                        }
-                    }
-                });
-            } else {
-                append_struct_owned_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_owned_into(#fname, cb);
-                    cb.append(true);
-                });
-                append_struct_borrowed_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    <#inner_ty_ts as ::typed_arrow::schema::AppendStructRef>::append_borrowed_into(&#fname, cb);
-                    cb.append(true);
-                });
-            }
-            append_struct_null_stmts.push(quote! {
+        if nullable {
+            append_struct_owned_stmts.push(quote! {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
-                <#inner_ty_ts as ::typed_arrow::schema::AppendStruct>::append_null_into(cb);
-                cb.append(false);
+                match #fname {
+                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &v),
+                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
+                }
+            });
+            append_struct_borrowed_stmts.push(quote! {
+                let cb: &mut #child_builder_ty = __sb
+                    .field_builder::<#child_builder_ty>({ #idx })
+                    .expect("child builder type matches");
+                match &#fname {
+                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, v),
+                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
+                }
             });
         } else {
-            if nullable {
-                append_struct_owned_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    match #fname {
-                        Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &v),
-                        None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
-                    }
-                });
-                append_struct_borrowed_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    match &#fname {
-                        Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, v),
-                        None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
-                    }
-                });
-            } else {
-                append_struct_owned_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
-                });
-                append_struct_borrowed_stmts.push(quote! {
-                    let cb: &mut #child_builder_ty = __sb
-                        .field_builder::<#child_builder_ty>({ #idx })
-                        .expect("child builder type matches");
-                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
-                });
-            }
-            append_struct_null_stmts.push(quote! {
+            append_struct_owned_stmts.push(quote! {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb);
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
+            });
+            append_struct_borrowed_stmts.push(quote! {
+                let cb: &mut #child_builder_ty = __sb
+                    .field_builder::<#child_builder_ty>({ #idx })
+                    .expect("child builder type matches");
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
             });
         }
+        append_struct_null_stmts.push(quote! {
+            let cb: &mut #child_builder_ty = __sb
+                .field_builder::<#child_builder_ty>({ #idx })
+                .expect("child builder type matches");
+            <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb);
+        });
     }
 
     // impl Record and ForEachCol
@@ -536,16 +449,20 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     Ok(expanded)
 }
 
-fn has_nested_attr(attrs: &[Attribute]) -> syn::Result<bool> {
+fn check_no_legacy_nested_attr(attrs: &[Attribute]) -> syn::Result<()> {
     for attr in attrs {
         if attr.path().is_ident("nested") {
-            return Ok(true);
+            return Err(syn::Error::new_spanned(
+                attr,
+                "#[nested] and #[record(nested)] were removed. Nested structs are now the \
+                 default; remove this attribute.",
+            ));
         }
         if attr.path().is_ident("record") {
-            let mut is_nested = false;
+            let mut found_nested = false;
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("nested") {
-                    is_nested = true;
+                    found_nested = true;
                 } else {
                     // Consume unknown nested items so other uses of #[record(...)] don't break
                     // parsing
@@ -557,12 +474,16 @@ fn has_nested_attr(attrs: &[Attribute]) -> syn::Result<bool> {
                 }
                 Ok(())
             })?;
-            if is_nested {
-                return Ok(true);
+            if found_nested {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "#[record(nested)] was removed. Nested structs are now the default; remove \
+                     this attribute.",
+                ));
             }
         }
     }
-    Ok(false)
+    Ok(())
 }
 
 fn unwrap_option(ty: &Type) -> (Type, bool) {

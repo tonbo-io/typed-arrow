@@ -43,7 +43,7 @@
 - Builders API (row-based):
   - `BuildRows` derive emits `<Type>Builders` and `<Type>Arrays`.
   - `<Type>Builders` methods: `append_row(row)`, `append_rows(iter)`, `append_null_row()`, `append_option_row(Option<row>)`, `append_option_rows(iter)`; `finish()` returns `<Type>Arrays`.
-- Nested structs are supported via `#[record(nested)]` (preferred) and `#[nested]`, plus `AppendStruct`.
+- Nested structs are the default for struct-typed fields (no attribute needed), powered by `AppendStruct` and `StructMeta`.
   - Future: optional `into_record_batch()` bridge when needed.
 
 - Runtime schema:
@@ -57,7 +57,7 @@
 
 - Macro & Attribute Design
 - `#[derive(Record)]` with field-level attributes:
-  - `#[record(nested)]` (or legacy `#[nested]`) marks a struct-typed field as nested `Struct` for row-based append ergonomics.
+  - Struct-typed fields are nested `Struct` columns by default; use `Option<Nested>` on the field for column nullability.
 - `#[derive(Union)]` (enums) supports Dense/Sparse modes and attributes:
   - Container: `#[union(mode = "dense"|"sparse", null_variant = "Var", tags(A=10, B=7))]`
   - Variant: `#[union(tag = 42)]`, `#[union(field = "name")]`, `#[union(null)]`
@@ -119,7 +119,7 @@ struct Address { city: String, zip: Option<i32> }
 #[derive(Record)]
 struct Person {
     id: i64,
-    #[nested]
+    // Nested struct field (no attribute needed)
     address: Option<Address>,
     email: Option<String>,
 }
@@ -238,7 +238,7 @@ fn build_batch_dynamic() -> arrow_array::RecordBatch {
 ## Testing Guidelines
 - Prefer focused tests; add integration tests in `tests/` for end‑to‑end flows.
 - Validate that `ColAt<I>` exposes `fn data_type()`, `ColumnBuilder`, `ColumnArray` and that builders produce typed arrays.
-- Exercise row-based building (`append_row`, `append_option_rows`) and nested struct append (`#[nested]`).
+- Exercise row-based building (`append_row`, `append_option_rows`) and nested struct append.
 - Validate DataType shapes (child names, `keys_sorted`, union tags/fields) and append semantics.
 - Prefer names/tags over child indices when asserting nested/union children.
 - Run locally with `cargo test -q` and `cargo clippy --workspace -D warnings`.
