@@ -3,7 +3,7 @@ members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-unified"]
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
 package.license = "Apache-2.0"
-package.version = "0.3.0"
+package.version = "0.4.0"
 package.edition = "2021"
 
 [package]
