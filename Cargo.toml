@@ -26,7 +26,7 @@ derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
 
 [dependencies]
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.3.0", optional = true, package = "typed-arrow-derive" }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.4.0", optional = true, package = "typed-arrow-derive" }
 arrow-array = { version = "56" }
 arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }
