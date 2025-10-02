@@ -4,6 +4,10 @@ use arrow_array::builder::StructBuilder;
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
+#[cfg(feature = "views")]
+use crate::schema::StructView;
 use crate::schema::{AppendStruct, AppendStructRef, Record, StructMeta};
 
 // Any `T` implementing `Record + StructMeta` automatically binds to a typed
@@ -38,5 +42,44 @@ where
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+// Blanket impl of ArrowBindingView for structs that implement StructView
+// Note: StructView itself has where clauses that enforce ArrowBindingView on fields
+#[cfg(feature = "views")]
+impl<T> ArrowBindingView for T
+where
+    T: Record + StructView + 'static,
+{
+    type Array = arrow_array::StructArray;
+    type View<'a>
+        = <T as StructView>::View<'a>
+    where
+        T: 'a;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        use arrow_array::Array;
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if <T as StructView>::is_null_at(array, index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        <T as StructView>::view_at(array, index)
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        <T as StructView>::is_null_at(array, index)
     }
 }

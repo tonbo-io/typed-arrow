@@ -264,3 +264,65 @@ impl_dict_primitive_value!(u32, UInt32Type, DataType::UInt32);
 impl_dict_primitive_value!(u64, UInt64Type, DataType::UInt64);
 impl_dict_primitive_value!(f32, Float32Type, DataType::Float32);
 impl_dict_primitive_value!(f64, Float64Type, DataType::Float64);
+
+// ArrowBindingView implementation for Dictionary types
+// Decodes the dictionary value at the given index
+#[cfg(feature = "views")]
+impl<K, V> super::ArrowBindingView for Dictionary<K, V>
+where
+    K: DictKey + 'static,
+    V: super::ArrowBindingView + 'static,
+    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+{
+    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type View<'a>
+        = V::View<'a>
+    where
+        Self: 'a;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        use arrow_array::Array;
+        use arrow_buffer::ArrowNativeType;
+
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+
+        // Get the key (dictionary index) for this row
+        let keys = array.keys();
+        let key_value = keys.value(index);
+        let dict_index = key_value.as_usize();
+
+        // Get the values array and downcast to the correct type
+        let values_array = array.values();
+        let typed_values = values_array
+            .as_any()
+            .downcast_ref::<V::Array>()
+            .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
+                expected: std::any::type_name::<V::Array>().to_string(),
+                actual: format!("{:?}", values_array.data_type()),
+                field_name: None,
+            })?;
+
+        // Return a view of the decoded value
+        V::get_view(typed_values, dict_index)
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        use arrow_array::Array;
+        array.is_null(index)
+    }
+}

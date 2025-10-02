@@ -2,12 +2,14 @@
 
 use arrow_array::{
     builder::{Decimal128Builder, Decimal256Builder},
-    Decimal128Array, Decimal256Array,
+    Array, Decimal128Array, Decimal256Array,
 };
 use arrow_buffer::i256;
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
 
 /// Fixed-precision decimal stored in 128 bits.
 /// The value is represented as a scaled integer of type `i128`.
@@ -58,6 +60,36 @@ impl<const P: u8, const S: i8> ArrowBinding for Decimal128<P, S> {
     }
 }
 
+#[cfg(feature = "views")]
+impl<const P: u8, const S: i8> ArrowBindingView for Decimal128<P, S> {
+    type Array = Decimal128Array;
+    type View<'a> = Decimal128<P, S>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Decimal128::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 /// Fixed-precision decimal stored in 256 bits.
 /// The value is represented as a scaled integer of type `i256`.
 pub struct Decimal256<const P: u8, const S: i8>(i256);
@@ -104,5 +136,35 @@ impl<const P: u8, const S: i8> ArrowBinding for Decimal256<P, S> {
 
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl<const P: u8, const S: i8> ArrowBindingView for Decimal256<P, S> {
+    type Array = Decimal256Array;
+    type View<'a> = Decimal256<P, S>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Decimal256::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }

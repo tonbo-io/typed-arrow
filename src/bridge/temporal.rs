@@ -10,11 +10,13 @@ use arrow_array::{
         Time64MicrosecondType, Time64NanosecondType, TimestampMicrosecondType,
         TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType,
     },
-    PrimitiveArray,
+    Array, PrimitiveArray,
 };
 use arrow_schema::{DataType, TimeUnit};
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
 
 // ---------- Timestamp units and bindings ----------
 
@@ -104,6 +106,36 @@ impl<U: TimeUnitSpec> ArrowBinding for Timestamp<U> {
     }
 }
 
+#[cfg(feature = "views")]
+impl<U: TimeUnitSpec + 'static> ArrowBindingView for Timestamp<U> {
+    type Array = PrimitiveArray<U::Arrow>;
+    type View<'a> = Timestamp<U>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Timestamp::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 /// Marker describing a timestamp timezone.
 pub trait TimeZoneSpec {
     /// The optional timezone name for this marker.
@@ -158,6 +190,36 @@ impl<U: TimeUnitSpec, Z: TimeZoneSpec> ArrowBinding for TimestampTz<U, Z> {
     }
 }
 
+#[cfg(feature = "views")]
+impl<U: TimeUnitSpec + 'static, Z: TimeZoneSpec + 'static> ArrowBindingView for TimestampTz<U, Z> {
+    type Array = PrimitiveArray<U::Arrow>;
+    type View<'a> = TimestampTz<U, Z>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(TimestampTz::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 // ---------- Date32 / Date64 ----------
 
 /// Days since UNIX epoch.
@@ -202,6 +264,36 @@ impl ArrowBinding for Date32 {
     }
 }
 
+#[cfg(feature = "views")]
+impl ArrowBindingView for Date32 {
+    type Array = PrimitiveArray<Date32Type>;
+    type View<'a> = Date32;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Date32::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 /// Milliseconds since UNIX epoch.
 pub struct Date64(i64);
 impl Date64 {
@@ -241,6 +333,36 @@ impl ArrowBinding for Date64 {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for Date64 {
+    type Array = PrimitiveArray<Date64Type>;
+    type View<'a> = Date64;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Date64::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }
 
@@ -309,6 +431,39 @@ where
     }
 }
 
+#[cfg(feature = "views")]
+impl<U: Time32UnitSpec + 'static> ArrowBindingView for Time32<U>
+where
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i32>,
+{
+    type Array = PrimitiveArray<U::Arrow>;
+    type View<'a> = Time32<U>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Time32::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 /// Marker mapping for `Time64` units to Arrow time types.
 pub trait Time64UnitSpec {
     type Arrow;
@@ -369,6 +524,39 @@ where
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl<U: Time64UnitSpec + 'static> ArrowBindingView for Time64<U>
+where
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
+{
+    type Array = PrimitiveArray<U::Arrow>;
+    type View<'a> = Time64<U>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Time64::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }
 
@@ -446,5 +634,38 @@ where
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl<U: DurationUnitSpec + 'static> ArrowBindingView for Duration<U>
+where
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
+{
+    type Array = PrimitiveArray<U::Arrow>;
+    type View<'a> = Duration<U>;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(Duration::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }

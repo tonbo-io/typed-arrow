@@ -2,11 +2,13 @@
 
 use arrow_array::{
     builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
-    FixedSizeBinaryArray, LargeBinaryArray,
+    Array, FixedSizeBinaryArray, LargeBinaryArray,
 };
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
 
 // Binary / Vec<u8>
 impl ArrowBinding for Vec<u8> {
@@ -29,6 +31,36 @@ impl ArrowBinding for Vec<u8> {
     }
 }
 
+#[cfg(feature = "views")]
+impl ArrowBindingView for Vec<u8> {
+    type Array = arrow_array::BinaryArray;
+    type View<'a> = &'a [u8];
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(array.value(index))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 // FixedSizeBinary: [u8; N]
 impl<const N: usize> super::ArrowBinding for [u8; N] {
     type Builder = FixedSizeBinaryBuilder;
@@ -47,6 +79,36 @@ impl<const N: usize> super::ArrowBinding for [u8; N] {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl<const N: usize> super::ArrowBindingView for [u8; N] {
+    type Array = FixedSizeBinaryArray;
+    type View<'a> = &'a [u8];
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(array.value(index))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }
 
@@ -99,5 +161,35 @@ impl ArrowBinding for LargeBinary {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for LargeBinary {
+    type Array = LargeBinaryArray;
+    type View<'a> = &'a [u8];
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(array.value(index))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }
