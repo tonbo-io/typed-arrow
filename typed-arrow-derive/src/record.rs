@@ -58,6 +58,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let mut append_struct_null_stmts = Vec::with_capacity(len);
     let mut append_struct_borrowed_stmts = Vec::with_capacity(len);
     let mut append_null_row_stmts = Vec::with_capacity(len);
+    let mut inner_tys_for_view = Vec::with_capacity(len);
 
     // Parse top-level schema metadata from struct attributes
     let schema_meta_pairs = parse_schema_metadata_pairs(&input.attrs)?;
@@ -109,6 +110,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         check_no_legacy_nested_attr(&f.attrs)?;
 
         let inner_ty_ts = inner_ty.to_token_stream();
+        inner_tys_for_view.push(inner_ty_ts.clone());
         let nullable_lit = if nullable {
             quote!(true)
         } else {
@@ -439,9 +441,203 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         });
     }
 
+    // Generate view struct and iterator for FromRecordBatch
+    let view_ident = Ident::new(&format!("{name}View"), name.span());
+    let views_ident = Ident::new(&format!("{name}Views"), name.span());
+
+    let mut view_struct_fields = Vec::with_capacity(len);
+    let mut views_array_fields = Vec::with_capacity(len);
+    let mut views_init_fields = Vec::with_capacity(len);
+    let mut view_extract_stmts = Vec::with_capacity(len);
+    let mut struct_view_extract_stmts = Vec::with_capacity(len);
+
+    for (i, f) in fields.named.iter().enumerate() {
+        let fname = f.ident.as_ref().expect("named");
+        let idx = syn::Index::from(i);
+        let (inner_ty, nullable) = unwrap_option(&f.ty);
+        let inner_ty_ts = inner_ty.to_token_stream();
+        let view_ty = generate_view_type(&f.ty, nullable);
+
+        // View struct field
+        view_struct_fields.push(quote! {
+            pub #fname: #view_ty
+        });
+
+        // Views iterator: store arrays with lifetimes
+        views_array_fields.push(quote! {
+            #fname: &'a <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
+        });
+
+        // Initialize views arrays from RecordBatch columns - downcast with error handling
+        views_init_fields.push(quote! {
+            #fname: batch.column(#idx)
+                .as_any()
+                .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
+                .ok_or_else(|| ::typed_arrow::schema::SchemaError::new(
+                    format!("Column '{}' at index {}: expected type {:?} but found {:?}",
+                        stringify!(#fname),
+                        #idx,
+                        <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                        batch.column(#idx).data_type())
+                ))?,
+        });
+
+        // Extract value at index for each field (for iterator)
+        if nullable {
+            view_extract_stmts.push(quote! {
+                #fname: if <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::is_null(self.#fname, self.index) {
+                    ::core::option::Option::None
+                } else {
+                    ::core::option::Option::Some(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?)
+                }
+            });
+        } else {
+            view_extract_stmts.push(quote! {
+                #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?
+            });
+        }
+
+        // Extract value from StructArray child column (for StructView)
+        if nullable {
+            struct_view_extract_stmts.push(quote! {
+                #fname: {
+                    let __arr = array.column(#idx)
+                        .as_any()
+                        .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
+                        .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
+                            expected: ::std::any::type_name::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>().to_string(),
+                            actual: format!("{:?}", array.column(#idx).data_type()),
+                            field_name: ::core::option::Option::Some(stringify!(#fname)),
+                        })?;
+                    if <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::is_null(__arr, index) {
+                        ::core::option::Option::None
+                    } else {
+                        ::core::option::Option::Some(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?)
+                    }
+                }
+            });
+        } else {
+            struct_view_extract_stmts.push(quote! {
+                #fname: {
+                    let __arr = array.column(#idx)
+                        .as_any()
+                        .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
+                        .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
+                            expected: ::std::any::type_name::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>().to_string(),
+                            actual: format!("{:?}", array.column(#idx).data_type()),
+                            field_name: ::core::option::Option::Some(stringify!(#fname)),
+                        })?;
+                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
+                }
+            });
+        }
+    }
+
+    let view_impl = quote! {
+        #[cfg(feature = "views")]
+        /// Zero-copy view of a single row from a RecordBatch.
+        pub struct #view_ident<'a> {
+            #(#view_struct_fields,)*
+            _phantom: ::core::marker::PhantomData<&'a ()>,
+        }
+
+        #[cfg(feature = "views")]
+        /// Iterator yielding views over RecordBatch rows.
+        pub struct #views_ident<'a> {
+            #(#views_array_fields,)*
+            index: usize,
+            len: usize,
+        }
+
+        #[cfg(feature = "views")]
+        impl<'a> ::core::iter::Iterator for #views_ident<'a>
+        where
+            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+        {
+            type Item = ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError>;
+
+            fn next(&mut self) -> ::core::option::Option<Self::Item> {
+                if self.index >= self.len {
+                    return ::core::option::Option::None;
+                }
+                let result = (|| -> ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError> {
+                    ::core::result::Result::Ok(#view_ident {
+                        #(#view_extract_stmts,)*
+                        _phantom: ::core::marker::PhantomData,
+                    })
+                })();
+                self.index += 1;
+                ::core::option::Option::Some(result)
+            }
+
+            fn size_hint(&self) -> (usize, ::core::option::Option<usize>) {
+                let remaining = self.len - self.index;
+                (remaining, ::core::option::Option::Some(remaining))
+            }
+        }
+
+        #[cfg(feature = "views")]
+        impl<'a> ::core::iter::ExactSizeIterator for #views_ident<'a>
+        where
+            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+        {
+            fn len(&self) -> usize {
+                self.len - self.index
+            }
+        }
+
+        #[cfg(feature = "views")]
+        impl ::typed_arrow::schema::FromRecordBatch for #name
+        where
+            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+        {
+            type View<'a> = #view_ident<'a>;
+            type Views<'a> = #views_ident<'a>;
+
+            fn from_record_batch(batch: &::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::schema::SchemaError> {
+                // Validate column count
+                if batch.num_columns() != #len {
+                    return ::core::result::Result::Err(::typed_arrow::schema::SchemaError::new(
+                        format!("Column count mismatch: expected {} columns for {}, but RecordBatch has {} columns",
+                            #len, stringify!(#name), batch.num_columns())
+                    ));
+                }
+
+                // Downcast each column and validate types
+                ::core::result::Result::Ok(#views_ident {
+                    #(#views_init_fields)*
+                    index: 0,
+                    len: batch.num_rows(),
+                })
+            }
+        }
+
+        #[cfg(feature = "views")]
+        impl ::typed_arrow::schema::StructView for #name
+        where
+            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+        {
+            type View<'a> = #view_ident<'a>;
+
+            fn view_at(array: &::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
+                use ::arrow_array::Array;
+                ::core::result::Result::Ok(#view_ident {
+                    #(#struct_view_extract_stmts,)*
+                    _phantom: ::core::marker::PhantomData,
+                })
+            }
+
+            fn is_null_at(array: &::arrow_array::StructArray, index: usize) -> bool {
+                use ::arrow_array::Array;
+                array.is_null(index)
+            }
+        }
+    };
+
     let expanded = quote! {
         #(#col_impls)*
         #rec_impl
+        #view_impl
         #(#record_macro_invocations)*
         #(#field_macro_invocations)*
         #(#visitor_instantiations)*
@@ -499,4 +695,20 @@ fn unwrap_option(ty: &Type) -> (Type, bool) {
         }
     }
     (ty.clone(), false)
+}
+
+/// Generate the view type for a field. Uses ArrowBindingView::View<'a> for all types.
+/// - Option<T> → Option<View<T>>
+fn generate_view_type(ty: &Type, nullable: bool) -> proc_macro2::TokenStream {
+    let (inner_ty, _) = unwrap_option(ty);
+    let inner_ty_ts = inner_ty.to_token_stream();
+
+    // Always use the ArrowBindingView::View associated type
+    let view_inner = quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::View<'a> };
+
+    if nullable {
+        quote! { ::core::option::Option<#view_inner> }
+    } else {
+        view_inner
+    }
 }
