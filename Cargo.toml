@@ -21,18 +21,60 @@ name = "typed_arrow"
 path = "src/lib.rs"
 
 [features]
-default = ["derive"]
+default = ["derive", "views"]
 derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
+views = ["derive"]
 
 [dependencies]
 typed-arrow-derive = { path = "typed-arrow-derive", version = "0.4.0", optional = true, package = "typed-arrow-derive" }
 arrow-array = { version = "56" }
 arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }
+arrow-data = { version = "56" }
 half = "2"
 
 [[example]]
 name = "12_ext_hooks"
 path = "examples/12_ext_hooks.rs"
 required-features = ["ext-hooks"]
+
+[[example]]
+name = "13_record_batch_views"
+path = "examples/13_record_batch_views.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views"
+path = "tests/record_batch_views.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views_comprehensive"
+path = "tests/record_batch_views_comprehensive.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views_dictionary"
+path = "tests/record_batch_views_dictionary.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views_lists"
+path = "tests/record_batch_views_lists.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views_maps"
+path = "tests/record_batch_views_maps.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views_temporal"
+path = "tests/record_batch_views_temporal.rs"
+required-features = ["views"]
+
+[[test]]
+name = "record_batch_views_union"
+path = "tests/record_batch_views_union.rs"
+required-features = ["views"]
