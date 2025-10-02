@@ -6,12 +6,14 @@ use arrow_array::{
         Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
         UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
-    PrimitiveArray,
+    Array, PrimitiveArray,
 };
 use arrow_schema::DataType;
 use half::f16;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
 
 // Primitive integers/floats
 macro_rules! impl_primitive_binding {
@@ -33,6 +35,36 @@ macro_rules! impl_primitive_binding {
             }
             fn finish(mut b: Self::Builder) -> Self::Array {
                 b.finish()
+            }
+        }
+
+        #[cfg(feature = "views")]
+        impl ArrowBindingView for $rust {
+            type Array = PrimitiveArray<$atype>;
+            type View<'a> = $rust;
+
+            fn get_view(
+                array: &Self::Array,
+                index: usize,
+            ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+                if index >= array.len() {
+                    return Err(crate::schema::ViewAccessError::OutOfBounds {
+                        index,
+                        len: array.len(),
+                        field_name: None,
+                    });
+                }
+                if array.is_null(index) {
+                    return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                        index,
+                        field_name: None,
+                    });
+                }
+                Ok(array.value(index))
+            }
+
+            fn is_null(array: &Self::Array, index: usize) -> bool {
+                array.is_null(index)
             }
         }
     };
@@ -70,6 +102,36 @@ impl ArrowBinding for f16 {
     }
 }
 
+#[cfg(feature = "views")]
+impl ArrowBindingView for f16 {
+    type Array = PrimitiveArray<Float16Type>;
+    type View<'a> = f16;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(array.value(index))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 // Boolean
 impl ArrowBinding for bool {
     type Builder = arrow_array::builder::BooleanBuilder;
@@ -88,5 +150,35 @@ impl ArrowBinding for bool {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for bool {
+    type Array = arrow_array::BooleanArray;
+    type View<'a> = bool;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(array.value(index))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }

@@ -3,11 +3,13 @@
 use arrow_array::{
     builder::PrimitiveBuilder,
     types::{IntervalDayTimeType, IntervalMonthDayNanoType, IntervalYearMonthType},
-    PrimitiveArray,
+    Array, PrimitiveArray,
 };
 use arrow_schema::{DataType, IntervalUnit};
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
 
 /// Interval with unit `YearMonth` (i32 months since epoch).
 pub struct IntervalYearMonth(i32);
@@ -48,6 +50,36 @@ impl ArrowBinding for IntervalYearMonth {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for IntervalYearMonth {
+    type Array = PrimitiveArray<IntervalYearMonthType>;
+    type View<'a> = IntervalYearMonth;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(IntervalYearMonth::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }
 
@@ -93,6 +125,36 @@ impl ArrowBinding for IntervalDayTime {
     }
 }
 
+#[cfg(feature = "views")]
+impl ArrowBindingView for IntervalDayTime {
+    type Array = PrimitiveArray<IntervalDayTimeType>;
+    type View<'a> = IntervalDayTime;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(IntervalDayTime::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
+    }
+}
+
 /// Interval with unit `MonthDayNano` (packed months, days, and nanoseconds).
 pub struct IntervalMonthDayNano(arrow_array::types::IntervalMonthDayNano);
 impl IntervalMonthDayNano {
@@ -132,5 +194,35 @@ impl ArrowBinding for IntervalMonthDayNano {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for IntervalMonthDayNano {
+    type Array = PrimitiveArray<IntervalMonthDayNanoType>;
+    type View<'a> = IntervalMonthDayNano;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(IntervalMonthDayNano::new(array.value(index)))
+    }
+
+    fn is_null(array: &Self::Array, index: usize) -> bool {
+        array.is_null(index)
     }
 }
