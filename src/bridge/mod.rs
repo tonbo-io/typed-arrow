@@ -46,6 +46,39 @@ pub trait ArrowBinding {
     fn finish(b: Self::Builder) -> Self::Array;
 }
 
+/// View binding from an Arrow array to borrowed Rust reference types.
+///
+/// Implementations of this trait provide zero-copy access to Arrow array values
+/// by returning borrowed references with a lifetime tied to the array.
+///
+/// Note: This trait is separate from `ArrowBinding` to allow types to opt-in
+/// to view support. Complex types like `List`, `Map`, etc. may not implement this.
+#[cfg(feature = "views")]
+pub trait ArrowBindingView {
+    /// The Arrow array type this view reads from.
+    type Array: Array;
+
+    /// The borrowed view type returned when accessing array elements.
+    /// For example: `&'a str` for `StringArray`, `i64` for `Int64Array`.
+    type View<'a>
+    where
+        Self: 'a;
+
+    /// Extract a view at the given index from the array.
+    ///
+    /// # Errors
+    /// - Returns `ViewAccessError::OutOfBounds` if index >= array.len()
+    /// - Returns `ViewAccessError::UnexpectedNull` if the value is null
+    /// - Returns `ViewAccessError::TypeMismatch` if array downcast fails
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError>;
+
+    /// Check if the value at the given index is null.
+    fn is_null(array: &Self::Array, index: usize) -> bool;
+}
+
 mod binary;
 mod column;
 mod decimals;
