@@ -6,7 +6,13 @@ pub mod schema;
 
 /// Prelude exporting the most common traits and markers.
 pub mod prelude {
-    pub use crate::schema::{BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record};
+    pub use crate::schema::{
+        BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record, SchemaError,
+    };
+    #[cfg(feature = "views")]
+    pub use crate::schema::{FromRecordBatch, ViewResultIteratorExt};
+    #[cfg(feature = "views")]
+    pub use crate::RecordBatchOps;
 }
 
 // Re-export the derive macro when enabled
@@ -25,3 +31,56 @@ pub use crate::bridge::{
     LargeList, LargeUtf8, List, Map, Microsecond, Millisecond, Nanosecond, Null, OrderedMap,
     Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utc,
 };
+
+/// Extension trait providing convenient methods on `RecordBatch`.
+#[cfg(feature = "views")]
+pub trait RecordBatchOps {
+    /// Iterate over typed views of rows in this RecordBatch.
+    ///
+    /// This provides zero-copy access to the data as borrowed references.
+    ///
+    /// # Errors
+    /// Returns `SchemaError` if the RecordBatch schema doesn't match the expected Record type.
+    ///
+    /// # Example
+    /// ```
+    /// use typed_arrow::prelude::*;
+    ///
+    /// #[derive(typed_arrow::Record)]
+    /// struct Row {
+    ///     id: i32,
+    ///     name: String,
+    /// }
+    ///
+    /// // Build a RecordBatch
+    /// let rows = vec![
+    ///     Row {
+    ///         id: 1,
+    ///         name: "Alice".to_string(),
+    ///     },
+    ///     Row {
+    ///         id: 2,
+    ///         name: "Bob".to_string(),
+    ///     },
+    /// ];
+    /// let mut b = <Row as BuildRows>::new_builders(rows.len());
+    /// b.append_rows(rows);
+    /// let arrays = b.finish();
+    /// let batch = arrays.into_record_batch();
+    ///
+    /// // Iterate with zero-copy views (using convenience method to handle errors)
+    /// let views = batch.iter_views::<Row>()?.try_flatten()?;
+    /// for row in views {
+    ///     println!("{}: {}", row.id, row.name);
+    /// }
+    /// # Ok::<_, typed_arrow::schema::SchemaError>(())
+    /// ```
+    fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, schema::SchemaError>;
+}
+
+#[cfg(feature = "views")]
+impl RecordBatchOps for arrow_array::RecordBatch {
+    fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, schema::SchemaError> {
+        T::from_record_batch(self)
+    }
+}
