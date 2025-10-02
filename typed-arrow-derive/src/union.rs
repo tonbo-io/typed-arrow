@@ -341,7 +341,104 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
     let gen = if is_sparse { sparse_ts } else { dense_ts };
 
-    Ok(gen)
+    // Generate View enum for ArrowBindingView
+    let view_ident = Ident::new(&format!("{name}View"), name.span());
+
+    // Generate view enum variants
+    let mut view_variants = Vec::with_capacity(n);
+    for (v_ident, v_ty) in var_idents.iter().zip(var_types.iter()) {
+        view_variants.push(quote! {
+            #v_ident(<#v_ty as ::typed_arrow::bridge::ArrowBindingView>::View<'a>)
+        });
+    }
+
+    // Generate match arms for get_view based on type_id
+    let mut view_match_arms = Vec::with_capacity(n);
+    for (idx, (v_ident, v_ty)) in var_idents.iter().zip(var_types.iter()).enumerate() {
+        let tag = tags_i8[idx];
+        view_match_arms.push(quote! {
+            #tag => {
+                let child_array_ref = array.child(#tag);
+                let child_array = child_array_ref
+                    .as_any()
+                    .downcast_ref::<<#v_ty as ::typed_arrow::bridge::ArrowBindingView>::Array>()
+                    .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
+                        expected: ::std::any::type_name::<<#v_ty as ::typed_arrow::bridge::ArrowBindingView>::Array>().to_string(),
+                        actual: format!("{:?}", child_array_ref.data_type()),
+                        field_name: ::core::option::Option::Some(stringify!(#v_ident)),
+                    })?;
+                let value_index = if let Some(offsets) = array.offsets() {
+                    // Dense union: use offset
+                    offsets[index] as usize
+                } else {
+                    // Sparse union: use same index
+                    index
+                };
+                ::core::result::Result::Ok(#view_ident::#v_ident(
+                    <#v_ty as ::typed_arrow::bridge::ArrowBindingView>::get_view(child_array, value_index)?
+                ))
+            }
+        });
+    }
+
+    let view_impl = quote! {
+        // View enum for union types
+        #[cfg(feature = "views")]
+        #[derive(Debug, Clone)]
+        pub enum #view_ident<'a> {
+            #(#view_variants,)*
+        }
+
+        // ArrowBindingView implementation
+        #[cfg(feature = "views")]
+        impl ::typed_arrow::bridge::ArrowBindingView for #name
+        where
+            #(#var_types: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+        {
+            type Array = ::typed_arrow::arrow_array::UnionArray;
+            type View<'a> = #view_ident<'a> where Self: 'a;
+
+            fn get_view(array: &Self::Array, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
+                use ::typed_arrow::arrow_array::Array;
+                if index >= array.len() {
+                    return ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::OutOfBounds {
+                        index,
+                        len: array.len(),
+                        field_name: ::core::option::Option::None,
+                    });
+                }
+                if array.is_null(index) {
+                    return ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::UnexpectedNull {
+                        index,
+                        field_name: ::core::option::Option::None,
+                    });
+                }
+
+                let type_id = array.type_id(index);
+
+                match type_id {
+                    #(#view_match_arms)*
+                    _ => ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::TypeMismatch {
+                        expected: "valid union type_id".to_string(),
+                        actual: format!("type_id {}", type_id),
+                        field_name: ::core::option::Option::None,
+                    }),
+                }
+            }
+
+            fn is_null(array: &Self::Array, index: usize) -> bool {
+                use ::typed_arrow::arrow_array::Array;
+                array.is_null(index)
+            }
+        }
+    };
+
+    let expanded = quote! {
+        #gen
+        #view_impl
+    };
+
+    Ok(expanded)
 }
 
 #[derive(Default, Debug)]
