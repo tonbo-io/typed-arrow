@@ -1,0 +1,84 @@
+//! Error types for typed-arrow.
+
+use arrow_schema::DataType;
+use thiserror::Error;
+
+/// Error type for schema validation failures.
+#[derive(Debug, Clone, Error)]
+pub enum SchemaError {
+    /// Type mismatch between expected and actual schema
+    #[error("schema type mismatch: expected {expected}, got {actual}")]
+    TypeMismatch {
+        /// Expected Arrow DataType
+        expected: DataType,
+        /// Actual Arrow DataType
+        actual: DataType,
+    },
+    /// Missing required field
+    #[error("missing required field: {field_name}")]
+    MissingField {
+        /// Name of the missing field
+        field_name: String,
+    },
+    /// Invalid schema configuration
+    #[error("invalid schema: {message}")]
+    InvalidSchema {
+        /// Error message
+        message: String,
+    },
+}
+
+impl SchemaError {
+    /// Create a type mismatch error
+    pub fn type_mismatch(expected: DataType, actual: DataType) -> Self {
+        Self::TypeMismatch { expected, actual }
+    }
+
+    /// Create a missing field error
+    pub fn missing_field(field_name: impl Into<String>) -> Self {
+        Self::MissingField {
+            field_name: field_name.into(),
+        }
+    }
+
+    /// Create an invalid schema error
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self::InvalidSchema {
+            message: message.into(),
+        }
+    }
+}
+
+/// Error type for view access failures when reading from Arrow arrays.
+#[cfg(feature = "views")]
+#[derive(Debug, Clone, Error)]
+pub enum ViewAccessError {
+    /// Index out of bounds
+    #[error("index {index} out of bounds (len {len}){}", field_name.map(|n| format!(" for field '{n}'")).unwrap_or_default())]
+    OutOfBounds {
+        /// The invalid index
+        index: usize,
+        /// The array length
+        len: usize,
+        /// Optional field name for context
+        field_name: Option<&'static str>,
+    },
+    /// Unexpected null value
+    #[error("unexpected null at index {index}{}", field_name.map(|n| format!(" for field '{n}'")).unwrap_or_default())]
+    UnexpectedNull {
+        /// The index where null was found
+        index: usize,
+        /// Optional field name for context
+        field_name: Option<&'static str>,
+    },
+    /// Type mismatch during array downcast
+    #[error("type mismatch: expected {expected}, got {actual}{}", field_name.map(|n| format!(" for field '{n}'")).unwrap_or_default())]
+    TypeMismatch {
+        /// Expected Arrow DataType
+        expected: DataType,
+        /// Actual Arrow DataType
+        actual: DataType,
+        /// Optional field name for context
+        field_name: Option<&'static str>,
+    },
+}

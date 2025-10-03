@@ -10,105 +10,19 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, Schema};
 
-/// Error type for schema validation failures when creating views from RecordBatch.
-#[derive(Debug, Clone)]
-pub struct SchemaError {
-    /// Human-readable error message
-    pub message: String,
-}
-
-impl SchemaError {
-    /// Create a new schema error
-    pub fn new(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-        }
-    }
-}
-
-impl std::fmt::Display for SchemaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Schema validation error: {}", self.message)
-    }
-}
-
-impl std::error::Error for SchemaError {}
-
-/// Error type for view access failures when reading from Arrow arrays.
+pub use crate::error::SchemaError;
 #[cfg(feature = "views")]
-#[derive(Debug, Clone)]
-pub enum ViewAccessError {
-    /// Index out of bounds
-    OutOfBounds {
-        /// The invalid index
-        index: usize,
-        /// The array length
-        len: usize,
-        /// Optional field name for context
-        field_name: Option<&'static str>,
-    },
-    /// Unexpected null value
-    UnexpectedNull {
-        /// The index where null was found
-        index: usize,
-        /// Optional field name for context
-        field_name: Option<&'static str>,
-    },
-    /// Type mismatch during array downcast
-    TypeMismatch {
-        /// Expected type name
-        expected: String,
-        /// Actual data type
-        actual: String,
-        /// Optional field name for context
-        field_name: Option<&'static str>,
-    },
-}
-
-#[cfg(feature = "views")]
-impl std::fmt::Display for ViewAccessError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::OutOfBounds {
-                index,
-                len,
-                field_name,
-            } => {
-                write!(f, "index {index} out of bounds (len {len})")?;
-                if let Some(name) = field_name {
-                    write!(f, " for field '{name}'")?;
-                }
-                Ok(())
-            }
-            Self::UnexpectedNull { index, field_name } => {
-                write!(f, "unexpected null at index {index}")?;
-                if let Some(name) = field_name {
-                    write!(f, " for field '{name}'")?;
-                }
-                Ok(())
-            }
-            Self::TypeMismatch {
-                expected,
-                actual,
-                field_name,
-            } => {
-                write!(f, "type mismatch: expected {expected}, got {actual}")?;
-                if let Some(name) = field_name {
-                    write!(f, " for field '{name}'")?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-#[cfg(feature = "views")]
-impl std::error::Error for ViewAccessError {}
+pub use crate::error::ViewAccessError;
 
 #[cfg(feature = "views")]
 impl From<ViewAccessError> for SchemaError {
     fn from(err: ViewAccessError) -> Self {
-        SchemaError::new(format!("View access error: {}", err))
+        match err {
+            ViewAccessError::TypeMismatch {
+                expected, actual, ..
+            } => SchemaError::TypeMismatch { expected, actual },
+            _ => SchemaError::invalid(err.to_string()),
+        }
     }
 }
 
