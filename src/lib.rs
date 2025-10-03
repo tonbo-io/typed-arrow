@@ -2,17 +2,21 @@
 //! typed-arrow core: compile-time Arrow schema traits and primitive markers.
 
 pub mod bridge;
+pub mod error;
 pub mod schema;
 
 /// Prelude exporting the most common traits and markers.
 pub mod prelude {
-    pub use crate::schema::{
-        BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record, SchemaError,
-    };
+    #[cfg(feature = "views")]
+    pub use crate::error::ViewAccessError;
     #[cfg(feature = "views")]
     pub use crate::schema::{FromRecordBatch, ViewResultIteratorExt};
     #[cfg(feature = "views")]
-    pub use crate::RecordBatchOps;
+    pub use crate::AsViewsIterator;
+    pub use crate::{
+        error::SchemaError,
+        schema::{BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record},
+    };
 }
 
 // Re-export the derive macro when enabled
@@ -32,9 +36,9 @@ pub use crate::bridge::{
     Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utc,
 };
 
-/// Extension trait providing convenient methods on `RecordBatch`.
+/// Extension trait for creating typed view iterators from `RecordBatch`.
 #[cfg(feature = "views")]
-pub trait RecordBatchOps {
+pub trait AsViewsIterator {
     /// Iterate over typed views of rows in this RecordBatch.
     ///
     /// This provides zero-copy access to the data as borrowed references.
@@ -73,14 +77,14 @@ pub trait RecordBatchOps {
     /// for row in views {
     ///     println!("{}: {}", row.id, row.name);
     /// }
-    /// # Ok::<_, typed_arrow::schema::SchemaError>(())
+    /// # Ok::<_, typed_arrow::error::SchemaError>(())
     /// ```
-    fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, schema::SchemaError>;
+    fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, error::SchemaError>;
 }
 
 #[cfg(feature = "views")]
-impl RecordBatchOps for arrow_array::RecordBatch {
-    fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, schema::SchemaError> {
+impl AsViewsIterator for arrow_array::RecordBatch {
+    fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, error::SchemaError> {
         T::from_record_batch(self)
     }
 }
