@@ -77,10 +77,6 @@ impl ArrowBindingView for IntervalYearMonth {
         }
         Ok(IntervalYearMonth::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Interval with unit `DayTime` (packed days and milliseconds).
@@ -149,10 +145,6 @@ impl ArrowBindingView for IntervalDayTime {
         }
         Ok(IntervalDayTime::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Interval with unit `MonthDayNano` (packed months, days, and nanoseconds).
@@ -220,9 +212,5 @@ impl ArrowBindingView for IntervalMonthDayNano {
             });
         }
         Ok(IntervalMonthDayNano::new(array.value(index)))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }

@@ -130,10 +130,6 @@ impl<U: TimeUnitSpec + 'static> ArrowBindingView for Timestamp<U> {
         }
         Ok(Timestamp::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Marker describing a timestamp timezone.
@@ -214,10 +210,6 @@ impl<U: TimeUnitSpec + 'static, Z: TimeZoneSpec + 'static> ArrowBindingView for 
         }
         Ok(TimestampTz::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 // ---------- Date32 / Date64 ----------
@@ -288,10 +280,6 @@ impl ArrowBindingView for Date32 {
         }
         Ok(Date32::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Milliseconds since UNIX epoch.
@@ -359,10 +347,6 @@ impl ArrowBindingView for Date64 {
             });
         }
         Ok(Date64::new(array.value(index)))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -458,10 +442,6 @@ where
         }
         Ok(Time32::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Marker mapping for `Time64` units to Arrow time types.
@@ -553,10 +533,6 @@ where
             });
         }
         Ok(Time64::new(array.value(index)))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -663,9 +639,5 @@ where
             });
         }
         Ok(Duration::new(array.value(index)))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }

@@ -55,10 +55,6 @@ impl ArrowBindingView for Vec<u8> {
         }
         Ok(array.value(index))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 // FixedSizeBinary: [u8; N]
@@ -105,10 +101,6 @@ impl<const N: usize> super::ArrowBindingView for [u8; N] {
             });
         }
         Ok(array.value(index))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -187,9 +179,5 @@ impl ArrowBindingView for LargeBinary {
             });
         }
         Ok(array.value(index))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }

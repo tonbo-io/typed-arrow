@@ -62,10 +62,6 @@ macro_rules! impl_primitive_binding {
                 }
                 Ok(array.value(index))
             }
-
-            fn is_null(array: &Self::Array, index: usize) -> bool {
-                array.is_null(index)
-            }
         }
     };
 }
@@ -126,10 +122,6 @@ impl ArrowBindingView for f16 {
         }
         Ok(array.value(index))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 // Boolean
@@ -176,9 +168,5 @@ impl ArrowBindingView for bool {
             });
         }
         Ok(array.value(index))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }

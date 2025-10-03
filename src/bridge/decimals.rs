@@ -84,10 +84,6 @@ impl<const P: u8, const S: i8> ArrowBindingView for Decimal128<P, S> {
         }
         Ok(Decimal128::new(array.value(index)))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Fixed-precision decimal stored in 256 bits.
@@ -162,9 +158,5 @@ impl<const P: u8, const S: i8> ArrowBindingView for Decimal256<P, S> {
             });
         }
         Ok(Decimal256::new(array.value(index)))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
