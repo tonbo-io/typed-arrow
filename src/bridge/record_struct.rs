@@ -78,8 +78,4 @@ where
         }
         <T as StructView>::view_at(array, index)
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        <T as StructView>::is_null_at(array, index)
-    }
 }

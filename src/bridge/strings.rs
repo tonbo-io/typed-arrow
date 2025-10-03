@@ -55,10 +55,6 @@ impl ArrowBindingView for String {
         }
         Ok(array.value(index))
     }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
-    }
 }
 
 /// Wrapper denoting Arrow `LargeUtf8` values. Use when individual strings can be
@@ -144,9 +140,5 @@ impl ArrowBindingView for LargeUtf8 {
             });
         }
         Ok(array.value(index))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
