@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use arrow_array::{builder::MapBuilder, Array, MapArray};
+use arrow_array::{builder::MapBuilder, MapArray};
 use arrow_schema::{DataType, Field};
 
 use super::ArrowBinding;
@@ -392,9 +392,8 @@ where
             .as_any()
             .downcast_ref::<<K as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<K as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(0).data_type()),
+                expected: K::data_type(),
+                actual: entries.column(0).data_type().clone(),
                 field_name: Some("keys"),
             })?;
         let values_array = entries
@@ -402,17 +401,12 @@ where
             .as_any()
             .downcast_ref::<<V as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<V as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(1).data_type()),
+                expected: V::data_type(),
+                actual: entries.column(1).data_type().clone(),
                 field_name: Some("values"),
             })?;
 
         Ok(MapView::new(keys_array, values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -454,9 +448,8 @@ where
             .as_any()
             .downcast_ref::<<K as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<K as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(0).data_type()),
+                expected: K::data_type(),
+                actual: entries.column(0).data_type().clone(),
                 field_name: Some("keys"),
             })?;
         let values_array = entries
@@ -464,17 +457,12 @@ where
             .as_any()
             .downcast_ref::<<V as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<V as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(1).data_type()),
+                expected: V::data_type(),
+                actual: entries.column(1).data_type().clone(),
                 field_name: Some("values"),
             })?;
 
         Ok(MapView::new(keys_array, values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -535,7 +523,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             let result = K::get_view(self.keys_array, self.start).and_then(|key| {
-                let value = if V::is_null(self.values_array, self.start) {
+                use arrow_array::Array;
+                let value = if self.values_array.is_null(self.start) {
                     Ok(None)
                 } else {
                     V::get_view(self.values_array, self.start).map(Some)
@@ -604,9 +593,8 @@ where
             .as_any()
             .downcast_ref::<<K as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<K as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(0).data_type()),
+                expected: K::data_type(),
+                actual: entries.column(0).data_type().clone(),
                 field_name: Some("keys"),
             })?;
         let values_array = entries
@@ -614,17 +602,12 @@ where
             .as_any()
             .downcast_ref::<<V as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<V as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(1).data_type()),
+                expected: V::data_type(),
+                actual: entries.column(1).data_type().clone(),
                 field_name: Some("values"),
             })?;
 
         Ok(MapViewNullable::new(keys_array, values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -666,9 +649,8 @@ where
             .as_any()
             .downcast_ref::<<K as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<K as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(0).data_type()),
+                expected: K::data_type(),
+                actual: entries.column(0).data_type().clone(),
                 field_name: Some("keys"),
             })?;
         let values_array = entries
@@ -676,16 +658,11 @@ where
             .as_any()
             .downcast_ref::<<V as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<<V as super::ArrowBindingView>::Array>()
-                    .to_string(),
-                actual: format!("{:?}", entries.column(1).data_type()),
+                expected: V::data_type(),
+                actual: entries.column(1).data_type().clone(),
                 field_name: Some("values"),
             })?;
 
         Ok(MapViewNullable::new(keys_array, values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
