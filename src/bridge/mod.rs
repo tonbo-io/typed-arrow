@@ -74,9 +74,6 @@ pub trait ArrowBindingView {
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError>;
-
-    /// Check if the value at the given index is null.
-    fn is_null(array: &Self::Array, index: usize) -> bool;
 }
 
 mod binary;
@@ -87,6 +84,7 @@ mod intervals;
 mod lists;
 mod map;
 mod null_type;
+mod option;
 mod primitives;
 mod record_struct;
 mod strings;
