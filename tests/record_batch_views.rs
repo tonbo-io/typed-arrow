@@ -174,3 +174,60 @@ fn test_iterator_properties() -> Result<(), SchemaError> {
 
     Ok(())
 }
+
+#[derive(typed_arrow::Record)]
+struct BinaryRecord {
+    id: i32,
+    data: Vec<u8>,
+    optional_data: Option<Vec<u8>>,
+}
+
+#[test]
+fn test_binary_record_batch_views() -> Result<(), SchemaError> {
+    let rows = vec![
+        BinaryRecord {
+            id: 1,
+            data: vec![0x01, 0x02, 0x03],
+            optional_data: Some(vec![0xAA, 0xBB]),
+        },
+        BinaryRecord {
+            id: 2,
+            data: vec![0xFF, 0xEE, 0xDD, 0xCC],
+            optional_data: None,
+        },
+        BinaryRecord {
+            id: 3,
+            data: vec![],
+            optional_data: Some(vec![0x10]),
+        },
+    ];
+
+    // Build RecordBatch
+    let mut b = <BinaryRecord as BuildRows>::new_builders(rows.len());
+    b.append_rows(rows);
+    let arrays = b.finish();
+    let batch: RecordBatch = arrays.into_record_batch();
+
+    // Create views iterator
+    let views = batch.iter_views::<BinaryRecord>()?;
+    let collected = views.try_flatten()?;
+
+    assert_eq!(collected.len(), 3);
+
+    // Check first row
+    assert_eq!(collected[0].id, 1);
+    assert_eq!(collected[0].data, &[0x01, 0x02, 0x03]);
+    assert_eq!(collected[0].optional_data, Some(&[0xAA, 0xBB][..]));
+
+    // Check second row with null optional binary
+    assert_eq!(collected[1].id, 2);
+    assert_eq!(collected[1].data, &[0xFF, 0xEE, 0xDD, 0xCC]);
+    assert_eq!(collected[1].optional_data, None);
+
+    // Check third row with empty binary
+    assert_eq!(collected[2].id, 3);
+    assert_eq!(collected[2].data, &[][..]);
+    assert_eq!(collected[2].optional_data, Some(&[0x10][..]));
+
+    Ok(())
+}
