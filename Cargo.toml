@@ -33,6 +33,7 @@ arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }
 arrow-data = { version = "56" }
 half = "2"
+thiserror = "2.0"
 
 [[example]]
 name = "12_ext_hooks"
