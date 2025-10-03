@@ -473,23 +473,17 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             #fname: batch.column(#idx)
                 .as_any()
                 .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
-                .ok_or_else(|| ::typed_arrow::schema::SchemaError::new(
-                    format!("Column '{}' at index {}: expected type {:?} but found {:?}",
-                        stringify!(#fname),
-                        #idx,
-                        <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
-                        batch.column(#idx).data_type())
+                .ok_or_else(|| ::typed_arrow::error::SchemaError::type_mismatch(
+                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                    batch.column(#idx).data_type().clone()
                 ))?,
         });
 
         // Extract value at index for each field (for iterator)
         if nullable {
+            // For nullable fields, use Option<T>::get_view which handles nulls
             view_extract_stmts.push(quote! {
-                #fname: if <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::is_null(self.#fname, self.index) {
-                    ::core::option::Option::None
-                } else {
-                    ::core::option::Option::Some(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?)
-                }
+                #fname: <::core::option::Option<#inner_ty_ts> as ::typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?
             });
         } else {
             view_extract_stmts.push(quote! {
@@ -499,32 +493,31 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         // Extract value from StructArray child column (for StructView)
         if nullable {
+            // For nullable fields, call Option<T>::get_view which handles nulls by returning
+            // Ok(None)
             struct_view_extract_stmts.push(quote! {
                 #fname: {
                     let __arr = array.column(#idx)
                         .as_any()
                         .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
                         .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
-                            expected: ::std::any::type_name::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>().to_string(),
-                            actual: format!("{:?}", array.column(#idx).data_type()),
+                            expected: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                            actual: array.column(#idx).data_type().clone(),
                             field_name: ::core::option::Option::Some(stringify!(#fname)),
                         })?;
-                    if <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::is_null(__arr, index) {
-                        ::core::option::Option::None
-                    } else {
-                        ::core::option::Option::Some(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?)
-                    }
+                    <::core::option::Option<#inner_ty_ts> as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
                 }
             });
         } else {
+            // For non-nullable fields, call T::get_view which returns Err(UnexpectedNull) on null
             struct_view_extract_stmts.push(quote! {
                 #fname: {
                     let __arr = array.column(#idx)
                         .as_any()
                         .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
                         .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
-                            expected: ::std::any::type_name::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>().to_string(),
-                            actual: format!("{:?}", array.column(#idx).data_type()),
+                            expected: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                            actual: array.column(#idx).data_type().clone(),
                             field_name: ::core::option::Option::Some(stringify!(#fname)),
                         })?;
                     <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
@@ -594,10 +587,10 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             type View<'a> = #view_ident<'a>;
             type Views<'a> = #views_ident<'a>;
 
-            fn from_record_batch(batch: &::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::schema::SchemaError> {
+            fn from_record_batch(batch: &::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
                 // Validate column count
                 if batch.num_columns() != #len {
-                    return ::core::result::Result::Err(::typed_arrow::schema::SchemaError::new(
+                    return ::core::result::Result::Err(::typed_arrow::error::SchemaError::invalid(
                         format!("Column count mismatch: expected {} columns for {}, but RecordBatch has {} columns",
                             #len, stringify!(#name), batch.num_columns())
                     ));

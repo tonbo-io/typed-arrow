@@ -1,9 +1,6 @@
 //! `List`, `LargeList`, and `FixedSizeList` bindings.
 
-use arrow_array::{
-    builder::{ArrayBuilder, FixedSizeListBuilder, LargeListBuilder, ListBuilder},
-    Array,
-};
+use arrow_array::builder::{ArrayBuilder, FixedSizeListBuilder, LargeListBuilder, ListBuilder};
 use arrow_schema::{DataType, Field};
 
 use super::ArrowBinding;
@@ -175,7 +172,7 @@ where
 #[cfg(feature = "views")]
 impl<T> ArrowBindingView for List<T>
 where
-    T: ArrowBindingView + 'static,
+    T: ArrowBinding + ArrowBindingView + 'static,
 {
     type Array = arrow_array::ListArray;
     type View<'a> = ListView<'a, T>;
@@ -204,17 +201,13 @@ where
         let values_array = array
             .values()
             .as_any()
-            .downcast_ref::<T::Array>()
+            .downcast_ref::<<T as ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<T::Array>().to_string(),
-                actual: format!("{:?}", array.values().data_type()),
+                expected: T::data_type(),
+                actual: array.values().data_type().clone(),
                 field_name: None,
             })?;
         Ok(ListView::new(values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -303,11 +296,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
-            let result = if T::is_null(self.values_array, self.start) {
-                Ok(None)
-            } else {
-                T::get_view(self.values_array, self.start).map(Some)
-            };
+            let result = <Option<T> as ArrowBindingView>::get_view(self.values_array, self.start);
             self.start += 1;
             Some(result)
         } else {
@@ -339,12 +328,10 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             self.end -= 1;
-            let result = if T::is_null(self.values_array, self.end) {
-                Ok(None)
-            } else {
-                T::get_view(self.values_array, self.end).map(Some)
-            };
-            Some(result)
+            Some(<Option<T> as ArrowBindingView>::get_view(
+                self.values_array,
+                self.end,
+            ))
         } else {
             None
         }
@@ -354,7 +341,7 @@ where
 #[cfg(feature = "views")]
 impl<T> ArrowBindingView for List<Option<T>>
 where
-    T: ArrowBindingView + 'static,
+    T: ArrowBinding + ArrowBindingView + 'static,
 {
     type Array = arrow_array::ListArray;
     type View<'a> = ListViewNullable<'a, T>;
@@ -383,17 +370,13 @@ where
         let values_array = array
             .values()
             .as_any()
-            .downcast_ref::<T::Array>()
+            .downcast_ref::<<T as ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<T::Array>().to_string(),
-                actual: format!("{:?}", array.values().data_type()),
+                expected: T::data_type(),
+                actual: array.values().data_type().clone(),
                 field_name: None,
             })?;
         Ok(ListViewNullable::new(values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -548,7 +531,7 @@ where
 #[cfg(feature = "views")]
 impl<T, const N: usize> ArrowBindingView for FixedSizeList<T, N>
 where
-    T: ArrowBindingView + 'static,
+    T: ArrowBinding + ArrowBindingView + 'static,
 {
     type Array = arrow_array::FixedSizeListArray;
     type View<'a> = FixedSizeListView<'a, T, N>;
@@ -575,17 +558,13 @@ where
         let values_array = array
             .values()
             .as_any()
-            .downcast_ref::<T::Array>()
+            .downcast_ref::<<T as ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<T::Array>().to_string(),
-                actual: format!("{:?}", array.values().data_type()),
+                expected: T::data_type(),
+                actual: array.values().data_type().clone(),
                 field_name: None,
             })?;
         Ok(FixedSizeListView::new(values_array, start))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -693,25 +672,21 @@ where
         N == 0
     }
 
-    /// Get the value at a specific index, returning None if null or out of bounds.
+    /// Get the value at a specific index.
     ///
-    /// Returns Ok(Some(Some(view))) if valid and non-null, Ok(Some(None)) if null,
-    /// Ok(None) if out of bounds, or Err if there's an error accessing the view.
+    /// Returns Ok(Some(view)) if valid and non-null, Ok(None) if null,
+    /// or Err if out of bounds or there's an error accessing the view.
     #[inline]
-    pub fn get(
-        &self,
-        index: usize,
-    ) -> Result<Option<Option<T::View<'a>>>, crate::schema::ViewAccessError> {
-        if index < N {
-            let idx = self.start + index;
-            if T::is_null(self.values_array, idx) {
-                Ok(Some(None))
-            } else {
-                T::get_view(self.values_array, idx).map(|v| Some(Some(v)))
-            }
-        } else {
-            Ok(None)
+    pub fn get(&self, index: usize) -> Result<Option<T::View<'a>>, crate::schema::ViewAccessError> {
+        if index >= N {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: N,
+                field_name: None,
+            });
         }
+        let idx = self.start + index;
+        <Option<T> as ArrowBindingView>::get_view(self.values_array, idx)
     }
 }
 
@@ -725,11 +700,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if self.current < N {
             let idx = self.start + self.current;
-            let result = if T::is_null(self.values_array, idx) {
-                Ok(None)
-            } else {
-                T::get_view(self.values_array, idx).map(Some)
-            };
+            let result = <Option<T> as ArrowBindingView>::get_view(self.values_array, idx);
             self.current += 1;
             Some(result)
         } else {
@@ -756,7 +727,7 @@ where
 #[cfg(feature = "views")]
 impl<T, const N: usize> ArrowBindingView for FixedSizeListNullable<T, N>
 where
-    T: ArrowBindingView + 'static,
+    T: ArrowBinding + ArrowBindingView + 'static,
 {
     type Array = arrow_array::FixedSizeListArray;
     type View<'a> = FixedSizeListViewNullable<'a, T, N>;
@@ -783,17 +754,13 @@ where
         let values_array = array
             .values()
             .as_any()
-            .downcast_ref::<T::Array>()
+            .downcast_ref::<<T as ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<T::Array>().to_string(),
-                actual: format!("{:?}", array.values().data_type()),
+                expected: T::data_type(),
+                actual: array.values().data_type().clone(),
                 field_name: None,
             })?;
         Ok(FixedSizeListViewNullable::new(values_array, start))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -958,7 +925,7 @@ where
 #[cfg(feature = "views")]
 impl<T> ArrowBindingView for LargeList<T>
 where
-    T: ArrowBindingView + 'static,
+    T: ArrowBinding + ArrowBindingView + 'static,
 {
     type Array = arrow_array::LargeListArray;
     type View<'a> = LargeListView<'a, T>;
@@ -987,17 +954,13 @@ where
         let values_array = array
             .values()
             .as_any()
-            .downcast_ref::<T::Array>()
+            .downcast_ref::<<T as ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<T::Array>().to_string(),
-                actual: format!("{:?}", array.values().data_type()),
+                expected: T::data_type(),
+                actual: array.values().data_type().clone(),
                 field_name: None,
             })?;
         Ok(LargeListView::new(values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }
 
@@ -1086,11 +1049,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
-            let result = if T::is_null(self.values_array, self.start) {
-                Ok(None)
-            } else {
-                T::get_view(self.values_array, self.start).map(Some)
-            };
+            let result = <Option<T> as ArrowBindingView>::get_view(self.values_array, self.start);
             self.start += 1;
             Some(result)
         } else {
@@ -1122,12 +1081,10 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             self.end -= 1;
-            let result = if T::is_null(self.values_array, self.end) {
-                Ok(None)
-            } else {
-                T::get_view(self.values_array, self.end).map(Some)
-            };
-            Some(result)
+            Some(<Option<T> as ArrowBindingView>::get_view(
+                self.values_array,
+                self.end,
+            ))
         } else {
             None
         }
@@ -1137,7 +1094,7 @@ where
 #[cfg(feature = "views")]
 impl<T> ArrowBindingView for LargeList<Option<T>>
 where
-    T: ArrowBindingView + 'static,
+    T: ArrowBinding + ArrowBindingView + 'static,
 {
     type Array = arrow_array::LargeListArray;
     type View<'a> = LargeListViewNullable<'a, T>;
@@ -1166,16 +1123,12 @@ where
         let values_array = array
             .values()
             .as_any()
-            .downcast_ref::<T::Array>()
+            .downcast_ref::<<T as ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<T::Array>().to_string(),
-                actual: format!("{:?}", array.values().data_type()),
+                expected: T::data_type(),
+                actual: array.values().data_type().clone(),
                 field_name: None,
             })?;
         Ok(LargeListViewNullable::new(values_array, start, end))
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        array.is_null(index)
     }
 }

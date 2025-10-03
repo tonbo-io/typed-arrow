@@ -363,8 +363,8 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                     .as_any()
                     .downcast_ref::<<#v_ty as ::typed_arrow::bridge::ArrowBindingView>::Array>()
                     .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
-                        expected: ::std::any::type_name::<<#v_ty as ::typed_arrow::bridge::ArrowBindingView>::Array>().to_string(),
-                        actual: format!("{:?}", child_array_ref.data_type()),
+                        expected: <#v_ty as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                        actual: child_array_ref.data_type().clone(),
                         field_name: ::core::option::Option::Some(stringify!(#v_ident)),
                     })?;
                 let value_index = if let Some(offsets) = array.offsets() {
@@ -418,17 +418,12 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
                 match type_id {
                     #(#view_match_arms)*
-                    _ => ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::TypeMismatch {
-                        expected: "valid union type_id".to_string(),
-                        actual: format!("type_id {}", type_id),
-                        field_name: ::core::option::Option::None,
+                    _ => ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::OutOfBounds {
+                        index: type_id as usize,
+                        len: #n,
+                        field_name: ::core::option::Option::Some("union type_id"),
                     }),
                 }
-            }
-
-            fn is_null(array: &Self::Array, index: usize) -> bool {
-                use ::typed_arrow::arrow_array::Array;
-                array.is_null(index)
             }
         }
     };

@@ -271,7 +271,7 @@ impl_dict_primitive_value!(f64, Float64Type, DataType::Float64);
 impl<K, V> super::ArrowBindingView for Dictionary<K, V>
 where
     K: DictKey + 'static,
-    V: super::ArrowBindingView + 'static,
+    V: ArrowBinding + super::ArrowBindingView + 'static,
     <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
 {
     type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
@@ -310,19 +310,14 @@ where
         let values_array = array.values();
         let typed_values = values_array
             .as_any()
-            .downcast_ref::<V::Array>()
+            .downcast_ref::<<V as super::ArrowBindingView>::Array>()
             .ok_or_else(|| crate::schema::ViewAccessError::TypeMismatch {
-                expected: std::any::type_name::<V::Array>().to_string(),
-                actual: format!("{:?}", values_array.data_type()),
+                expected: V::data_type(),
+                actual: values_array.data_type().clone(),
                 field_name: None,
             })?;
 
         // Return a view of the decoded value
         V::get_view(typed_values, dict_index)
-    }
-
-    fn is_null(array: &Self::Array, index: usize) -> bool {
-        use arrow_array::Array;
-        array.is_null(index)
     }
 }
