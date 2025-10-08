@@ -317,6 +317,32 @@ where
 }
 
 #[cfg(feature = "views")]
+impl<'a, K, V, EK, EV, const SORTED: bool> TryFrom<MapView<'a, K, V, SORTED>> for Map<K, V, SORTED>
+where
+    K: super::ArrowBindingView + 'static,
+    V: super::ArrowBindingView + 'static,
+    K::View<'a>: TryInto<K, Error = EK>,
+    V::View<'a>: TryInto<V, Error = EV>,
+    EK: Into<crate::schema::ViewAccessError>,
+    EV: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: MapView<'a, K, V, SORTED>) -> Result<Self, Self::Error> {
+        let mut entries = Vec::with_capacity(view.len());
+        for i in view.start..view.end {
+            let key_view = K::get_view(view.keys_array, i)?;
+            let value_view = V::get_view(view.values_array, i)?;
+            entries.push((
+                key_view.try_into().map_err(|e| e.into())?,
+                value_view.try_into().map_err(|e| e.into())?,
+            ));
+        }
+        Ok(Map::new(entries))
+    }
+}
+
+#[cfg(feature = "views")]
 impl<'a, K, V, const SORTED: bool> Iterator for MapView<'a, K, V, SORTED>
 where
     K: super::ArrowBindingView + 'static,
@@ -509,6 +535,98 @@ where
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.start == self.end
+    }
+}
+
+#[cfg(feature = "views")]
+impl<'a, K, V, EK, EV, const SORTED: bool> TryFrom<MapViewNullable<'a, K, V, SORTED>>
+    for Map<K, Option<V>, SORTED>
+where
+    K: super::ArrowBindingView + 'static,
+    V: super::ArrowBindingView + 'static,
+    K::View<'a>: TryInto<K, Error = EK>,
+    V::View<'a>: TryInto<V, Error = EV>,
+    EK: Into<crate::schema::ViewAccessError>,
+    EV: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: MapViewNullable<'a, K, V, SORTED>) -> Result<Self, Self::Error> {
+        let mut entries = Vec::with_capacity(view.len());
+        for i in view.start..view.end {
+            use arrow_array::Array;
+            let key_view = K::get_view(view.keys_array, i)?;
+            let opt_value_view = if view.values_array.is_null(i) {
+                None
+            } else {
+                Some(V::get_view(view.values_array, i)?)
+            };
+            let opt_value_owned = match opt_value_view {
+                Some(v) => Some(v.try_into().map_err(|e| e.into())?),
+                None => None,
+            };
+            entries.push((key_view.try_into().map_err(|e| e.into())?, opt_value_owned));
+        }
+        Ok(Map::new(entries))
+    }
+}
+
+// TryFrom impls for OrderedMap (which uses MapView with SORTED=true)
+#[cfg(feature = "views")]
+impl<'a, K, V, EK, EV> TryFrom<MapView<'a, K, V, true>> for OrderedMap<K, V>
+where
+    K: super::ArrowBindingView + Ord + 'static,
+    V: super::ArrowBindingView + 'static,
+    K::View<'a>: TryInto<K, Error = EK>,
+    V::View<'a>: TryInto<V, Error = EV>,
+    EK: Into<crate::schema::ViewAccessError>,
+    EV: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: MapView<'a, K, V, true>) -> Result<Self, Self::Error> {
+        let mut entries = std::collections::BTreeMap::new();
+        for i in view.start..view.end {
+            let key_view = K::get_view(view.keys_array, i)?;
+            let value_view = V::get_view(view.values_array, i)?;
+            entries.insert(
+                key_view.try_into().map_err(|e| e.into())?,
+                value_view.try_into().map_err(|e| e.into())?,
+            );
+        }
+        Ok(OrderedMap::new(entries))
+    }
+}
+
+#[cfg(feature = "views")]
+impl<'a, K, V, EK, EV> TryFrom<MapViewNullable<'a, K, V, true>> for OrderedMap<K, Option<V>>
+where
+    K: super::ArrowBindingView + Ord + 'static,
+    V: super::ArrowBindingView + 'static,
+    K::View<'a>: TryInto<K, Error = EK>,
+    V::View<'a>: TryInto<V, Error = EV>,
+    EK: Into<crate::schema::ViewAccessError>,
+    EV: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: MapViewNullable<'a, K, V, true>) -> Result<Self, Self::Error> {
+        let mut entries = std::collections::BTreeMap::new();
+        for i in view.start..view.end {
+            use arrow_array::Array;
+            let key_view = K::get_view(view.keys_array, i)?;
+            let opt_value_view = if view.values_array.is_null(i) {
+                None
+            } else {
+                Some(V::get_view(view.values_array, i)?)
+            };
+            let opt_value_owned = match opt_value_view {
+                Some(v) => Some(v.try_into().map_err(|e| e.into())?),
+                None => None,
+            };
+            entries.insert(key_view.try_into().map_err(|e| e.into())?, opt_value_owned);
+        }
+        Ok(OrderedMap::new(entries))
     }
 }
 
