@@ -65,6 +65,7 @@ impl TimeUnitSpec for Nanosecond {
 }
 
 /// Timestamp value (unit only, timezone = None).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp<U: TimeUnitSpec>(i64, PhantomData<U>);
 impl<U: TimeUnitSpec> Timestamp<U> {
     /// Construct a new timestamp from an epoch value in the unit `U`.
@@ -145,6 +146,7 @@ impl TimeZoneSpec for Utc {
 }
 
 /// Timestamp with time unit `U` and timezone marker `Z`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TimestampTz<U: TimeUnitSpec, Z: TimeZoneSpec>(i64, PhantomData<(U, Z)>);
 impl<U: TimeUnitSpec, Z: TimeZoneSpec> TimestampTz<U, Z> {
     /// Construct a new timezone-aware timestamp from an epoch value in the unit `U`.
@@ -215,6 +217,7 @@ impl<U: TimeUnitSpec + 'static, Z: TimeZoneSpec + 'static> ArrowBindingView for 
 // ---------- Date32 / Date64 ----------
 
 /// Days since UNIX epoch.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Date32(i32);
 impl Date32 {
     /// Construct a new `Date32` from days since UNIX epoch.
@@ -283,6 +286,7 @@ impl ArrowBindingView for Date32 {
 }
 
 /// Milliseconds since UNIX epoch.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Date64(i64);
 impl Date64 {
     /// Construct a new `Date64` from milliseconds since UNIX epoch.
@@ -569,6 +573,7 @@ impl DurationUnitSpec for Nanosecond {
 }
 
 /// Duration in the given unit.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Duration<U: DurationUnitSpec>(i64, PhantomData<U>);
 impl<U: DurationUnitSpec> Duration<U> {
     /// Construct a new duration from an `i64` count in unit `U`.

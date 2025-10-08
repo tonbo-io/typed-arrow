@@ -321,3 +321,88 @@ where
         V::get_view(typed_values, dict_index)
     }
 }
+
+// TryFrom implementations for converting views to owned Dictionary types
+// Note: Dictionary<K, V> only stores V at runtime; K is a compile-time marker
+// for the encoding strategy. The view is just V::View, so we convert from that.
+
+// String (Utf8)
+#[cfg(feature = "views")]
+impl<K> TryFrom<&str> for Dictionary<K, String>
+where
+    K: DictKey,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: &str) -> Result<Self, Self::Error> {
+        Ok(Dictionary::new(view.into()))
+    }
+}
+
+// Binary
+#[cfg(feature = "views")]
+impl<K> TryFrom<&[u8]> for Dictionary<K, Vec<u8>>
+where
+    K: DictKey,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: &[u8]) -> Result<Self, Self::Error> {
+        Ok(Dictionary::new(view.to_vec()))
+    }
+}
+
+// FixedSizeBinary
+#[cfg(feature = "views")]
+impl<K, const N: usize> TryFrom<&[u8]> for Dictionary<K, [u8; N]>
+where
+    K: DictKey,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: &[u8]) -> Result<Self, Self::Error> {
+        let arr: [u8; N] =
+            view.try_into()
+                .map_err(|_| crate::schema::ViewAccessError::TypeMismatch {
+                    expected: arrow_schema::DataType::FixedSizeBinary(N as i32),
+                    actual: arrow_schema::DataType::Binary,
+                    field_name: None,
+                })?;
+        Ok(Dictionary::new(arr))
+    }
+}
+
+// LargeBinary
+#[cfg(feature = "views")]
+impl<K> TryFrom<&[u8]> for Dictionary<K, super::binary::LargeBinary>
+where
+    K: DictKey,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: &[u8]) -> Result<Self, Self::Error> {
+        Ok(Dictionary::new(super::binary::LargeBinary::new(
+            view.to_vec(),
+        )))
+    }
+}
+
+// LargeUtf8
+#[cfg(feature = "views")]
+impl<K> TryFrom<&str> for Dictionary<K, super::strings::LargeUtf8>
+where
+    K: DictKey,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: &str) -> Result<Self, Self::Error> {
+        Ok(Dictionary::new(super::strings::LargeUtf8::new(
+            view.to_string(),
+        )))
+    }
+}
+
+// Note: Primitive types (i8, i16, i32, i64, u8, u16, u32, u64, f32, f64) are already
+// covered by the generic impl From<V> for Dictionary<K, V> above (line 49).
+// Rust automatically provides TryFrom<V> with Error = Infallible via the blanket impl,
+// which works with our E: Into<ViewAccessError> bounds in generic code.

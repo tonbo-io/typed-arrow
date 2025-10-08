@@ -12,6 +12,7 @@ use super::ArrowBinding;
 use super::ArrowBindingView;
 
 /// Interval with unit `YearMonth` (i32 months since epoch).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IntervalYearMonth(i32);
 impl IntervalYearMonth {
     /// Construct a new `YearMonth` interval value from months since epoch.
@@ -80,6 +81,7 @@ impl ArrowBindingView for IntervalYearMonth {
 }
 
 /// Interval with unit `DayTime` (packed days and milliseconds).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IntervalDayTime(arrow_array::types::IntervalDayTime);
 impl IntervalDayTime {
     /// Construct a new `DayTime` interval from the native Arrow struct.
@@ -148,6 +150,7 @@ impl ArrowBindingView for IntervalDayTime {
 }
 
 /// Interval with unit `MonthDayNano` (packed months, days, and nanoseconds).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IntervalMonthDayNano(arrow_array::types::IntervalMonthDayNano);
 impl IntervalMonthDayNano {
     /// Construct a new `MonthDayNano` interval from the native Arrow struct.
