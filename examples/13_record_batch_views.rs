@@ -34,6 +34,9 @@ fn main() -> Result<(), typed_arrow::schema::SchemaError> {
     println!("\n=== Example 2: Nested struct views ===\n");
     nested_record_example()?;
 
+    println!("\n=== Example 3: Converting views to owned records ===\n");
+    view_conversion_example()?;
+
     Ok(())
 }
 
@@ -124,6 +127,55 @@ fn nested_record_example() -> Result<(), typed_arrow::schema::SchemaError> {
             Some(coords) => println!("({:.4}, {:.4})", coords.lat, coords.lon),
             None => println!("(no coordinates)"),
         }
+    }
+
+    Ok(())
+}
+
+fn view_conversion_example() -> Result<(), typed_arrow::schema::SchemaError> {
+    let products = vec![
+        Product {
+            id: 100,
+            name: "Laptop".into(),
+            price: 999.99,
+            in_stock: Some(true),
+        },
+        Product {
+            id: 101,
+            name: "Mouse".into(),
+            price: 29.99,
+            in_stock: Some(true),
+        },
+    ];
+
+    let mut b = <Product as BuildRows>::new_builders(products.len());
+    b.append_rows(products);
+    let arrays = b.finish();
+    let batch: RecordBatch = arrays.into_record_batch();
+
+    println!("RecordBatch has {} rows", batch.num_rows());
+
+    // Iterate over views and convert selected ones to owned records
+    let views = batch.iter_views::<Product>()?;
+    let mut owned_products: Vec<Product> = Vec::new();
+
+    for view in views.try_flatten()? {
+        // Views provide zero-copy access - strings are &str, not String
+        println!("View: {} (price: ${:.2})", view.name, view.price);
+
+        // Convert view to owned when you need to store it beyond the batch lifetime
+        if view.price > 50.0 {
+            let owned: Product = view.try_into()?;
+            owned_products.push(owned);
+        }
+    }
+
+    println!(
+        "\nCollected {} expensive products as owned records",
+        owned_products.len()
+    );
+    for product in &owned_products {
+        println!("  Owned: {} - ${:.2}", product.name, product.price);
     }
 
     Ok(())

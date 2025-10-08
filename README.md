@@ -69,6 +69,9 @@ Add to your `Cargo.toml` (derives enabled by default):
 ```toml
 [dependencies]
 typed-arrow = { version = "0.x" }
+
+# Enable zero-copy views for reading RecordBatch data
+typed-arrow = { version = "0.x", features = ["views"] }
 ```
 
 When working in this repository/workspace:
@@ -76,6 +79,9 @@ When working in this repository/workspace:
 ```toml
 [dependencies]
 typed-arrow = { path = "." }
+
+# With views feature
+typed-arrow = { path = ".", features = ["views"] }
 ```
 
 ## Examples
@@ -95,6 +101,7 @@ Run the included examples to see end-to-end usage:
 - `10_union` — Dense Union as a Record column (with attributes)
 - `11_map` — Map (incl. `Option<V>` values) + as a Record column
 - `12_ext_hooks` — Extend `#[derive(Record)]` with visitor injection and macro callbacks
+- `13_record_batch_views` — Zero-copy views over `RecordBatch` rows (requires `views` feature)
 
 Run:
 
@@ -110,6 +117,64 @@ cargo run --example 08_record_batch
 - `BuildRows`: derive generates `<Type>Builders` and `<Type>Arrays` with `append_row(s)` and `finish`.
 - `SchemaMeta`: derive provides `fields()` and `schema()`; arrays structs provide `into_record_batch()`.
 - `AppendStruct` and `StructMeta`: enable nested struct fields and `StructArray` building.
+
+## Reading Data (Views Feature)
+
+When the `views` feature is enabled, typed-arrow automatically generates zero-copy view types for reading `RecordBatch` data without cloning or allocation. For each `#[derive(Record)]` struct, the macro generates:
+
+- `{Name}View<'a>` — A struct with borrowed references to row data
+- `{Name}Views<'a>` — An iterator yielding `Result<{Name}View<'a>, ViewAccessError>`
+- `impl TryFrom<{Name}View<'_>> for {Name}` for each record type with `Error = ViewAccessError`, making conversion composable and allowing proper error propagation when accessing nested structures.
+
+### Zero-Copy Reading
+
+```rust
+use typed_arrow::prelude::*;
+
+#[derive(typed_arrow::Record)]
+struct Product {
+    id: i64,
+    name: String,
+    price: f64,
+}
+
+// Build a RecordBatch
+let rows = vec![
+    Product { id: 1, name: "Widget".into(), price: 9.99 },
+    Product { id: 2, name: "Gadget".into(), price: 19.99 },
+];
+let mut b = <Product as BuildRows>::new_builders(rows.len());
+b.append_rows(rows);
+let batch = b.finish().into_record_batch();
+
+// Read with zero-copy views
+let views = batch.iter_views::<Product>()?;
+for view in views.try_flatten()? {
+    // view.name is &str, view.id and view.price are copied primitives
+    println!("{}: ${}", view.name, view.price);
+}
+```
+
+
+### Converting Views to Owned Records
+
+Views provide zero-copy access to RecordBatch data, but sometimes you need to store data beyond the batch's lifetime. Use `.try_into()` to convert views into owned records:
+
+```rust
+let views = batch.iter_views::<Product>()?;
+let mut owned_products = Vec::new();
+
+for view in views.try_flatten()? {
+    // view.name is &str (borrowed)
+    // view.id and view.price are i64/f64 (copied)
+
+    if view.price > 100.0 {
+        // Convert to owned using .try_into()?
+        let owned: Product = view.try_into()?;
+        owned_products.push(owned);  // Can store beyond batch lifetime
+    }
+}
+```
 
 ### Metadata (Compile-time)
 
