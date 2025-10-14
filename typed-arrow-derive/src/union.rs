@@ -426,6 +426,21 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 }
             }
         }
+
+        // TryFrom implementation for converting view to owned
+        #[cfg(feature = "views")]
+        impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name
+        where
+            #(#var_types: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+        {
+            type Error = ::typed_arrow::schema::ViewAccessError;
+
+            fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
+                match view {
+                    #(#view_ident::#var_idents(inner) => ::core::result::Result::Ok(#name::#var_idents(inner.try_into()?)),)*
+                }
+            }
+        }
     };
 
     let expanded = quote! {

@@ -450,6 +450,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let mut views_init_fields = Vec::with_capacity(len);
     let mut view_extract_stmts = Vec::with_capacity(len);
     let mut struct_view_extract_stmts = Vec::with_capacity(len);
+    let mut view_conversion_exprs = Vec::with_capacity(len);
 
     for (i, f) in fields.named.iter().enumerate() {
         let fname = f.ident.as_ref().expect("named");
@@ -524,6 +525,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 }
             });
         }
+
+        // Generate view-to-owned conversion expression
+        view_conversion_exprs.push(generate_view_conversion_expr(fname, &f.ty, nullable));
     }
 
     let view_impl = quote! {
@@ -532,6 +536,17 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         pub struct #view_ident<'a> {
             #(#view_struct_fields,)*
             _phantom: ::core::marker::PhantomData<&'a ()>,
+        }
+
+        #[cfg(feature = "views")]
+        impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name {
+            type Error = ::typed_arrow::schema::ViewAccessError;
+
+            fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
+                ::core::result::Result::Ok(#name {
+                    #(#view_conversion_exprs,)*
+                })
+            }
         }
 
         #[cfg(feature = "views")]
@@ -703,5 +718,114 @@ fn generate_view_type(ty: &Type, nullable: bool) -> proc_macro2::TokenStream {
         quote! { ::core::option::Option<#view_inner> }
     } else {
         view_inner
+    }
+}
+
+/// Check if a type is a Copy value type where View<'a> = Self.
+/// This includes primitives and temporal types.
+fn is_copy_primitive(ty: &Type) -> bool {
+    if let Type::Path(type_path) = ty {
+        if type_path.path.segments.len() == 1 {
+            let segment = &type_path.path.segments[0];
+            let ident = &segment.ident;
+            let name = ident.to_string();
+
+            return matches!(
+                name.as_str(),
+                // Integer types
+                "i8" | "i16" | "i32" | "i64" |
+                "u8" | "u16" | "u32" | "u64" |
+                // Float types
+                "f16" | "f32" | "f64" |
+                // Boolean
+                "bool" |
+                // Timestamp types
+                "Timestamp" | "TimestampTz" |
+                // Date types
+                "Date32" | "Date64" |
+                // Time types
+                "Time32" | "Time64" |
+                // Duration
+                "Duration" |
+                // Interval types
+                "IntervalYearMonth" | "IntervalDayTime" | "IntervalMonthDayNano"
+            );
+        }
+    }
+    false
+}
+
+/// Check if a type is String (which has infallible conversion from &str).
+fn is_string(ty: &Type) -> bool {
+    if let Type::Path(type_path) = ty {
+        if type_path.path.segments.len() == 1 {
+            let segment = &type_path.path.segments[0];
+            return segment.ident == "String";
+        }
+    }
+    false
+}
+
+/// Check if a type is a fixed-size byte array [u8; N].
+fn is_fixed_size_binary(ty: &Type) -> bool {
+    if let Type::Array(type_array) = ty {
+        if let Type::Path(elem_type) = &*type_array.elem {
+            if elem_type.path.segments.len() == 1 {
+                let seg = &elem_type.path.segments[0];
+                return seg.ident == "u8";
+            }
+        }
+    }
+    false
+}
+
+/// Generate the conversion expression from view to owned for a field.
+fn generate_view_conversion_expr(
+    fname: &syn::Ident,
+    ty: &Type,
+    nullable: bool,
+) -> proc_macro2::TokenStream {
+    let (inner_ty, _) = unwrap_option(ty);
+    let is_primitive = is_copy_primitive(&inner_ty);
+    let is_string = is_string(&inner_ty);
+    let is_fsb = is_fixed_size_binary(&inner_ty);
+
+    if nullable {
+        if is_primitive {
+            // Option<primitive>: just copy
+            quote! { #fname: view.#fname }
+        } else if is_string {
+            // Option<String>: use infallible .into() conversion
+            quote! { #fname: view.#fname.map(|__v| __v.into()) }
+        } else if is_fsb {
+            // Option<[u8; N]>: need to copy from &[u8] slice
+            quote! { #fname: view.#fname.map(|__slice| {
+                let mut __arr = <#inner_ty>::default();
+                __arr.copy_from_slice(__slice);
+                __arr
+            }) }
+        } else {
+            // Option<non-primitive>: map view to owned via TryInto
+            quote! { #fname: match view.#fname {
+                ::core::option::Option::Some(__v) => ::core::option::Option::Some(__v.try_into()?),
+                ::core::option::Option::None => ::core::option::Option::None,
+            } }
+        }
+    } else if is_primitive {
+        // Non-nullable primitive: just copy
+        quote! { #fname: view.#fname }
+    } else if is_string {
+        // Non-nullable String: use infallible .into() conversion
+        quote! { #fname: view.#fname.into() }
+    } else if is_fsb {
+        // Non-nullable [u8; N]: need to copy from &[u8] slice
+        quote! { #fname: {
+            let mut __arr = <#inner_ty>::default();
+            __arr.copy_from_slice(view.#fname);
+            __arr
+        } }
+    } else {
+        // Non-nullable non-primitive: convert view to owned via TryInto
+        quote! { #fname: view.#fname.try_into()? }
     }
 }

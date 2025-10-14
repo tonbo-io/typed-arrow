@@ -122,6 +122,25 @@ where
 }
 
 #[cfg(feature = "views")]
+impl<'a, T, E> TryFrom<ListView<'a, T>> for List<T>
+where
+    T: ArrowBindingView + 'static,
+    T::View<'a>: TryInto<T, Error = E>,
+    E: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: ListView<'a, T>) -> Result<Self, Self::Error> {
+        let mut values = Vec::with_capacity(view.len());
+        for i in view.start..view.end {
+            let v = T::get_view(view.values_array, i)?;
+            values.push(v.try_into().map_err(|e| e.into())?);
+        }
+        Ok(List::new(values))
+    }
+}
+
+#[cfg(feature = "views")]
 impl<'a, T> Iterator for ListView<'a, T>
 where
     T: ArrowBindingView + 'static,
@@ -284,6 +303,29 @@ where
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.start == self.end
+    }
+}
+
+#[cfg(feature = "views")]
+impl<'a, T, E> TryFrom<ListViewNullable<'a, T>> for List<Option<T>>
+where
+    T: ArrowBindingView + 'static,
+    T::View<'a>: TryInto<T, Error = E>,
+    E: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: ListViewNullable<'a, T>) -> Result<Self, Self::Error> {
+        let mut values = Vec::with_capacity(view.len());
+        for i in view.start..view.end {
+            let opt_view = <Option<T> as ArrowBindingView>::get_view(view.values_array, i)?;
+            let opt_owned = match opt_view {
+                Some(v) => Some(v.try_into().map_err(|e| e.into())?),
+                None => None,
+            };
+            values.push(opt_owned);
+        }
+        Ok(List::new(values))
     }
 }
 
@@ -496,6 +538,29 @@ where
 }
 
 #[cfg(feature = "views")]
+impl<'a, T, E, const N: usize> TryFrom<FixedSizeListView<'a, T, N>> for FixedSizeList<T, N>
+where
+    T: ArrowBindingView + 'static,
+    T::View<'a>: TryInto<T, Error = E>,
+    E: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: FixedSizeListView<'a, T, N>) -> Result<Self, Self::Error> {
+        let mut values = Vec::with_capacity(N);
+        for i in 0..N {
+            let v = T::get_view(view.values_array, view.start + i)?;
+            values.push(v.try_into().map_err(|e| e.into())?);
+        }
+        // SAFETY: We pushed exactly N elements, so conversion to [T; N] cannot fail
+        let arr: [T; N] = values
+            .try_into()
+            .unwrap_or_else(|_| unreachable!("Vec has exactly N elements"));
+        Ok(FixedSizeList::new(arr))
+    }
+}
+
+#[cfg(feature = "views")]
 impl<'a, T, const N: usize> Iterator for FixedSizeListView<'a, T, N>
 where
     T: ArrowBindingView + 'static,
@@ -691,6 +756,34 @@ where
 }
 
 #[cfg(feature = "views")]
+impl<'a, T, E, const N: usize> TryFrom<FixedSizeListViewNullable<'a, T, N>>
+    for FixedSizeListNullable<T, N>
+where
+    T: ArrowBindingView + 'static,
+    T::View<'a>: TryInto<T, Error = E>,
+    E: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: FixedSizeListViewNullable<'a, T, N>) -> Result<Self, Self::Error> {
+        let mut values = Vec::with_capacity(N);
+        for i in 0..N {
+            let opt_view =
+                <Option<T> as ArrowBindingView>::get_view(view.values_array, view.start + i)?;
+            match opt_view {
+                Some(v) => values.push(Some(v.try_into().map_err(|e| e.into())?)),
+                None => values.push(None),
+            }
+        }
+        // SAFETY: We pushed exactly N elements, so conversion to [Option<T>; N] cannot fail
+        let arr: [Option<T>; N] = values
+            .try_into()
+            .unwrap_or_else(|_| unreachable!("Vec has exactly N elements"));
+        Ok(FixedSizeListNullable::new(arr))
+    }
+}
+
+#[cfg(feature = "views")]
 impl<'a, T, const N: usize> Iterator for FixedSizeListViewNullable<'a, T, N>
 where
     T: ArrowBindingView + 'static,
@@ -875,6 +968,25 @@ where
 }
 
 #[cfg(feature = "views")]
+impl<'a, T, E> TryFrom<LargeListView<'a, T>> for LargeList<T>
+where
+    T: ArrowBindingView + 'static,
+    T::View<'a>: TryInto<T, Error = E>,
+    E: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: LargeListView<'a, T>) -> Result<Self, Self::Error> {
+        let mut values = Vec::with_capacity(view.len());
+        for i in view.start..view.end {
+            let v = T::get_view(view.values_array, i)?;
+            values.push(v.try_into().map_err(|e| e.into())?);
+        }
+        Ok(LargeList::new(values))
+    }
+}
+
+#[cfg(feature = "views")]
 impl<'a, T> Iterator for LargeListView<'a, T>
 where
     T: ArrowBindingView + 'static,
@@ -1037,6 +1149,29 @@ where
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.start == self.end
+    }
+}
+
+#[cfg(feature = "views")]
+impl<'a, T, E> TryFrom<LargeListViewNullable<'a, T>> for LargeList<Option<T>>
+where
+    T: ArrowBindingView + 'static,
+    T::View<'a>: TryInto<T, Error = E>,
+    E: Into<crate::schema::ViewAccessError>,
+{
+    type Error = crate::schema::ViewAccessError;
+
+    fn try_from(view: LargeListViewNullable<'a, T>) -> Result<Self, Self::Error> {
+        let mut values = Vec::with_capacity(view.len());
+        for i in view.start..view.end {
+            let opt_view = <Option<T> as ArrowBindingView>::get_view(view.values_array, i)?;
+            let opt_owned = match opt_view {
+                Some(v) => Some(v.try_into().map_err(|e| e.into())?),
+                None => None,
+            };
+            values.push(opt_owned);
+        }
+        Ok(LargeList::new(values))
     }
 }
 

@@ -82,3 +82,19 @@ pub enum ViewAccessError {
         field_name: Option<&'static str>,
     },
 }
+
+/// Allows generic code to uniformly handle both infallible and fallible view-to-owned conversions.
+///
+/// When converting views to owned types, primitives and `String` never fail (`TryFrom<Primitive,
+/// Error = Infallible>`), while nested structs can fail (`TryFrom<StructView, Error =
+/// ViewAccessError>`). This blanket conversion allows generic code like `List<T>` or `Map<K, V>` to
+/// use a single implementation with `E: Into<ViewAccessError>` bounds that works for both cases.
+///
+/// The empty match is safe because `Infallible` is an uninhabited type that can never be
+/// constructed.
+#[cfg(feature = "views")]
+impl From<core::convert::Infallible> for ViewAccessError {
+    fn from(x: core::convert::Infallible) -> Self {
+        match x {}
+    }
+}
