@@ -13,7 +13,7 @@ name = "typed_arrow_unified"
 path = "src/lib.rs"
 
 [dependencies]
-typed-arrow = { path = "..", version = "0.4.0", package = "typed-arrow" }
-typed-arrow-dyn = { path = "../typed-arrow-dyn", version = "0.0.1", package = "typed-arrow-dyn" }
-arrow-schema = { version = "56" }
-arrow-array = { version = "56" }
+typed-arrow = { workspace = true }
+typed-arrow-dyn = { workspace = true }
+arrow-schema = { workspace = true }
+arrow-array = { workspace = true }
