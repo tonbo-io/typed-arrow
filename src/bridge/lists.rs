@@ -13,6 +13,19 @@ use super::ArrowBindingView;
 /// - List-level nullability: wrap the column in `Option<List<T>>`.
 /// - Item-level nullability: use `List<Option<T>>` when elements can be null.
 pub struct List<T>(Vec<T>);
+
+impl<T: Clone> Clone for List<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for List<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("List").field(&self.0).finish()
+    }
+}
+
 impl<T> List<T> {
     /// Construct a new list from a vector of values.
     #[inline]
@@ -424,6 +437,19 @@ where
 
 /// Wrapper denoting an Arrow `FixedSizeListArray` column with `N` elements of `T`.
 pub struct FixedSizeList<T, const N: usize>([T; N]);
+
+impl<T: Clone, const N: usize> Clone for FixedSizeList<T, N> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T: std::fmt::Debug, const N: usize> std::fmt::Debug for FixedSizeList<T, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("FixedSizeList").field(&self.0).finish()
+    }
+}
+
 impl<T, const N: usize> FixedSizeList<T, N> {
     /// Construct a new fixed-size list from an array of length `N`.
     #[inline]
@@ -635,6 +661,21 @@ where
 
 /// Wrapper denoting a `FixedSizeListArray` with `N` elements where items are nullable.
 pub struct FixedSizeListNullable<T, const N: usize>([Option<T>; N]);
+
+impl<T: Clone, const N: usize> Clone for FixedSizeListNullable<T, N> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T: std::fmt::Debug, const N: usize> std::fmt::Debug for FixedSizeListNullable<T, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("FixedSizeListNullable")
+            .field(&self.0)
+            .finish()
+    }
+}
+
 impl<T, const N: usize> FixedSizeListNullable<T, N> {
     /// Construct a new fixed-size list with nullable items from an array of length `N`.
     #[inline]
@@ -859,6 +900,19 @@ where
 
 /// Wrapper denoting an Arrow `LargeListArray` column with elements of `T`.
 pub struct LargeList<T>(Vec<T>);
+
+impl<T: Clone> Clone for LargeList<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for LargeList<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("LargeList").field(&self.0).finish()
+    }
+}
+
 impl<T> LargeList<T> {
     /// Construct a new large-list from a vector of values.
     #[inline]

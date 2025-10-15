@@ -13,6 +13,21 @@ use super::ArrowBinding;
 /// - Values are non-nullable for `Map<K, V, SORTED>` and nullable for `Map<K, Option<V>, SORTED>`.
 /// - Column-level nullability is expressed with `Option<Map<...>>`.
 pub struct Map<K, V, const SORTED: bool = false>(Vec<(K, V)>);
+
+impl<K: Clone, V: Clone, const SORTED: bool> Clone for Map<K, V, SORTED> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<K: std::fmt::Debug, V: std::fmt::Debug, const SORTED: bool> std::fmt::Debug
+    for Map<K, V, SORTED>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Map").field(&self.0).finish()
+    }
+}
+
 impl<K, V, const SORTED: bool> Map<K, V, SORTED> {
     /// Construct a new map from a vector of `(key, value)` pairs.
     #[inline]
@@ -129,6 +144,19 @@ where
 /// Keys are non-nullable; the value field is nullable per `MapBuilder` semantics, but this
 /// wrapper does not write null values.
 pub struct OrderedMap<K, V>(BTreeMap<K, V>);
+
+impl<K: Clone, V: Clone> Clone for OrderedMap<K, V> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<K: std::fmt::Debug, V: std::fmt::Debug> std::fmt::Debug for OrderedMap<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("OrderedMap").field(&self.0).finish()
+    }
+}
+
 impl<K, V> OrderedMap<K, V> {
     /// Construct a new ordered-map from a `BTreeMap` (keys sorted).
     #[inline]
