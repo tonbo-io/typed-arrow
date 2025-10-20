@@ -139,6 +139,18 @@ fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
         (DataType::List(_), DynCell::List(_)) => true,
         (DataType::LargeList(_), DynCell::List(_)) => true,
         (DataType::FixedSizeList(_, _), DynCell::FixedSizeList(_)) => true,
+        (DataType::Union(fields, _), DynCell::Union { type_id, value }) => {
+            let field = fields
+                .iter()
+                .find_map(|(tag, field)| if tag == *type_id { Some(field) } else { None });
+            match field {
+                None => false,
+                Some(field) => match value.as_deref() {
+                    None => true,
+                    Some(inner) => accepts_cell(field.data_type(), inner),
+                },
+            }
+        }
         // Dictionary value-side validation (key width irrelevant here).
         (DataType::Dictionary(_, value), c) => match &**value {
             DataType::Utf8 | DataType::LargeUtf8 => matches!(c, DynCell::Str(_)),

@@ -3,12 +3,13 @@
 use std::sync::Arc;
 
 use arrow_array::{builder as b, types as t, ArrayRef};
-use arrow_schema::DataType;
+use arrow_schema::{DataType, UnionFields, UnionMode};
 
 use crate::{
     cell::DynCell,
     dyn_builder::DynColumnBuilder,
     nested::{FixedSizeListCol, LargeListCol, ListCol, StructCol},
+    union::{DenseUnionCol, SparseUnionCol},
     DynError,
 };
 
@@ -98,6 +99,8 @@ enum Inner {
     FixedSizeList(FixedSizeListCol),
     // Primitive dictionary via trait object
     DictPrimitive(Box<dyn DictPrimBuilder>),
+    UnionDense(DenseUnionCol),
+    UnionSparse(SparseUnionCol),
 }
 
 // Minimal trait object to handle primitive dictionary builders without exploding the enum.
@@ -259,6 +262,8 @@ impl DynColumnBuilder for Col {
             Inner::LargeList(b) => b.append_null(),
             Inner::FixedSizeList(b) => b.append_null(),
             Inner::DictPrimitive(b) => b.append_null(),
+            Inner::UnionDense(b) => b.append_null(),
+            Inner::UnionSparse(b) => b.append_null(),
         }
     }
 
@@ -642,6 +647,14 @@ impl DynColumnBuilder for Col {
             }
             // Primitive dictionary values
             (Inner::DictPrimitive(b), other) => b.append_cell(other),
+            (Inner::UnionDense(b), DynCell::Union { type_id, value }) => {
+                b.append_union(type_id, value)?;
+                Ok(())
+            }
+            (Inner::UnionSparse(b), DynCell::Union { type_id, value }) => {
+                b.append_union(type_id, value)?;
+                Ok(())
+            }
             // Nested
             (Inner::Struct(b), DynCell::Struct(values)) => b.append_struct(values),
             (Inner::List(b), DynCell::List(values)) => b.append_list(values),
@@ -735,6 +748,8 @@ impl DynColumnBuilder for Col {
             Inner::LargeList(b) => Arc::new(b.finish()),
             Inner::FixedSizeList(b) => Arc::new(b.finish()),
             Inner::DictPrimitive(b) => b.finish(),
+            Inner::UnionDense(b) => b.finish_array(),
+            Inner::UnionSparse(b) => b.finish_array(),
         }
     }
 
@@ -837,6 +852,8 @@ impl DynColumnBuilder for Col {
                     })
             }
             Inner::DictPrimitive(b) => Ok(b.finish()),
+            Inner::UnionDense(b) => b.try_finish_array(),
+            Inner::UnionSparse(b) => b.try_finish_array(),
         }
     }
 }
@@ -1121,6 +1138,29 @@ fn inner_for_nested(dt: &DataType) -> Option<Inner> {
     })
 }
 
+fn inner_for_union(dt: &DataType) -> Option<Inner> {
+    match dt {
+        DataType::Union(fields, mode) => {
+            let children: Vec<_> = fields
+                .iter()
+                .map(|(_, field)| new_dyn_builder(field.data_type()))
+                .collect();
+            let fields_owned: UnionFields = fields
+                .iter()
+                .map(|(tag, field)| (tag, field.clone()))
+                .collect();
+            let inner = match mode {
+                UnionMode::Dense => Inner::UnionDense(DenseUnionCol::new(fields_owned, children)),
+                UnionMode::Sparse => {
+                    Inner::UnionSparse(SparseUnionCol::new(fields_owned, children))
+                }
+            };
+            Some(inner)
+        }
+        _ => None,
+    }
+}
+
 fn build_inner(dt: &DataType) -> Inner {
     inner_for_primitives(dt)
         .or_else(|| match dt {
@@ -1128,6 +1168,7 @@ fn build_inner(dt: &DataType) -> Inner {
             _ => None,
         })
         .or_else(|| inner_for_nested(dt))
+        .or_else(|| inner_for_union(dt))
         .unwrap_or_else(|| Inner::Null(b::NullBuilder::new()))
 }
 

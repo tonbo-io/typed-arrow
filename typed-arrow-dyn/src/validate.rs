@@ -2,9 +2,11 @@
 
 use std::sync::Arc;
 
-use arrow_array::{Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, StructArray};
+use arrow_array::{
+    Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, StructArray, UnionArray,
+};
 use arrow_buffer::OffsetBuffer;
-use arrow_schema::{DataType, Field, Fields, Schema};
+use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
 
 use crate::DynError;
 
@@ -52,9 +54,91 @@ fn validate_nested(
         DataType::FixedSizeList(item, _len) => {
             validate_fixed_list(col_name, item, array, col, parent_valid_mask)
         }
+        DataType::Union(children, _) => {
+            validate_union(col_name, children, array, col, parent_valid_mask)
+        }
         // Other data types have no nested children.
         _ => Ok(()),
     }
+}
+
+fn validate_union(
+    col_name: &str,
+    fields: &UnionFields,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let union = array
+        .as_any()
+        .downcast_ref::<UnionArray>()
+        .expect("array/DataType mismatch");
+
+    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(union));
+
+    let variants: Vec<(i8, FieldRef)> = fields.iter().map(|(tag, field)| (tag, field.clone())).collect();
+
+    let mut tag_to_index = vec![None; 256];
+    for (idx, (tag, _)) in variants.iter().enumerate() {
+        tag_to_index[tag_slot(*tag)] = Some(idx);
+    }
+
+    let mut rows_per_variant: Vec<Vec<(usize, usize)>> =
+        variants.iter().map(|_| Vec::new()).collect();
+
+    for (row, &is_valid) in parent_valid.iter().enumerate() {
+        if !is_valid {
+            continue;
+        }
+        let tag = union.type_id(row);
+        let Some(idx) = tag_to_index[tag_slot(tag)] else {
+            return Err(DynError::Builder {
+                message: format!("union value uses unknown type id {tag}"),
+            });
+        };
+        let offset = union.value_offset(row);
+        rows_per_variant[idx].push((row, offset));
+    }
+
+    for (idx, rows) in rows_per_variant.iter().enumerate() {
+        if rows.is_empty() {
+            continue;
+        }
+        let (tag, field) = &variants[idx];
+        let child = union.child(*tag).clone();
+        let path = format!("{}.{}", col_name, field.name());
+
+        if !field.is_nullable() {
+            for (row_index, child_index) in rows {
+                if child.is_null(*child_index) {
+                    return Err(DynError::Nullability {
+                        col,
+                        path: path.clone(),
+                        index: *row_index,
+                        message: "non-nullable union variant contains null".to_string(),
+                    });
+                }
+            }
+        }
+
+        let mut child_mask = vec![false; child.len()];
+        for (_, child_index) in rows {
+            if *child_index >= child_mask.len() {
+                return Err(DynError::Builder {
+                    message: format!(
+                        "union child index {} out of bounds for variant '{}'",
+                        child_index,
+                        field.name()
+                    ),
+                });
+            }
+            child_mask[*child_index] = true;
+        }
+
+        validate_nested(&path, field.data_type(), &child, col, Some(child_mask))?;
+    }
+
+    Ok(())
 }
 
 fn validate_struct(
@@ -290,4 +374,8 @@ fn validity_mask(array: &dyn Array) -> Vec<bool> {
 
 fn first_null_index(array: &dyn Array) -> Option<usize> {
     (0..array.len()).find(|&i| array.is_null(i))
+}
+
+fn tag_slot(tag: i8) -> usize {
+    (i16::from(tag) + 128) as usize
 }
