@@ -8,7 +8,7 @@ use arrow_schema::DataType;
 use crate::{
     cell::DynCell,
     dyn_builder::DynColumnBuilder,
-    nested::{FixedSizeListCol, LargeListCol, ListCol, StructCol},
+    nested::{FixedSizeListCol, LargeListCol, ListCol, MapCol, StructCol},
     DynError,
 };
 
@@ -96,6 +96,7 @@ enum Inner {
     List(ListCol),
     LargeList(LargeListCol),
     FixedSizeList(FixedSizeListCol),
+    Map(MapCol),
     // Primitive dictionary via trait object
     DictPrimitive(Box<dyn DictPrimBuilder>),
 }
@@ -258,6 +259,7 @@ impl DynColumnBuilder for Col {
             Inner::List(b) => b.append_null(),
             Inner::LargeList(b) => b.append_null(),
             Inner::FixedSizeList(b) => b.append_null(),
+            Inner::Map(b) => b.append_null(),
             Inner::DictPrimitive(b) => b.append_null(),
         }
     }
@@ -647,6 +649,7 @@ impl DynColumnBuilder for Col {
             (Inner::List(b), DynCell::List(values)) => b.append_list(values),
             (Inner::LargeList(b), DynCell::List(values)) => b.append_list(values),
             (Inner::FixedSizeList(b), DynCell::FixedSizeList(values)) => b.append_fixed(values),
+            (Inner::Map(b), DynCell::Map(entries)) => b.append_map(entries),
             (_inner, DynCell::Null) => {
                 self.append_null();
                 Ok(())
@@ -734,6 +737,7 @@ impl DynColumnBuilder for Col {
             Inner::List(b) => Arc::new(b.finish()),
             Inner::LargeList(b) => Arc::new(b.finish()),
             Inner::FixedSizeList(b) => Arc::new(b.finish()),
+            Inner::Map(b) => Arc::new(b.finish()),
             Inner::DictPrimitive(b) => b.finish(),
         }
     }
@@ -836,6 +840,12 @@ impl DynColumnBuilder for Col {
                         message: e.to_string(),
                     })
             }
+            Inner::Map(b) => b
+                .try_finish()
+                .map(|a| Arc::new(a) as ArrayRef)
+                .map_err(|e| DynError::Builder {
+                    message: e.to_string(),
+                }),
             Inner::DictPrimitive(b) => Ok(b.finish()),
         }
     }
@@ -1116,6 +1126,22 @@ fn inner_for_nested(dt: &DataType) -> Option<Inner> {
         DataType::FixedSizeList(item, len) => {
             let child = new_dyn_builder(item.data_type());
             Inner::FixedSizeList(FixedSizeListCol::new_with_child(item.clone(), *len, child))
+        }
+        DataType::Map(entry_field, ordered) => {
+            let DataType::Struct(children) = entry_field.data_type() else {
+                return None;
+            };
+            if children.len() != 2 {
+                return None;
+            }
+            let key_builder = new_dyn_builder(children[0].data_type());
+            let value_builder = new_dyn_builder(children[1].data_type());
+            Inner::Map(MapCol::new_with_children(
+                entry_field.clone(),
+                *ordered,
+                key_builder,
+                value_builder,
+            ))
         }
         _ => return None,
     })

@@ -1,10 +1,10 @@
 //! Nested dynamic builders used by the factory.
 
-use arrow_array::{FixedSizeListArray, LargeListArray};
+use arrow_array::{FixedSizeListArray, LargeListArray, MapArray};
 use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
 use arrow_schema::{
     ArrowError::{self, ComputeError},
-    FieldRef, Fields,
+    DataType, FieldRef, Fields,
 };
 
 use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
@@ -256,5 +256,151 @@ impl FixedSizeListCol {
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
         FixedSizeListArray::try_new(self.item_field.clone(), self.len, values, validity)
+    }
+}
+
+/// Map column builder storing key/value children and offsets.
+pub(crate) struct MapCol {
+    entry_field: FieldRef,
+    value_nullable: bool,
+    keys_sorted: bool,
+    keys: Box<dyn DynColumnBuilder>,
+    values: Box<dyn DynColumnBuilder>,
+    offsets: Vec<i32>,
+    validity: BooleanBufferBuilder,
+}
+
+impl MapCol {
+    pub(crate) fn new_with_children(
+        entry_field: FieldRef,
+        keys_sorted: bool,
+        keys: Box<dyn DynColumnBuilder>,
+        values: Box<dyn DynColumnBuilder>,
+    ) -> Self {
+        let value_nullable = match entry_field.data_type() {
+            DataType::Struct(children) => children.get(1).map_or(true, |field| field.is_nullable()),
+            _ => true,
+        };
+
+        Self {
+            entry_field,
+            value_nullable,
+            keys_sorted,
+            keys,
+            values,
+            offsets: vec![0],
+            validity: BooleanBufferBuilder::new(0),
+        }
+    }
+
+    pub(crate) fn append_null(&mut self) {
+        self.validity.append(false);
+        let last = *self.offsets.last().unwrap();
+        self.offsets.push(last);
+    }
+
+    pub(crate) fn append_map(
+        &mut self,
+        entries: Vec<(DynCell, Option<DynCell>)>,
+    ) -> Result<(), DynError> {
+        let entry_count = entries.len();
+        for (idx, (key_cell, value_cell)) in entries.into_iter().enumerate() {
+            match key_cell {
+                DynCell::Null => {
+                    return Err(DynError::Builder {
+                        message: format!("map key at index {} cannot be null", idx),
+                    });
+                }
+                key => self.keys.append_dyn(key)?,
+            }
+
+            match value_cell {
+                None => {
+                    if !self.value_nullable {
+                        return Err(DynError::Builder {
+                            message: format!(
+                                "map value at index {} is null but values are not nullable",
+                                idx
+                            ),
+                        });
+                    }
+                    self.values.append_null();
+                }
+                Some(DynCell::Null) => {
+                    if !self.value_nullable {
+                        return Err(DynError::Builder {
+                            message: format!(
+                                "map value at index {} is null but values are not nullable",
+                                idx
+                            ),
+                        });
+                    }
+                    self.values.append_null();
+                }
+                Some(value) => self.values.append_dyn(value)?,
+            }
+        }
+
+        let added = i32::try_from(entry_count).map_err(|_| DynError::Builder {
+            message: "map entry count exceeds i32::MAX".to_string(),
+        })?;
+        let last = *self.offsets.last().unwrap();
+        let next = last.checked_add(added).ok_or_else(|| DynError::Builder {
+            message: "map entry offsets overflow i32".to_string(),
+        })?;
+        self.offsets.push(next);
+        self.validity.append(true);
+        Ok(())
+    }
+
+    pub(crate) fn finish(&mut self) -> MapArray {
+        let keys = self.keys.finish();
+        let values = self.values.finish();
+        let offsets: OffsetBuffer<i32> =
+            OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
+        let mut v = BooleanBufferBuilder::new(0);
+        std::mem::swap(&mut self.validity, &mut v);
+        let validity = Some(NullBuffer::new(v.finish()));
+        let fields = match self.entry_field.data_type() {
+            DataType::Struct(children) => children.clone(),
+            _ => unreachable!("map entry field is not struct"),
+        };
+        let entries = arrow_array::StructArray::new(fields, vec![keys, values], None);
+        MapArray::new(
+            self.entry_field.clone(),
+            offsets,
+            entries,
+            validity,
+            self.keys_sorted,
+        )
+    }
+
+    pub(crate) fn try_finish(&mut self) -> Result<MapArray, ArrowError> {
+        let keys = self
+            .keys
+            .try_finish()
+            .map_err(|e| ComputeError(e.to_string()))?;
+        let values = self
+            .values
+            .try_finish()
+            .map_err(|e| ComputeError(e.to_string()))?;
+        let offsets: OffsetBuffer<i32> =
+            OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
+        let mut v = BooleanBufferBuilder::new(0);
+        std::mem::swap(&mut self.validity, &mut v);
+        let validity = Some(NullBuffer::new(v.finish()));
+        let fields = match self.entry_field.data_type() {
+            DataType::Struct(children) => children.clone(),
+            _ => unreachable!("map entry field is not struct"),
+        };
+        let entries = arrow_array::StructArray::try_new(fields, vec![keys, values], None)
+            .map_err(|e| ComputeError(e.to_string()))?;
+        MapArray::try_new(
+            self.entry_field.clone(),
+            offsets,
+            entries,
+            validity,
+            self.keys_sorted,
+        )
     }
 }

@@ -101,7 +101,7 @@
   - `DynSchema(Arc<Schema>)` and `DynBuilders` create and finish batches for runtime schemas.
   - `DynRow::append_into` validates arity and value compatibility before appending.
 - Nullability enforcement: dynamic builders do not check column/field/item nullability during appends; a validator runs at `try_finish_into_batch` to catch violations and return a structured error with the offending path and index.
-  - Factory: `new_dyn_builder(dt: &DataType)` selects a concrete builder implementation; nullability is not passed to the factory and is enforced by Arrow.
+  - Factory: `new_dyn_builder(dt: &DataType, capacity: usize)` selects a concrete builder implementation; nullability is not passed to the factory and is enforced by Arrow.
 - Errors:
   - `DynError` variants: `ArityMismatch`, `TypeMismatch { col, expected }`, `Builder { message }`, `Append { col, message }`.
   - All dynamic append operations return `Result` and propagate context; no silent mismatches.

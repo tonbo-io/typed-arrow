@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use arrow_array::{Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, StructArray};
+use arrow_array::{
+    Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
+};
 use arrow_buffer::OffsetBuffer;
 use arrow_schema::{DataType, Field, Fields, Schema};
 
@@ -51,6 +53,9 @@ fn validate_nested(
         }
         DataType::FixedSizeList(item, _len) => {
             validate_fixed_list(col_name, item, array, col, parent_valid_mask)
+        }
+        DataType::Map(entry_field, _) => {
+            validate_map(col_name, entry_field, array, col, parent_valid_mask)
         }
         // Other data types have no nested children.
         _ => Ok(()),
@@ -282,6 +287,103 @@ fn validate_fixed_list(
         col,
         Some(child_mask),
     )
+}
+
+fn validate_map(
+    col_name: &str,
+    entry_field: &Arc<Field>,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let map = array
+        .as_any()
+        .downcast_ref::<MapArray>()
+        .expect("array/DataType mismatch");
+
+    let arr: &dyn Array = map;
+    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
+    let offsets = map.offsets();
+    let keys = map.keys().clone();
+    let values = map.values().clone();
+
+    let DataType::Struct(children) = entry_field.data_type() else {
+        return Err(DynError::Builder {
+            message: "map entry field is not a struct".to_string(),
+        });
+    };
+    if children.len() != 2 {
+        return Err(DynError::Builder {
+            message: format!(
+                "map entry struct must have 2 fields, found {}",
+                children.len()
+            ),
+        });
+    }
+    let key_field = &children[0];
+    let value_field = &children[1];
+
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+            .expect("non-negative offset");
+        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+            .expect("non-negative offset");
+        for idx in start..end {
+            if keys.as_ref().is_null(idx) {
+                return Err(DynError::Nullability {
+                    col,
+                    path: format!("{col_name}.keys"),
+                    index: idx,
+                    message: "map keys cannot contain nulls".to_string(),
+                });
+            }
+            if !value_field.is_nullable() && values.as_ref().is_null(idx) {
+                return Err(DynError::Nullability {
+                    col,
+                    path: format!("{col_name}.values"),
+                    index: idx,
+                    message: "map values marked non-nullable contain null".to_string(),
+                });
+            }
+        }
+    }
+
+    let mut key_mask = vec![false; keys.len()];
+    let mut value_mask = vec![false; values.len()];
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+            .expect("non-negative offset");
+        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+            .expect("non-negative offset");
+        for idx in start..end {
+            key_mask[idx] = true;
+            if values.as_ref().is_valid(idx) {
+                value_mask[idx] = true;
+            }
+        }
+    }
+
+    validate_nested(
+        &format!("{col_name}.keys"),
+        key_field.data_type(),
+        &keys,
+        col,
+        Some(key_mask),
+    )?;
+    validate_nested(
+        &format!("{col_name}.values"),
+        value_field.data_type(),
+        &values,
+        col,
+        Some(value_mask),
+    )?;
+    Ok(())
 }
 
 fn validity_mask(array: &dyn Array) -> Vec<bool> {

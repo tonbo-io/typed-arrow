@@ -50,6 +50,9 @@ pub enum DynCell {
     /// Fixed-size list; the number of items must match the list's declared length.
     /// Each item may be `None` (null) or a nested `DynCell` matching the child type.
     FixedSizeList(Vec<Option<DynCell>>),
+    /// Map entries represented as key/value pairs. Keys must be non-null.
+    /// Values follow the schema's nullability; `None` means a null value.
+    Map(Vec<(DynCell, Option<DynCell>)>),
 }
 
 impl DynCell {
@@ -74,6 +77,7 @@ impl DynCell {
             DynCell::Struct(_) => "struct",
             DynCell::List(_) => "list",
             DynCell::FixedSizeList(_) => "fixed_size_list",
+            DynCell::Map(_) => "map",
         }
     }
 }

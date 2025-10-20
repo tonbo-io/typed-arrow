@@ -17,9 +17,9 @@
   - `append_option_row(row: Option<DynRow>) -> Result<(), DynError>`
   - `finish_into_batch(self) -> RecordBatch`
   - `try_finish_into_batch(self) -> Result<RecordBatch, DynError>`
-- `DynRow(Vec<Option<DynCell>>)` and `DynCell` enum for dynamic values.
+- `DynRow(Vec<Option<DynCell>>)` and `DynCell` enum for dynamic values (including `Map` entries).
 - `DynColumnBuilder` (trait object) implemented by the factory output.
-- Factory: `new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder>`.
+- Factory: `new_dyn_builder(dt: &DataType, capacity: usize) -> Box<dyn DynColumnBuilder>`.
 
 ## Semantics
 - Appends
@@ -59,6 +59,7 @@
   - `Struct(fields)` ← `DynCell::Struct(Vec<Option<DynCell>>)` with matching arity.
   - `List/LargeList(item)` ← `DynCell::List(Vec<Option<DynCell>>)`.
   - `FixedSizeList(item, len)` ← `DynCell::FixedSizeList(Vec<Option<DynCell>>)` with exact length.
+  - `Map(entry_field)` ← `DynCell::Map(Vec<(DynCell, Option<DynCell>)>)` with non-null keys and values matching the child field.
 
 ## Nested Builders (invariants)
 - Struct:
@@ -69,6 +70,10 @@
   - `append_list(items)`: appends each item to the child, advances offsets by item count, marks valid.
 - FixedSizeList:
   - Enforces exact child length; on `append_null()` writes `len` child nulls, then marks parent invalid.
+- Map:
+  - Keys are appended through a dedicated child builder and must never be null.
+  - Values are appended through a second child builder; nulls are accepted only when the value field is nullable.
+  - Offsets mirror the number of entries per row.
 
 ## Dictionary Support
 - Keys: all integral types `i8/i16/i32/i64/u8/u16/u32/u64`.
@@ -78,23 +83,22 @@
   - Primitive numeric/float values via a small trait-object wrapper that avoids an overly large enum in the factory.
 
 ## Factory Design
-- `new_dyn_builder(&DataType)` holds the single `match DataType` in the dynamic crate.
+- `new_dyn_builder(&DataType, capacity)` holds the single `match DataType` in the dynamic crate.
 - Returns a `Box<dyn DynColumnBuilder>` implemented by a small struct wrapping an internal enum of concrete builders.
 - Nested types recursively call the factory for children.
 
 ## Performance Notes
 - Append-time checks are intentionally light (arity + type compatibility) to avoid partial writes and costly per-item checks.
-- Capacity: `DynBuilders::new` accepts a capacity hint; individual Arrow builders may not preallocate yet — future work.
+- Capacity: `DynBuilders::new` accepts a capacity hint that is forwarded to nested builders (lists, maps, etc.) for preallocation.
 - `DynColumnBuilder: Send` so trait objects can be moved across threads when needed.
 
 ## Coverage (current vs. planned)
 - Implemented:
   - Primitives, Boolean, Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary
   - Date/Time/Duration/Timestamp
-  - Struct, List, LargeList, FixedSizeList
+  - Struct, List, LargeList, FixedSizeList, Map
   - Dictionary (keys: all integrals; values: Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary, numeric/float primitives)
 - Planned:
-  - Map/OrderedMap builders (dynamic)
   - Union (dense/sparse) builders (dynamic)
   - Decimal128/256, Interval types (dynamic)
   - Capacity preallocation across dynamic builders
