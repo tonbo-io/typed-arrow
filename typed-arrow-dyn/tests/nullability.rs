@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use arrow_array::{Array, ArrayRef, Int64Array, MapArray, StringArray, StructArray};
+use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
+use arrow_data::ArrayData;
+use arrow_schema::{DataType, Field, Fields, Schema};
+use typed_arrow_dyn::{validate_nullability, DynBuilders, DynCell, DynError, DynRow};
 
 #[test]
 fn rejects_none_for_non_nullable_primitive() {
@@ -164,4 +167,51 @@ fn deferred_list_item_violation_detected_at_finish() {
     b.append_option_row(Some(row)).unwrap();
 
     assert!(b.try_finish_into_batch().is_err());
+}
+
+#[test]
+fn map_value_nullability_violation_detected() {
+    let entry_fields: Fields = vec![
+        Arc::new(Field::new("keys", DataType::Utf8, false)),
+        Arc::new(Field::new("values", DataType::Int64, false)),
+    ]
+    .into();
+    let entry_field = Arc::new(Field::new(
+        "entries",
+        DataType::Struct(entry_fields.clone()),
+        false,
+    ));
+    let schema = Schema::new(vec![Field::new(
+        "data",
+        DataType::Map(entry_field.clone(), false),
+        false,
+    )]);
+
+    let keys_array = StringArray::from(vec!["a", "b"]);
+    let values_array = Int64Array::from(vec![Some(1), None]);
+    let num_entries = keys_array.len();
+    // Intentionally build an invalid entries struct (null values despite non-nullable field).
+    let struct_data = unsafe {
+        ArrayData::builder(DataType::Struct(entry_fields.clone()))
+            .len(num_entries)
+            .child_data(vec![keys_array.into_data(), values_array.into_data()])
+            .build_unchecked()
+    };
+    let entries = StructArray::from(struct_data);
+
+    let offsets = OffsetBuffer::new(ScalarBuffer::from(vec![0i32, 2]));
+    let mut validity = BooleanBufferBuilder::new(1);
+    validity.append(true);
+    let validity = Some(NullBuffer::new(validity.finish()));
+
+    let map = MapArray::try_new(entry_field, offsets, entries, validity, false).unwrap();
+    let arrays: Vec<ArrayRef> = vec![Arc::new(map) as ArrayRef];
+
+    match validate_nullability(&schema, &arrays) {
+        Err(DynError::Nullability { col, path, .. }) => {
+            assert_eq!(col, 0);
+            assert_eq!(path, "data.values");
+        }
+        other => panic!("expected nullability error, got {other:?}"),
+    }
 }

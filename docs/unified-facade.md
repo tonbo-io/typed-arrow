@@ -26,7 +26,7 @@ Keep everything in a single repository as a workspace with focused crates. Make 
   - Depends only on syn/quote/proc-macro2; no Arrow runtime.
 
 - typed-arrow-dyn (dynamic facade)
-  - Contents: `DynSchema`, `DynBuilders`, `DynColumnBuilder`, `DynCell`/`DynRow`, and `new_dyn_builder(dt, capacity)` factory. Holds the only `match DataType`. Column/field/item nullability is not passed to the factory; Arrow enforces nullability when arrays/RecordBatches are constructed.
+  - Contents: `DynSchema`, `DynBuilders`, `DynColumnBuilder`, `DynCell`/`DynRow`, and `new_dyn_builder(dt)` factory. Holds the only `match DataType`. Column/field/item nullability is not passed to the factory; Arrow enforces nullability when arrays/RecordBatches are constructed.
   - Dependencies: `typed-arrow` (for ArrowBinding/wrappers), `arrow-array`, `arrow-schema`, `arrow-buffer`.
   - Feature gates: optional per-container coverage or Arrow version gates if needed.
 
@@ -149,7 +149,7 @@ impl DynBuilders {
         let cols = schema
             .fields()
             .iter()
-            .map(|f| new_dyn_builder(f.data_type(), capacity))
+            .map(|f| new_dyn_builder(f.data_type()))
             .collect();
         Self { schema, cols, len: 0 }
     }

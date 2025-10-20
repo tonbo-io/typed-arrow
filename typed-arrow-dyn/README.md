@@ -74,7 +74,7 @@ For ad hoc debugging you can still call `finish_into_batch()`, which will panic 
 `DynRow::append_into_with_fields` performs a lightweight type check before mutating builders, so arity/type mistakes fail fast without leaving partially-written columns.
 
 ## Dynamic Builders
-`DynBuilders::new(schema, capacity)` constructs one concrete builder per field by calling [`new_dyn_builder`](src/factory.rs) with the logical type and the capacity hint. The factory is the only place that matches on `arrow_schema::DataType`; every builder is stored behind the `DynColumnBuilder` trait object with methods:
+`DynBuilders::new(schema, capacity)` constructs one concrete builder per field by calling [`new_dyn_builder`](src/factory.rs) with the logical type. The factory is the only place that matches on `arrow_schema::DataType`; every builder is stored behind the `DynColumnBuilder` trait object with methods:
 
 ```rust
 trait DynColumnBuilder {
@@ -107,7 +107,7 @@ Violations bubble up as `DynError::Nullability` with `col`, `path`, and `index` 
 
 - `DynSchema` satisfies `typed_arrow_unified::SchemaLike` for runtime cases, so you can switch between typed and dynamic implementations behind a single API.
 - `DynBuilders` implements the unified `BuildersLike` contract; typed builders use a zero-cost `NoError`, while dynamic builders return `Result`.
-- Lower-level consumers can call `new_dyn_builder(data_type, capacity_hint)` to embed dynamic columns into custom pipelines without adopting the whole facade.
+- Lower-level consumers can call `new_dyn_builder(data_type)` to embed dynamic columns into custom pipelines without adopting the whole facade.
 
 ## Supported Data Types
 

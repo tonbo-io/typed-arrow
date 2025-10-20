@@ -19,7 +19,7 @@
   - `try_finish_into_batch(self) -> Result<RecordBatch, DynError>`
 - `DynRow(Vec<Option<DynCell>>)` and `DynCell` enum for dynamic values (including `Map` entries).
 - `DynColumnBuilder` (trait object) implemented by the factory output.
-- Factory: `new_dyn_builder(dt: &DataType, capacity: usize) -> Box<dyn DynColumnBuilder>`.
+- Factory: `new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder>`.
 
 ## Semantics
 - Appends
@@ -83,13 +83,13 @@
   - Primitive numeric/float values via a small trait-object wrapper that avoids an overly large enum in the factory.
 
 ## Factory Design
-- `new_dyn_builder(&DataType, capacity)` holds the single `match DataType` in the dynamic crate.
+- `new_dyn_builder(&DataType)` holds the single `match DataType` in the dynamic crate.
 - Returns a `Box<dyn DynColumnBuilder>` implemented by a small struct wrapping an internal enum of concrete builders.
 - Nested types recursively call the factory for children.
 
 ## Performance Notes
 - Append-time checks are intentionally light (arity + type compatibility) to avoid partial writes and costly per-item checks.
-- Capacity: `DynBuilders::new` accepts a capacity hint that is forwarded to nested builders (lists, maps, etc.) for preallocation.
+- Capacity: `DynBuilders::new` accepts a capacity hint; concrete builders may ignore it today but can start reserving space internally in the future.
 - `DynColumnBuilder: Send` so trait objects can be moved across threads when needed.
 
 ## Coverage (current vs. planned)
