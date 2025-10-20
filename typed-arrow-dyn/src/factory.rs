@@ -8,7 +8,7 @@ use arrow_schema::{DataType, UnionFields, UnionMode};
 use crate::{
     cell::DynCell,
     dyn_builder::DynColumnBuilder,
-    nested::{FixedSizeListCol, LargeListCol, ListCol, StructCol},
+    nested::{FixedSizeListCol, LargeListCol, ListCol, MapCol, StructCol},
     union::{DenseUnionCol, SparseUnionCol},
     DynError,
 };
@@ -96,6 +96,7 @@ enum Inner {
     Struct(StructCol),
     List(ListCol),
     LargeList(LargeListCol),
+    Map(MapCol),
     FixedSizeList(FixedSizeListCol),
     // Primitive dictionary via trait object
     DictPrimitive(Box<dyn DictPrimBuilder>),
@@ -260,6 +261,7 @@ impl DynColumnBuilder for Col {
             Inner::Struct(b) => b.append_null(),
             Inner::List(b) => b.append_null(),
             Inner::LargeList(b) => b.append_null(),
+            Inner::Map(b) => b.append_null(),
             Inner::FixedSizeList(b) => b.append_null(),
             Inner::DictPrimitive(b) => b.append_null(),
             Inner::UnionDense(b) => b.append_null(),
@@ -659,6 +661,7 @@ impl DynColumnBuilder for Col {
             (Inner::Struct(b), DynCell::Struct(values)) => b.append_struct(values),
             (Inner::List(b), DynCell::List(values)) => b.append_list(values),
             (Inner::LargeList(b), DynCell::List(values)) => b.append_list(values),
+            (Inner::Map(b), DynCell::Map(entries)) => b.append_map(entries),
             (Inner::FixedSizeList(b), DynCell::FixedSizeList(values)) => b.append_fixed(values),
             (_inner, DynCell::Null) => {
                 self.append_null();
@@ -746,6 +749,7 @@ impl DynColumnBuilder for Col {
             Inner::Struct(b) => Arc::new(b.finish()),
             Inner::List(b) => Arc::new(b.finish()),
             Inner::LargeList(b) => Arc::new(b.finish()),
+            Inner::Map(b) => b.finish_array(),
             Inner::FixedSizeList(b) => Arc::new(b.finish()),
             Inner::DictPrimitive(b) => b.finish(),
             Inner::UnionDense(b) => b.finish_array(),
@@ -844,6 +848,7 @@ impl DynColumnBuilder for Col {
                 .map_err(|e| DynError::Builder {
                     message: e.to_string(),
                 }),
+            Inner::Map(b) => b.try_finish_array(),
             Inner::FixedSizeList(b) => {
                 b.try_finish()
                     .map(|a| Arc::new(a) as ArrayRef)
@@ -1138,6 +1143,37 @@ fn inner_for_nested(dt: &DataType) -> Option<Inner> {
     })
 }
 
+fn inner_for_map(dt: &DataType) -> Option<Inner> {
+    match dt {
+        DataType::Map(entry_field, sorted) => {
+            let DataType::Struct(entry_fields) = entry_field.data_type() else {
+                panic!("map entries must be a struct");
+            };
+            if entry_fields.len() != 2 {
+                panic!("map entries must contain exactly two fields (keys, values)");
+            }
+            let key_field = entry_fields
+                .get(0)
+                .expect("map entries contain keys field")
+                .clone();
+            let value_field = entry_fields
+                .get(1)
+                .expect("map entries contain values field")
+                .clone();
+            let keys = new_dyn_builder(key_field.data_type());
+            let values = new_dyn_builder(value_field.data_type());
+            Some(Inner::Map(MapCol::new(
+                entry_field.clone(),
+                entry_fields.clone(),
+                *sorted,
+                keys,
+                values,
+            )))
+        }
+        _ => None,
+    }
+}
+
 fn inner_for_union(dt: &DataType) -> Option<Inner> {
     match dt {
         DataType::Union(fields, mode) => {
@@ -1167,6 +1203,7 @@ fn build_inner(dt: &DataType) -> Inner {
             DataType::Dictionary(k, v) => inner_for_dictionary(k, v),
             _ => None,
         })
+        .or_else(|| inner_for_map(dt))
         .or_else(|| inner_for_nested(dt))
         .or_else(|| inner_for_union(dt))
         .unwrap_or_else(|| Inner::Null(b::NullBuilder::new()))

@@ -1,6 +1,8 @@
 //! Nested dynamic builders used by the factory.
 
-use arrow_array::{FixedSizeListArray, LargeListArray};
+use std::sync::Arc;
+
+use arrow_array::{ArrayRef, FixedSizeListArray, LargeListArray, MapArray};
 use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
 use arrow_schema::{
     ArrowError::{self, ComputeError},
@@ -190,6 +192,141 @@ impl LargeListCol {
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
         LargeListArray::try_new(self.item_field.clone(), offsets, values, validity)
+    }
+}
+
+/// Map column builder holding key/value child builders and offsets.
+pub(crate) struct MapCol {
+    pub(crate) entry_field: FieldRef,
+    pub(crate) entry_fields: Fields,
+    pub(crate) keys_sorted: bool,
+    pub(crate) value_nullable: bool,
+    pub(crate) keys: Box<dyn DynColumnBuilder>,
+    pub(crate) values: Box<dyn DynColumnBuilder>,
+    pub(crate) offsets: Vec<i32>,
+    pub(crate) validity: BooleanBufferBuilder,
+}
+
+impl MapCol {
+    pub(crate) fn new(
+        entry_field: FieldRef,
+        entry_fields: Fields,
+        keys_sorted: bool,
+        keys: Box<dyn DynColumnBuilder>,
+        values: Box<dyn DynColumnBuilder>,
+    ) -> Self {
+        let value_nullable = entry_fields
+            .get(1)
+            .expect("map entries contain values field")
+            .is_nullable();
+        Self {
+            entry_field,
+            entry_fields,
+            keys_sorted,
+            value_nullable,
+            keys,
+            values,
+            offsets: vec![0],
+            validity: BooleanBufferBuilder::new(0),
+        }
+    }
+
+    pub(crate) fn append_null(&mut self) {
+        let last = *self.offsets.last().expect("map offsets initialized");
+        self.offsets.push(last);
+        self.validity.append(false);
+    }
+
+    pub(crate) fn append_map(
+        &mut self,
+        entries: Vec<(DynCell, Option<DynCell>)>,
+    ) -> Result<(), DynError> {
+        let mut added: i32 = 0;
+        for (idx, (key_cell, value_cell)) in entries.into_iter().enumerate() {
+            if matches!(key_cell, DynCell::Null) {
+                return Err(DynError::Builder {
+                    message: format!("map entry {idx} has null key"),
+                });
+            }
+            self.keys
+                .append_dyn(key_cell)
+                .map_err(|e| annotate_nested_error(e, format!("map key at entry {idx}")))?;
+            match value_cell {
+                Some(value) => self
+                    .values
+                    .append_dyn(value)
+                    .map_err(|e| annotate_nested_error(e, format!("map value at entry {idx}")))?,
+                None => {
+                    if !self.value_nullable {
+                        return Err(DynError::Builder {
+                            message: format!(
+                                "map value at entry {idx} is null but the field is non-nullable"
+                            ),
+                        });
+                    }
+                    self.values.append_null();
+                }
+            }
+            added = added.checked_add(1).ok_or_else(|| DynError::Builder {
+                message: "map entry count exceeded i32::MAX".to_string(),
+            })?;
+        }
+        let last = *self.offsets.last().expect("map offsets initialized");
+        self.offsets.push(last + added);
+        self.validity.append(true);
+        Ok(())
+    }
+
+    pub(crate) fn finish_array(&mut self) -> ArrayRef {
+        self.try_finish_array()
+            .expect("map builder state validated before finish")
+    }
+
+    pub(crate) fn try_finish_array(&mut self) -> Result<ArrayRef, DynError> {
+        let keys = self.keys.try_finish()?;
+        let values = self.values.try_finish()?;
+        let entries = arrow_array::StructArray::try_new(
+            self.entry_fields.clone(),
+            vec![keys, values],
+            None,
+        )
+        .map_err(|e| DynError::Builder {
+            message: e.to_string(),
+        })?;
+
+        let offsets: OffsetBuffer<i32> = OffsetBuffer::new(
+            self.offsets
+                .iter()
+                .copied()
+                .collect::<ScalarBuffer<i32>>(),
+        );
+        let mut validity_builder = BooleanBufferBuilder::new(0);
+        std::mem::swap(&mut self.validity, &mut validity_builder);
+        let validity = Some(NullBuffer::new(validity_builder.finish()));
+
+        let array = MapArray::try_new(
+            Arc::clone(&self.entry_field),
+            offsets,
+            entries,
+            validity,
+            self.keys_sorted,
+        )
+        .map_err(|e| DynError::Builder {
+            message: e.to_string(),
+        })?;
+        Ok(Arc::new(array) as ArrayRef)
+    }
+}
+
+fn annotate_nested_error(err: DynError, context: String) -> DynError {
+    match err {
+        DynError::Builder { message } => DynError::Builder {
+            message: format!("{context}: {message}"),
+        },
+        DynError::Append { col, message } => DynError::Builder {
+            message: format!("{context}: child column {col}: {message}"),
+        },
+        other => other,
     }
 }
 

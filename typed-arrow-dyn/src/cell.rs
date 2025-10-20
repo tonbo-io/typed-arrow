@@ -50,6 +50,9 @@ pub enum DynCell {
     /// Fixed-size list; the number of items must match the list's declared length.
     /// Each item may be `None` (null) or a nested `DynCell` matching the child type.
     FixedSizeList(Vec<Option<DynCell>>),
+    /// Map cell containing key/value entries. Keys must be non-null; values may be null depending
+    /// on the schema's value-field nullability.
+    Map(Vec<(DynCell, Option<DynCell>)>),
     /// Union cell selects a variant by `type_id` and optionally carries a nested value.
     Union {
         /// Tag defined in `UnionFields` identifying the active variant.
@@ -81,6 +84,7 @@ impl DynCell {
             DynCell::Struct(_) => "struct",
             DynCell::List(_) => "list",
             DynCell::FixedSizeList(_) => "fixed_size_list",
+            DynCell::Map(_) => "map",
             DynCell::Union { .. } => "union",
         }
     }

@@ -139,6 +139,32 @@ fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
         (DataType::List(_), DynCell::List(_)) => true,
         (DataType::LargeList(_), DynCell::List(_)) => true,
         (DataType::FixedSizeList(_, _), DynCell::FixedSizeList(_)) => true,
+        (DataType::Map(entry_field, _), DynCell::Map(entries)) => {
+            let DataType::Struct(entry_fields) = entry_field.data_type() else {
+                return false;
+            };
+            if entry_fields.len() != 2 {
+                return false;
+            }
+            let Some(key_field) = entry_fields.get(0) else {
+                return false;
+            };
+            let Some(value_field) = entry_fields.get(1) else {
+                return false;
+            };
+            entries.iter().all(|(key_cell, value_cell)| {
+                if matches!(key_cell, DynCell::Null) {
+                    return false;
+                }
+                if !accepts_cell(key_field.data_type(), key_cell) {
+                    return false;
+                }
+                match value_cell {
+                    Some(cell) => accepts_cell(value_field.data_type(), cell),
+                    None => true,
+                }
+            })
+        }
         (DataType::Union(fields, _), DynCell::Union { type_id, value }) => {
             let field = fields
                 .iter()

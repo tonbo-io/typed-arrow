@@ -68,6 +68,7 @@ For ad hoc debugging you can still call `finish_into_batch()`, which will panic 
   - `Struct(Vec<Option<DynCell>>)`—one entry per child field.
   - `List(Vec<Option<DynCell>>)`, reused for `List` and `LargeList`.
   - `FixedSizeList(Vec<Option<DynCell>>)`—length must match the field’s declared width.
+  - `Map(Vec<(DynCell, Option<DynCell>)>)`—keys are required, values may be null per schema.
   - `Union { type_id, value }`—selects a variant by Arrow tag; `DynCell::union_value(tag, cell)` and `DynCell::union_null(tag)` helpers keep construction tidy.
 - Dictionary columns accept the payload type (`Str`, `Bin`, or primitive variants); the key handling stays inside the builder.
 
@@ -99,6 +100,7 @@ Dynamic builders defer nullability checks until the batch is sealed. `validate_n
 - Non-nullable columns have no null slots.
 - Struct children obey their own nullability only where the parent is valid.
 - List, LargeList, and FixedSizeList items respect child nullability.
+- Map/OrderedMap entries enforce non-null keys and value-field nullability.
 - Dense and sparse union variants enforce their field nullability with precise row context.
 
 Violations bubble up as `DynError::Nullability` with `col`, `path`, and `index` for precise diagnostics, allowing the unified facade to report user-friendly messages instead of panicking.
@@ -119,6 +121,7 @@ The factory builds the following Arrow logical types (Arrow RS v56):
 - Utf8, LargeUtf8, Binary, LargeBinary, FixedSizeBinary
 - Dictionary with the above strings/binary types or primitive values
 - Struct, List, LargeList, FixedSizeList (including nested combinations)
+- Map/OrderedMap (keys non-null, value nullability configurable)
 - Union (dense and sparse)
 
 Unsupported types currently fall back to a `NullBuilder`. Extend `new_dyn_builder` as Arrow gains new logical types.

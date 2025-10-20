@@ -96,10 +96,10 @@
   - Primitives, Boolean, Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary
   - Date/Time/Duration/Timestamp
   - Struct, List, LargeList, FixedSizeList
+  - Map/OrderedMap (keys non-null; value nullability enforced during validation)
   - Dictionary (keys: all integrals; values: Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary, numeric/float primitives)
   - Union (dense and sparse variants)
 - Planned:
-  - Map/OrderedMap builders (dynamic)
   - Decimal128/256, Interval types (dynamic)
   - Capacity preallocation across dynamic builders
   - Convenience helper to bind a runtime `Schema` to a typed `R` when shapes match
