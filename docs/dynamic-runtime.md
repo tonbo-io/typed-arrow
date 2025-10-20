@@ -17,7 +17,7 @@
   - `append_option_row(row: Option<DynRow>) -> Result<(), DynError>`
   - `finish_into_batch(self) -> RecordBatch`
   - `try_finish_into_batch(self) -> Result<RecordBatch, DynError>`
-- `DynRow(Vec<Option<DynCell>>)` and `DynCell` enum for dynamic values (including `Map` entries).
+- `DynRow(Vec<Option<DynCell>>)` and `DynCell` enum for dynamic values.
 - `DynColumnBuilder` (trait object) implemented by the factory output.
 - Factory: `new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder>`.
 
