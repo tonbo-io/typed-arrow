@@ -59,6 +59,7 @@
   - `Struct(fields)` ← `DynCell::Struct(Vec<Option<DynCell>>)` with matching arity.
   - `List/LargeList(item)` ← `DynCell::List(Vec<Option<DynCell>>)`.
   - `FixedSizeList(item, len)` ← `DynCell::FixedSizeList(Vec<Option<DynCell>>)` with exact length.
+  - `Map(entry_field)` ← `DynCell::Map(Vec<(DynCell, Option<DynCell>)>)` with non-null keys and values matching the child field.
 
 ## Nested Builders (invariants)
 - Struct:
@@ -69,6 +70,10 @@
   - `append_list(items)`: appends each item to the child, advances offsets by item count, marks valid.
 - FixedSizeList:
   - Enforces exact child length; on `append_null()` writes `len` child nulls, then marks parent invalid.
+- Map:
+  - Keys are appended through a dedicated child builder and must never be null.
+  - Values are appended through a second child builder; nulls are accepted only when the value field is nullable.
+  - Offsets mirror the number of entries per row.
 
 ## Dictionary Support
 - Keys: all integral types `i8/i16/i32/i64/u8/u16/u32/u64`.
@@ -84,17 +89,16 @@
 
 ## Performance Notes
 - Append-time checks are intentionally light (arity + type compatibility) to avoid partial writes and costly per-item checks.
-- Capacity: `DynBuilders::new` accepts a capacity hint; individual Arrow builders may not preallocate yet — future work.
+- Capacity: `DynBuilders::new` accepts a capacity hint; concrete builders may ignore it today but can start reserving space internally in the future.
 - `DynColumnBuilder: Send` so trait objects can be moved across threads when needed.
 
 ## Coverage (current vs. planned)
 - Implemented:
   - Primitives, Boolean, Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary
   - Date/Time/Duration/Timestamp
-  - Struct, List, LargeList, FixedSizeList
+  - Struct, List, LargeList, FixedSizeList, Map
   - Dictionary (keys: all integrals; values: Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary, numeric/float primitives)
 - Planned:
-  - Map/OrderedMap builders (dynamic)
   - Union (dense/sparse) builders (dynamic)
   - Decimal128/256, Interval types (dynamic)
   - Capacity preallocation across dynamic builders
