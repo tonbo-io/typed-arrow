@@ -68,14 +68,14 @@ For ad hoc debugging you can still call `finish_into_batch()`, which will panic 
   - `Struct(Vec<Option<DynCell>>)`—one entry per child field.
   - `List(Vec<Option<DynCell>>)`, reused for `List` and `LargeList`.
   - `FixedSizeList(Vec<Option<DynCell>>)`—length must match the field’s declared width.
-  - `Map(Vec<(DynCell, Option<DynCell>)>)`—keys are required, values may be null per schema.
-  - `Union { type_id, value }`—selects a variant by Arrow tag; `DynCell::union_value(tag, cell)` and `DynCell::union_null(tag)` helpers keep construction tidy.
+  - `Map(Vec<(DynCell, Option<DynCell>)>)`—each entry is a `(key, value)` pair; keys must be non-null and values obey the schema’s nullability.
+  - `Union { type_id, value }`—selects a variant by Arrow tag; helpers `DynCell::union_value(tag, cell)` and `DynCell::union_null(tag)` keep construction tidy.
 - Dictionary columns accept the payload type (`Str`, `Bin`, or primitive variants); the key handling stays inside the builder.
 
 `DynRow::append_into_with_fields` performs a lightweight type check before mutating builders, so arity/type mistakes fail fast without leaving partially-written columns.
 
 ## Dynamic Builders
-`DynBuilders::new(schema, capacity)` constructs one concrete builder per field by calling [`new_dyn_builder`](src/factory.rs). The factory is the only place that matches on `arrow_schema::DataType`; every builder is stored behind the `DynColumnBuilder` trait object with methods:
+`DynBuilders::new(schema, capacity)` constructs one concrete builder per field by calling [`new_dyn_builder`](src/factory.rs) with the logical type. The factory is the only place that matches on `arrow_schema::DataType`; every builder is stored behind the `DynColumnBuilder` trait object with methods:
 
 ```rust
 trait DynColumnBuilder {
@@ -100,7 +100,7 @@ Dynamic builders defer nullability checks until the batch is sealed. `validate_n
 - Non-nullable columns have no null slots.
 - Struct children obey their own nullability only where the parent is valid.
 - List, LargeList, and FixedSizeList items respect child nullability.
-- Map/OrderedMap entries enforce non-null keys and value-field nullability.
+- Map columns reject null keys and enforce the value field’s nullability.
 - Dense and sparse union variants enforce their field nullability with precise row context.
 
 Violations bubble up as `DynError::Nullability` with `col`, `path`, and `index` for precise diagnostics, allowing the unified facade to report user-friendly messages instead of panicking.

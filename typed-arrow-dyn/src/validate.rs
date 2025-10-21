@@ -48,7 +48,6 @@ fn validate_nested(
         DataType::Struct(children) => {
             validate_struct(col_name, children, array, col, parent_valid_mask)
         }
-        DataType::Map(entry, _) => validate_map(col_name, entry, array, col, parent_valid_mask),
         DataType::List(item) => validate_list(col_name, item, array, col, parent_valid_mask),
         DataType::LargeList(item) => {
             validate_large_list(col_name, item, array, col, parent_valid_mask)
@@ -58,6 +57,9 @@ fn validate_nested(
         }
         DataType::Union(children, _) => {
             validate_union(col_name, children, array, col, parent_valid_mask)
+        }
+        DataType::Map(entry_field, _) => {
+            validate_map(col_name, entry_field, array, col, parent_valid_mask)
         }
         // Other data types have no nested children.
         _ => Ok(()),
@@ -78,7 +80,10 @@ fn validate_union(
 
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(union));
 
-    let variants: Vec<(i8, FieldRef)> = fields.iter().map(|(tag, field)| (tag, field.clone())).collect();
+    let variants: Vec<(i8, FieldRef)> = fields
+        .iter()
+        .map(|(tag, field)| (*tag, field.clone()))
+        .collect();
 
     let mut tag_to_index = vec![None; 256];
     for (idx, (tag, _)) in variants.iter().enumerate() {
@@ -185,114 +190,6 @@ fn validate_struct(
             Some(mask.clone()),
         )?;
     }
-    Ok(())
-}
-
-fn validate_map(
-    col_name: &str,
-    entry: &Arc<Field>,
-    array: &ArrayRef,
-    col: usize,
-    parent_mask: Option<Vec<bool>>,
-) -> Result<(), DynError> {
-    let map = array
-        .as_any()
-        .downcast_ref::<MapArray>()
-        .expect("array/DataType mismatch");
-    let arr: &dyn Array = map;
-    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
-    let offsets = map.offsets();
-    let entries = map.entries();
-    let entry_fields = match entry.data_type() {
-        DataType::Struct(fields) => fields.clone(),
-        other => {
-            return Err(DynError::Builder {
-                message: format!(
-                    "map entries for '{col_name}' must be struct, found {other:?}"
-                ),
-            })
-        }
-    };
-    if entry_fields.len() != 2 {
-        return Err(DynError::Builder {
-            message: format!(
-                "map entries for '{col_name}' must contain two children, found {}",
-                entry_fields.len()
-            ),
-        });
-    }
-    let key_field = entry_fields.get(0).expect("map entries contain keys field");
-    let value_field = entry_fields.get(1).expect("map entries contain values field");
-    let keys = map.keys().clone();
-    let values = map.values().clone();
-
-    let mut entry_mask = vec![false; entries.len()];
-    for (row, &pvalid) in parent_valid.iter().enumerate() {
-        if !pvalid {
-            continue;
-        }
-        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-            .expect("non-negative offset");
-        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-            .expect("non-negative offset");
-        for idx in start..end {
-            if idx >= entry_mask.len() {
-                return Err(DynError::Builder {
-                    message: format!(
-                        "map entry offset {idx} out of bounds for column '{col_name}'"
-                    ),
-                });
-            }
-            entry_mask[idx] = true;
-        }
-    }
-
-    let key_array = keys.as_ref();
-    for idx in 0..entry_mask.len() {
-        if !entry_mask[idx] {
-            continue;
-        }
-        if key_array.is_null(idx) {
-            return Err(DynError::Nullability {
-                col,
-                path: format!("{col_name}[].{}", key_field.name()),
-                index: idx,
-                message: "map key is null".to_string(),
-            });
-        }
-    }
-
-    if !value_field.is_nullable() {
-        let value_array = values.as_ref();
-        for idx in 0..entry_mask.len() {
-            if !entry_mask[idx] {
-                continue;
-            }
-            if value_array.is_null(idx) {
-                return Err(DynError::Nullability {
-                    col,
-                    path: format!("{col_name}[].{}", value_field.name()),
-                    index: idx,
-                    message: "non-nullable map value is null".to_string(),
-                });
-            }
-        }
-    }
-
-    validate_nested(
-        &format!("{col_name}[].{}", key_field.name()),
-        key_field.data_type(),
-        &keys,
-        col,
-        Some(entry_mask.clone()),
-    )?;
-    validate_nested(
-        &format!("{col_name}[].{}", value_field.name()),
-        value_field.data_type(),
-        &values,
-        col,
-        Some(entry_mask),
-    )?;
     Ok(())
 }
 
@@ -476,6 +373,103 @@ fn validate_fixed_list(
         col,
         Some(child_mask),
     )
+}
+
+fn validate_map(
+    col_name: &str,
+    entry_field: &Arc<Field>,
+    array: &ArrayRef,
+    col: usize,
+    parent_mask: Option<Vec<bool>>,
+) -> Result<(), DynError> {
+    let map = array
+        .as_any()
+        .downcast_ref::<MapArray>()
+        .expect("array/DataType mismatch");
+
+    let arr: &dyn Array = map;
+    let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
+    let offsets = map.offsets();
+    let keys = map.keys().clone();
+    let values = map.values().clone();
+
+    let DataType::Struct(children) = entry_field.data_type() else {
+        return Err(DynError::Builder {
+            message: "map entry field is not a struct".to_string(),
+        });
+    };
+    if children.len() != 2 {
+        return Err(DynError::Builder {
+            message: format!(
+                "map entry struct must have 2 fields, found {}",
+                children.len()
+            ),
+        });
+    }
+    let key_field = &children[0];
+    let value_field = &children[1];
+
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+            .expect("non-negative offset");
+        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+            .expect("non-negative offset");
+        for idx in start..end {
+            if keys.as_ref().is_null(idx) {
+                return Err(DynError::Nullability {
+                    col,
+                    path: format!("{col_name}.keys"),
+                    index: idx,
+                    message: "map keys cannot contain nulls".to_string(),
+                });
+            }
+            if !value_field.is_nullable() && values.as_ref().is_null(idx) {
+                return Err(DynError::Nullability {
+                    col,
+                    path: format!("{col_name}.values"),
+                    index: idx,
+                    message: "map values marked non-nullable contain null".to_string(),
+                });
+            }
+        }
+    }
+
+    let mut key_mask = vec![false; keys.len()];
+    let mut value_mask = vec![false; values.len()];
+    for (row, &pvalid) in parent_valid.iter().enumerate() {
+        if !pvalid {
+            continue;
+        }
+        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
+            .expect("non-negative offset");
+        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
+            .expect("non-negative offset");
+        for idx in start..end {
+            key_mask[idx] = true;
+            if values.as_ref().is_valid(idx) {
+                value_mask[idx] = true;
+            }
+        }
+    }
+
+    validate_nested(
+        &format!("{col_name}.keys"),
+        key_field.data_type(),
+        &keys,
+        col,
+        Some(key_mask),
+    )?;
+    validate_nested(
+        &format!("{col_name}.values"),
+        value_field.data_type(),
+        &values,
+        col,
+        Some(value_mask),
+    )?;
+    Ok(())
 }
 
 fn validity_mask(array: &dyn Array) -> Vec<bool> {

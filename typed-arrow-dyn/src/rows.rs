@@ -1,6 +1,6 @@
 //! Dynamic row wrapper.
 
-use arrow_schema::DataType;
+use arrow_schema::{DataType, Field, UnionFields};
 
 use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
 
@@ -77,22 +77,14 @@ impl DynRow {
 
         // 2) Pre-validate types to avoid partial writes
         for (i, (cell_opt, b)) in self.0.iter().zip(cols.iter()).enumerate() {
-            match cell_opt {
-                None => {}
-                Some(cell) => {
-                    let dt = b.data_type();
-                    if !accepts_cell(dt, cell) {
-                        let name = fields.get(i).map_or("?", |f| f.name().as_str());
-                        return Err(DynError::Append {
-                            col: i,
-                            message: format!(
-                                "type mismatch at column '{}' expected {:?}, found {}",
-                                name,
-                                dt,
-                                cell.type_name()
-                            ),
-                        });
-                    }
+            if let Some(cell) = cell_opt {
+                let dt = b.data_type();
+                if let Err(message) = validate_cell_against_field(dt, cell) {
+                    let name = fields.get(i).map_or("?", |f| f.name().as_str());
+                    return Err(DynError::Append {
+                        col: i,
+                        message: format!("{} at column '{}'", message, name),
+                    });
                 }
             }
         }
@@ -197,5 +189,103 @@ fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
             _ => false,
         },
         _ => false,
+    }
+}
+
+fn validate_map_cell(cell: &DynCell, entry_field: &Field) -> Result<(), String> {
+    let entries = match cell {
+        DynCell::Map(entries) => entries,
+        other => return Err(format!("expected map value, found {}", other.type_name())),
+    };
+
+    let DataType::Struct(children) = entry_field.data_type() else {
+        return Err("map entry field is not a struct".to_string());
+    };
+    if children.len() != 2 {
+        return Err(format!(
+            "map entry struct must have 2 fields (keys, values), found {}",
+            children.len()
+        ));
+    }
+
+    let key_field = &children[0];
+    let value_field = &children[1];
+    let value_nullable = value_field.is_nullable();
+
+    for (idx, (key_cell, value_cell)) in entries.iter().enumerate() {
+        if matches!(key_cell, DynCell::Null) {
+            return Err(format!("entry {} has a null map key", idx));
+        }
+        if !accepts_cell(key_field.data_type(), key_cell) {
+            return Err(format!(
+                "map key {} expected {:?}, found {}",
+                idx,
+                key_field.data_type(),
+                key_cell.type_name()
+            ));
+        }
+
+        match value_cell {
+            None => {
+                if !value_nullable {
+                    return Err(format!(
+                        "map value {} is null but '{}' is not nullable",
+                        idx,
+                        value_field.name()
+                    ));
+                }
+            }
+            Some(DynCell::Null) => {
+                if !value_nullable {
+                    return Err(format!(
+                        "map value {} is null but '{}' is not nullable",
+                        idx,
+                        value_field.name()
+                    ));
+                }
+            }
+            Some(inner) => {
+                if !accepts_cell(value_field.data_type(), inner) {
+                    return Err(format!(
+                        "map value {} expected {:?}, found {}",
+                        idx,
+                        value_field.data_type(),
+                        inner.type_name()
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_union_cell(cell: &DynCell, fields: &UnionFields) -> Result<(), String> {
+    let DynCell::Union { type_id, value } = cell else {
+        return Err(format!("expected union value, found {}", cell.type_name()));
+    };
+
+    let Some(field) = fields
+        .iter()
+        .find_map(|(tag, field)| if *tag == *type_id { Some(field) } else { None })
+    else {
+        return Err(format!("union value uses unknown type id {}", type_id));
+    };
+
+    match value.as_deref() {
+        None => Ok(()),
+        Some(inner) => validate_cell_against_field(field.data_type(), inner),
+    }
+}
+
+fn validate_cell_against_field(dt: &DataType, cell: &DynCell) -> Result<(), String> {
+    match dt {
+        DataType::Map(entry_field, _) => validate_map_cell(cell, entry_field.as_ref()),
+        DataType::Union(fields, _) => validate_union_cell(cell, fields),
+        _ if accepts_cell(dt, cell) => Ok(()),
+        _ => Err(format!(
+            "type mismatch: expected {:?}, found {}",
+            dt,
+            cell.type_name()
+        )),
     }
 }

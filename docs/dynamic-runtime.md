@@ -59,6 +59,7 @@
   - `Struct(fields)` ← `DynCell::Struct(Vec<Option<DynCell>>)` with matching arity.
   - `List/LargeList(item)` ← `DynCell::List(Vec<Option<DynCell>>)`.
   - `FixedSizeList(item, len)` ← `DynCell::FixedSizeList(Vec<Option<DynCell>>)` with exact length.
+  - `Map(entry_field)` ← `DynCell::Map(Vec<(DynCell, Option<DynCell>)>)` with non-null keys and values matching the child field.
   - `Union(fields, mode)` ← `DynCell::Union { type_id, value }` where `type_id` matches the Arrow tag and `value` is another `DynCell`.
 
 ## Nested Builders (invariants)
@@ -70,6 +71,10 @@
   - `append_list(items)`: appends each item to the child, advances offsets by item count, marks valid.
 - FixedSizeList:
   - Enforces exact child length; on `append_null()` writes `len` child nulls, then marks parent invalid.
+- Map:
+  - Keys are appended through a dedicated child builder and must never be null.
+  - Values are appended through a second child builder; nulls are accepted only when the value field is nullable.
+  - Offsets mirror the number of entries per row.
 - Union:
   - Dense unions maintain per-variant typed builders plus `type_ids`/`offsets`; nulls are encoded via a chosen carrier variant.
   - Sparse unions keep child arrays aligned with the parent length, appending nulls for non-selected variants.
@@ -88,7 +93,7 @@
 
 ## Performance Notes
 - Append-time checks are intentionally light (arity + type compatibility) to avoid partial writes and costly per-item checks.
-- Capacity: `DynBuilders::new` accepts a capacity hint; individual Arrow builders may not preallocate yet — future work.
+- Capacity: `DynBuilders::new` accepts a capacity hint; concrete builders may ignore it today but can start reserving space internally in the future.
 - `DynColumnBuilder: Send` so trait objects can be moved across threads when needed.
 
 ## Coverage (current vs. planned)
