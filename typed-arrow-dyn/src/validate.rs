@@ -1,6 +1,6 @@
 //! Validate nullability invariants in nested Arrow arrays using the schema.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use arrow_array::{
     Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
@@ -9,14 +9,18 @@ use arrow_array::{
 use arrow_buffer::OffsetBuffer;
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
 
-use crate::DynError;
+use crate::{dyn_builder::array_key, DynError};
 
 /// Validate that arrays satisfy nullability constraints declared by `schema`.
 /// Returns the first violation encountered with a descriptive path.
 ///
 /// # Errors
 /// Returns a `DynError::Nullability` describing the first violation encountered.
-pub fn validate_nullability(schema: &Schema, arrays: &[ArrayRef]) -> Result<(), DynError> {
+pub fn validate_nullability(
+    schema: &Schema,
+    arrays: &[ArrayRef],
+    union_null_rows: &HashMap<usize, Vec<usize>>,
+) -> Result<(), DynError> {
     for (col, (field, array)) in schema.fields().iter().zip(arrays.iter()).enumerate() {
         // Top-level field nullability
         if !field.is_nullable() && array.null_count() > 0 {
@@ -38,6 +42,7 @@ pub fn validate_nullability(schema: &Schema, arrays: &[ArrayRef]) -> Result<(), 
             col,
             None,
             field.is_nullable(),
+            union_null_rows,
         )?;
     }
     Ok(())
@@ -51,21 +56,58 @@ fn validate_nested(
     // An optional mask: when present, only indices with `true` are considered.
     parent_valid_mask: Option<Vec<bool>>,
     nullable: bool,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     match dt {
-        DataType::Struct(children) => {
-            validate_struct(col_name, children, array, col, parent_valid_mask)
-        }
-        DataType::List(item) => validate_list(col_name, item, array, col, parent_valid_mask),
-        DataType::FixedSizeList(item, _len) => {
-            validate_fixed_list(col_name, item, array, col, parent_valid_mask)
-        }
-        DataType::Union(children, _) => {
-            validate_union(col_name, children, array, col, parent_valid_mask, nullable)
-        }
-        DataType::Map(entry_field, _) => {
-            validate_map(col_name, entry_field, array, col, parent_valid_mask)
-        }
+        DataType::Struct(children) => validate_struct(
+            col_name,
+            children,
+            array,
+            col,
+            parent_valid_mask,
+            union_null_rows,
+        ),
+        DataType::List(item) => validate_list(
+            col_name,
+            item,
+            array,
+            col,
+            parent_valid_mask,
+            union_null_rows,
+        ),
+        DataType::LargeList(item) => validate_large_list(
+            col_name,
+            item,
+            array,
+            col,
+            parent_valid_mask,
+            union_null_rows,
+        ),
+        DataType::FixedSizeList(item, _len) => validate_fixed_list(
+            col_name,
+            item,
+            array,
+            col,
+            parent_valid_mask,
+            union_null_rows,
+        ),
+        DataType::Union(children, _) => validate_union(
+            col_name,
+            children,
+            array,
+            col,
+            parent_valid_mask,
+            nullable,
+            union_null_rows,
+        ),
+        DataType::Map(entry_field, _) => validate_map(
+            col_name,
+            entry_field,
+            array,
+            col,
+            parent_valid_mask,
+            union_null_rows,
+        ),
         // Other data types have no nested children.
         _ => Ok(()),
     }
@@ -78,6 +120,7 @@ fn validate_union(
     col: usize,
     parent_mask: Option<Vec<bool>>,
     nullable: bool,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     let union = array
         .as_any()
@@ -85,7 +128,10 @@ fn validate_union(
         .expect("array/DataType mismatch");
 
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(union));
-    let null_rows = crate::union::take_union_nulls(array).unwrap_or_default();
+    let null_rows = union_null_rows
+        .get(&array_key(array))
+        .cloned()
+        .unwrap_or_default();
 
     if !nullable {
         if let Some(&row) = null_rows
@@ -170,6 +216,7 @@ fn validate_union(
             col,
             Some(child_mask),
             field.is_nullable(),
+            union_null_rows,
         )?;
     }
 
@@ -182,6 +229,7 @@ fn validate_struct(
     array: &ArrayRef,
     col: usize,
     parent_mask: Option<Vec<bool>>,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     let s = array
         .as_any()
@@ -217,6 +265,7 @@ fn validate_struct(
             col,
             Some(mask.clone()),
             child_field.is_nullable(),
+            union_null_rows,
         )?;
     }
     Ok(())
@@ -228,6 +277,7 @@ fn validate_list(
     array: &ArrayRef,
     col: usize,
     parent_mask: Option<Vec<bool>>,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     let l = array
         .as_any()
@@ -284,16 +334,17 @@ fn validate_list(
         col,
         Some(child_mask),
         item.is_nullable(),
+        union_null_rows,
     )
 }
 
-#[allow(dead_code)]
 fn validate_large_list(
     col_name: &str,
     item: &Arc<Field>,
     array: &ArrayRef,
     col: usize,
     parent_mask: Option<Vec<bool>>,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     let l = array
         .as_any()
@@ -347,6 +398,7 @@ fn validate_large_list(
         col,
         Some(child_mask),
         item.is_nullable(),
+        union_null_rows,
     )
 }
 
@@ -356,6 +408,7 @@ fn validate_fixed_list(
     array: &ArrayRef,
     col: usize,
     parent_mask: Option<Vec<bool>>,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     let l = array
         .as_any()
@@ -405,6 +458,7 @@ fn validate_fixed_list(
         col,
         Some(child_mask),
         item.is_nullable(),
+        union_null_rows,
     )
 }
 
@@ -414,6 +468,7 @@ fn validate_map(
     array: &ArrayRef,
     col: usize,
     parent_mask: Option<Vec<bool>>,
+    union_null_rows: &HashMap<usize, Vec<usize>>,
 ) -> Result<(), DynError> {
     let map = array
         .as_any()
@@ -495,6 +550,7 @@ fn validate_map(
         col,
         Some(key_mask),
         key_field.is_nullable(),
+        union_null_rows,
     )?;
     validate_nested(
         &format!("{col_name}.values"),
@@ -503,6 +559,7 @@ fn validate_map(
         col,
         Some(value_mask),
         value_field.is_nullable(),
+        union_null_rows,
     )?;
     Ok(())
 }

@@ -95,7 +95,7 @@ High-level users rarely call the trait directly—the unified facade hands out `
 
 ## Nullability Enforcement
 
-Dynamic builders defer nullability checks until the batch is sealed. `validate_nullability(schema, arrays)` walks the resulting arrays and enforces:
+Dynamic builders defer nullability checks until the batch is sealed. `validate_nullability(schema, arrays, union_null_rows)` walks the resulting arrays—using the provided union row metadata—and enforces:
 
 - Non-nullable columns have no null slots.
 - Struct children obey their own nullability only where the parent is valid.

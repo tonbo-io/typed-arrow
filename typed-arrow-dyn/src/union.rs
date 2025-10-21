@@ -1,54 +1,16 @@
 //! Dynamic dense and sparse union builders.
 
-use std::{cell::RefCell, collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use arrow_array::{ArrayRef, UnionArray};
 use arrow_buffer::ScalarBuffer;
 use arrow_schema::UnionFields;
 
-use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
-
-thread_local! {
-    static UNION_NULLS: RefCell<HashMap<usize, Vec<usize>>> = RefCell::new(HashMap::new());
-}
-
-fn array_key(array: &ArrayRef) -> usize {
-    Arc::as_ptr(array) as *const () as usize
-}
-
-fn register_union_nulls(array: &ArrayRef, null_rows: Vec<usize>) {
-    if null_rows.is_empty() {
-        return;
-    }
-    UNION_NULLS.with(|m| {
-        m.borrow_mut().insert(array_key(array), null_rows);
-    });
-}
-
-pub(crate) fn take_union_nulls(array: &ArrayRef) -> Option<Vec<usize>> {
-    UNION_NULLS.with(|m| m.borrow_mut().remove(&array_key(array)))
-}
-
-fn clear_union_nulls() {
-    UNION_NULLS.with(|m| m.borrow_mut().clear());
-}
-
-/// Scope guard ensuring union null metadata is cleared even when validation errors bubble up.
-pub(crate) struct NullMaskScope;
-
-impl NullMaskScope {
-    #[must_use]
-    pub fn new() -> Self {
-        clear_union_nulls();
-        Self
-    }
-}
-
-impl Drop for NullMaskScope {
-    fn drop(&mut self) {
-        clear_union_nulls();
-    }
-}
+use crate::{
+    cell::DynCell,
+    dyn_builder::{array_key, DynColumnBuilder, FinishedColumn},
+    DynError,
+};
 
 /// Dense union column builder.
 pub struct DenseUnionCol {
@@ -160,23 +122,31 @@ impl DenseUnionCol {
     pub fn finish_array(&mut self) -> ArrayRef {
         self.try_finish_array()
             .expect("valid dense union builder state")
+            .array
     }
 
     /// Try to finish into an `ArrayRef`, returning `DynError` on failure.
-    pub fn try_finish_array(&mut self) -> Result<ArrayRef, DynError> {
+    pub fn try_finish_array(&mut self) -> Result<FinishedColumn, DynError> {
         let type_ids_vec: Vec<i8> = std::mem::take(&mut self.type_ids);
         let offsets_vec: Vec<i32> = std::mem::take(&mut self.offsets);
         let type_ids: ScalarBuffer<i8> = type_ids_vec.into_iter().collect();
         let offsets: ScalarBuffer<i32> = offsets_vec.into_iter().collect();
         let fields = clone_union_fields(&self.fields);
-        let children = self
+        let finished_children = self
             .children
             .iter_mut()
             .map(|c| c.try_finish())
             .collect::<Result<Vec<_>, _>>()?;
 
+        let mut child_arrays = Vec::with_capacity(finished_children.len());
+        let mut union_metadata: Vec<(usize, Vec<usize>)> = Vec::new();
+        for mut child in finished_children {
+            union_metadata.append(&mut child.union_metadata);
+            child_arrays.push(child.array);
+        }
+
         let array =
-            UnionArray::try_new(fields, type_ids, Some(offsets), children).map_err(|e| {
+            UnionArray::try_new(fields, type_ids, Some(offsets), child_arrays).map_err(|e| {
                 DynError::Builder {
                     message: e.to_string(),
                 }
@@ -184,12 +154,19 @@ impl DenseUnionCol {
 
         let array_ref = Arc::new(array) as ArrayRef;
         let null_rows = std::mem::take(&mut self.null_rows);
-        register_union_nulls(&array_ref, null_rows);
 
         for slot in &mut self.slots {
             *slot = 0;
         }
-        Ok(array_ref)
+
+        if !null_rows.is_empty() {
+            union_metadata.push((array_key(&array_ref), null_rows));
+        }
+
+        Ok(FinishedColumn {
+            array: array_ref,
+            union_metadata,
+        })
     }
 }
 
@@ -301,20 +278,28 @@ impl SparseUnionCol {
     pub fn finish_array(&mut self) -> ArrayRef {
         self.try_finish_array()
             .expect("valid sparse union builder state")
+            .array
     }
 
     /// Try to finish into an `ArrayRef`, returning `DynError` on failure.
-    pub fn try_finish_array(&mut self) -> Result<ArrayRef, DynError> {
+    pub fn try_finish_array(&mut self) -> Result<FinishedColumn, DynError> {
         let type_ids_vec: Vec<i8> = std::mem::take(&mut self.type_ids);
         let type_ids: ScalarBuffer<i8> = type_ids_vec.into_iter().collect();
         let fields = clone_union_fields(&self.fields);
-        let children = self
+        let finished_children = self
             .children
             .iter_mut()
             .map(|c| c.try_finish())
             .collect::<Result<Vec<_>, _>>()?;
 
-        let array = UnionArray::try_new(fields, type_ids, None, children).map_err(|e| {
+        let mut child_arrays = Vec::with_capacity(finished_children.len());
+        let mut union_metadata: Vec<(usize, Vec<usize>)> = Vec::new();
+        for mut child in finished_children {
+            union_metadata.append(&mut child.union_metadata);
+            child_arrays.push(child.array);
+        }
+
+        let array = UnionArray::try_new(fields, type_ids, None, child_arrays).map_err(|e| {
             DynError::Builder {
                 message: e.to_string(),
             }
@@ -322,10 +307,17 @@ impl SparseUnionCol {
 
         let array_ref = Arc::new(array) as ArrayRef;
         let null_rows = std::mem::take(&mut self.null_rows);
-        register_union_nulls(&array_ref, null_rows);
 
         self.len = 0;
-        Ok(array_ref)
+
+        if !null_rows.is_empty() {
+            union_metadata.push((array_key(&array_ref), null_rows));
+        }
+
+        Ok(FinishedColumn {
+            array: array_ref,
+            union_metadata,
+        })
     }
 }
 
