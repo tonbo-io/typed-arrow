@@ -98,6 +98,41 @@ fn sparse_union_nullability_violation() {
 }
 
 #[test]
+fn sparse_union_top_level_null_rejected() {
+    let union_fields: UnionFields = [
+        (0_i8, Arc::new(Field::new("int_val", DataType::Int32, true))),
+        (1_i8, Arc::new(Field::new("text", DataType::Utf8, true))),
+    ]
+    .into_iter()
+    .collect();
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "u",
+        DataType::Union(union_fields, UnionMode::Sparse),
+        false,
+    )]));
+
+    let mut builders = DynBuilders::new(Arc::clone(&schema), 0);
+    builders
+        .append_option_row(Some(DynRow(vec![Some(DynCell::union_value(
+            0,
+            DynCell::I32(1),
+        ))])))
+        .unwrap();
+    builders
+        .append_option_row(Some(DynRow(vec![None])))
+        .unwrap();
+
+    let err = builders.try_finish_into_batch().unwrap_err();
+    match err {
+        DynError::Nullability { path, index, .. } => {
+            assert_eq!(path, "u");
+            assert_eq!(index, 1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn sparse_union_unknown_tag_rejected() {
     let union_fields: UnionFields = [
         (0_i8, Arc::new(Field::new("int_val", DataType::Int32, true))),

@@ -266,7 +266,7 @@ fn validate_union_cell(cell: &DynCell, fields: &UnionFields) -> Result<(), Strin
 
     let Some(field) = fields
         .iter()
-        .find_map(|(tag, field)| if *tag == *type_id { Some(field) } else { None })
+        .find_map(|(tag, field)| if tag == *type_id { Some(field) } else { None })
     else {
         return Err(format!("union value uses unknown type id {}", type_id));
     };

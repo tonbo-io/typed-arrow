@@ -31,7 +31,14 @@ pub fn validate_nullability(schema: &Schema, arrays: &[ArrayRef]) -> Result<(), 
         }
 
         // Nested
-        validate_nested(field.name(), field.data_type(), array, col, None)?;
+        validate_nested(
+            field.name(),
+            field.data_type(),
+            array,
+            col,
+            None,
+            field.is_nullable(),
+        )?;
     }
     Ok(())
 }
@@ -43,20 +50,18 @@ fn validate_nested(
     col: usize,
     // An optional mask: when present, only indices with `true` are considered.
     parent_valid_mask: Option<Vec<bool>>,
+    nullable: bool,
 ) -> Result<(), DynError> {
     match dt {
         DataType::Struct(children) => {
             validate_struct(col_name, children, array, col, parent_valid_mask)
         }
         DataType::List(item) => validate_list(col_name, item, array, col, parent_valid_mask),
-        DataType::LargeList(item) => {
-            validate_large_list(col_name, item, array, col, parent_valid_mask)
-        }
         DataType::FixedSizeList(item, _len) => {
             validate_fixed_list(col_name, item, array, col, parent_valid_mask)
         }
         DataType::Union(children, _) => {
-            validate_union(col_name, children, array, col, parent_valid_mask)
+            validate_union(col_name, children, array, col, parent_valid_mask, nullable)
         }
         DataType::Map(entry_field, _) => {
             validate_map(col_name, entry_field, array, col, parent_valid_mask)
@@ -72,6 +77,7 @@ fn validate_union(
     array: &ArrayRef,
     col: usize,
     parent_mask: Option<Vec<bool>>,
+    nullable: bool,
 ) -> Result<(), DynError> {
     let union = array
         .as_any()
@@ -79,10 +85,25 @@ fn validate_union(
         .expect("array/DataType mismatch");
 
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(union));
+    let null_rows = crate::union::take_union_nulls(array).unwrap_or_default();
+
+    if !nullable {
+        if let Some(&row) = null_rows
+            .iter()
+            .find(|&&row| parent_valid.get(row).copied().unwrap_or(false))
+        {
+            return Err(DynError::Nullability {
+                col,
+                path: col_name.to_string(),
+                index: row,
+                message: "non-nullable field contains null".to_string(),
+            });
+        }
+    }
 
     let variants: Vec<(i8, FieldRef)> = fields
         .iter()
-        .map(|(tag, field)| (*tag, field.clone()))
+        .map(|(tag, field)| (tag, field.clone()))
         .collect();
 
     let mut tag_to_index = vec![None; 256];
@@ -142,7 +163,14 @@ fn validate_union(
             child_mask[*child_index] = true;
         }
 
-        validate_nested(&path, field.data_type(), &child, col, Some(child_mask))?;
+        validate_nested(
+            &path,
+            field.data_type(),
+            &child,
+            col,
+            Some(child_mask),
+            field.is_nullable(),
+        )?;
     }
 
     Ok(())
@@ -188,6 +216,7 @@ fn validate_struct(
             child_array,
             col,
             Some(mask.clone()),
+            child_field.is_nullable(),
         )?;
     }
     Ok(())
@@ -254,9 +283,11 @@ fn validate_list(
         &child,
         col,
         Some(child_mask),
+        item.is_nullable(),
     )
 }
 
+#[allow(dead_code)]
 fn validate_large_list(
     col_name: &str,
     item: &Arc<Field>,
@@ -315,6 +346,7 @@ fn validate_large_list(
         &child,
         col,
         Some(child_mask),
+        item.is_nullable(),
     )
 }
 
@@ -372,6 +404,7 @@ fn validate_fixed_list(
         &child,
         col,
         Some(child_mask),
+        item.is_nullable(),
     )
 }
 
@@ -461,6 +494,7 @@ fn validate_map(
         &keys,
         col,
         Some(key_mask),
+        key_field.is_nullable(),
     )?;
     validate_nested(
         &format!("{col_name}.values"),
@@ -468,6 +502,7 @@ fn validate_map(
         &values,
         col,
         Some(value_mask),
+        value_field.is_nullable(),
     )?;
     Ok(())
 }

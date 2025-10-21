@@ -70,6 +70,7 @@ impl DynBuilders {
     /// Returns a `DynError` for nullability violations or Arrow construction failures.
     pub fn try_finish_into_batch(mut self) -> Result<RecordBatch, DynError> {
         let schema = self.schema.clone();
+        let _scope = crate::union::NullMaskScope::new();
         let mut arrays = Vec::with_capacity(self.cols.len());
         for col in &mut self.cols {
             arrays.push(col.try_finish()?);
