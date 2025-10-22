@@ -178,7 +178,6 @@ pub struct SparseUnionCol {
     tags: Vec<i8>,
     tag_to_index: Vec<Option<usize>>,
     null_tag: i8,
-    len: usize,
     null_rows: Vec<usize>,
 }
 
@@ -219,7 +218,6 @@ impl SparseUnionCol {
             tags,
             tag_to_index,
             null_tag,
-            len: 0,
             null_rows: Vec::new(),
         }
     }
@@ -259,18 +257,16 @@ impl SparseUnionCol {
         }
 
         self.type_ids.push(canonical_tag);
-        self.len += 1;
         Ok(())
     }
 
     /// Append a null row.
     pub fn append_null(&mut self) {
-        let row = self.len;
+        let row = self.type_ids.len();
         for child in &mut self.children {
             child.append_null();
         }
         self.type_ids.push(self.null_tag);
-        self.len += 1;
         self.null_rows.push(row);
     }
 
@@ -307,8 +303,6 @@ impl SparseUnionCol {
 
         let array_ref = Arc::new(array) as ArrayRef;
         let null_rows = std::mem::take(&mut self.null_rows);
-
-        self.len = 0;
 
         if !null_rows.is_empty() {
             union_metadata.push((array_key(&array_ref), null_rows));

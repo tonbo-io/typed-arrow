@@ -37,6 +37,12 @@ fn build_sparse_union_arrays() {
             DynCell::Str("b".into()),
         ))])))
         .unwrap();
+    builders
+        .append_option_row(Some(DynRow(vec![Some(DynCell::union_null(0))])))
+        .unwrap();
+    builders
+        .append_option_row(Some(DynRow(vec![Some(DynCell::union_null(1))])))
+        .unwrap();
 
     let batch = builders.try_finish_into_batch().unwrap();
     let union = batch
@@ -45,19 +51,23 @@ fn build_sparse_union_arrays() {
         .downcast_ref::<UnionArray>()
         .unwrap();
 
-    assert_eq!(&union.type_ids()[..], &[0, 1, 1]);
+    assert_eq!(&union.type_ids()[..], &[0, 1, 1, 0, 1]);
     assert!(union.offsets().is_none());
 
     let int_child = cast::as_primitive_array::<arrow_array::types::Int32Type>(union.child(0));
-    assert_eq!(int_child.len(), 3);
+    assert_eq!(int_child.len(), 5);
     assert_eq!(int_child.value(0), 7);
     assert!(int_child.is_null(1));
     assert!(int_child.is_null(2));
+    assert!(int_child.is_null(3));
+    assert!(int_child.is_null(4));
 
     let str_child = cast::as_string_array(union.child(1));
     assert!(str_child.is_null(0));
     assert_eq!(str_child.value(1), "a");
     assert_eq!(str_child.value(2), "b");
+    assert!(str_child.is_null(3));
+    assert!(str_child.is_null(4));
 }
 
 #[test]

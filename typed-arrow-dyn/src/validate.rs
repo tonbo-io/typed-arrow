@@ -132,6 +132,27 @@ fn validate_union(
         .get(&array_key(array))
         .cloned()
         .unwrap_or_default();
+    let null_row_mask = if null_rows.is_empty() {
+        None
+    } else {
+        let mut mask = vec![false; union.len()];
+        for &row in &null_rows {
+            if row >= mask.len() {
+                return Err(DynError::Builder {
+                    message: format!("union null row index {row} out of bounds"),
+                });
+            }
+            mask[row] = true;
+        }
+        Some(mask)
+    };
+    let is_union_null_row = |row: usize| {
+        null_row_mask
+            .as_ref()
+            .and_then(|mask| mask.get(row))
+            .copied()
+            .unwrap_or(false)
+    };
 
     if !nullable {
         if let Some(&row) = null_rows
@@ -181,23 +202,11 @@ fn validate_union(
         let (tag, field) = &variants[idx];
         let child = union.child(*tag).clone();
         let path = format!("{}.{}", col_name, field.name());
+        let child_len = child.len();
+        let mut child_mask = vec![false; child_len];
 
-        if !field.is_nullable() {
-            for (row_index, child_index) in rows {
-                if child.is_null(*child_index) {
-                    return Err(DynError::Nullability {
-                        col,
-                        path: path.clone(),
-                        index: *row_index,
-                        message: "non-nullable union variant contains null".to_string(),
-                    });
-                }
-            }
-        }
-
-        let mut child_mask = vec![false; child.len()];
-        for (_, child_index) in rows {
-            if *child_index >= child_mask.len() {
+        for &(row_index, child_index) in rows {
+            if child_index >= child_len {
                 return Err(DynError::Builder {
                     message: format!(
                         "union child index {} out of bounds for variant '{}'",
@@ -206,7 +215,21 @@ fn validate_union(
                     ),
                 });
             }
-            child_mask[*child_index] = true;
+
+            let union_row_is_null = is_union_null_row(row_index);
+
+            if !field.is_nullable() && !union_row_is_null && child.is_null(child_index) {
+                return Err(DynError::Nullability {
+                    col,
+                    path: path.clone(),
+                    index: row_index,
+                    message: "non-nullable union variant contains null".to_string(),
+                });
+            }
+
+            if !union_row_is_null {
+                child_mask[child_index] = true;
+            }
         }
 
         validate_nested(
