@@ -60,6 +60,7 @@
   - `List/LargeList(item)` ← `DynCell::List(Vec<Option<DynCell>>)`.
   - `FixedSizeList(item, len)` ← `DynCell::FixedSizeList(Vec<Option<DynCell>>)` with exact length.
   - `Map(entry_field)` ← `DynCell::Map(Vec<(DynCell, Option<DynCell>)>)` with non-null keys and values matching the child field.
+  - `Union(fields, mode)` ← `DynCell::Union { type_id, value }` where `type_id` matches the Arrow tag and `value` is another `DynCell`.
 
 ## Nested Builders (invariants)
 - Struct:
@@ -74,6 +75,9 @@
   - Keys are appended through a dedicated child builder and must never be null.
   - Values are appended through a second child builder; nulls are accepted only when the value field is nullable.
   - Offsets mirror the number of entries per row.
+- Union:
+  - Dense unions maintain per-variant typed builders plus `type_ids`/`offsets`; nulls are encoded via a chosen carrier variant.
+  - Sparse unions keep child arrays aligned with the parent length, appending nulls for non-selected variants.
 
 ## Dictionary Support
 - Keys: all integral types `i8/i16/i32/i64/u8/u16/u32/u64`.
@@ -96,10 +100,11 @@
 - Implemented:
   - Primitives, Boolean, Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary
   - Date/Time/Duration/Timestamp
-  - Struct, List, LargeList, FixedSizeList, Map
+  - Struct, List, LargeList, FixedSizeList
+  - Map/OrderedMap (keys non-null; value nullability enforced during validation)
   - Dictionary (keys: all integrals; values: Utf8/LargeUtf8, Binary/LargeBinary/FixedSizeBinary, numeric/float primitives)
+  - Union (dense and sparse variants)
 - Planned:
-  - Union (dense/sparse) builders (dynamic)
   - Decimal128/256, Interval types (dynamic)
   - Capacity preallocation across dynamic builders
   - Convenience helper to bind a runtime `Schema` to a typed `R` when shapes match

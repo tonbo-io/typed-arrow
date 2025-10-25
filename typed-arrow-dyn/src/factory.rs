@@ -3,12 +3,13 @@
 use std::sync::Arc;
 
 use arrow_array::{builder as b, types as t, ArrayRef};
-use arrow_schema::DataType;
+use arrow_schema::{DataType, UnionFields, UnionMode};
 
 use crate::{
     cell::DynCell,
-    dyn_builder::DynColumnBuilder,
+    dyn_builder::{DynColumnBuilder, FinishedColumn},
     nested::{FixedSizeListCol, LargeListCol, ListCol, MapCol, StructCol},
+    union::{DenseUnionCol, SparseUnionCol},
     DynError,
 };
 
@@ -99,6 +100,8 @@ enum Inner {
     Map(MapCol),
     // Primitive dictionary via trait object
     DictPrimitive(Box<dyn DictPrimBuilder>),
+    UnionDense(DenseUnionCol),
+    UnionSparse(SparseUnionCol),
 }
 
 // Minimal trait object to handle primitive dictionary builders without exploding the enum.
@@ -261,6 +264,8 @@ impl DynColumnBuilder for Col {
             Inner::FixedSizeList(b) => b.append_null(),
             Inner::Map(b) => b.append_null(),
             Inner::DictPrimitive(b) => b.append_null(),
+            Inner::UnionDense(b) => b.append_null(),
+            Inner::UnionSparse(b) => b.append_null(),
         }
     }
 
@@ -650,6 +655,14 @@ impl DynColumnBuilder for Col {
             (Inner::LargeList(b), DynCell::List(values)) => b.append_list(values),
             (Inner::FixedSizeList(b), DynCell::FixedSizeList(values)) => b.append_fixed(values),
             (Inner::Map(b), DynCell::Map(entries)) => b.append_map(entries),
+            (Inner::UnionDense(b), DynCell::Union { type_id, value }) => {
+                b.append_union(type_id, value)?;
+                Ok(())
+            }
+            (Inner::UnionSparse(b), DynCell::Union { type_id, value }) => {
+                b.append_union(type_id, value)?;
+                Ok(())
+            }
             (_inner, DynCell::Null) => {
                 self.append_null();
                 Ok(())
@@ -739,114 +752,144 @@ impl DynColumnBuilder for Col {
             Inner::FixedSizeList(b) => Arc::new(b.finish()),
             Inner::Map(b) => Arc::new(b.finish()),
             Inner::DictPrimitive(b) => b.finish(),
+            Inner::UnionDense(b) => b.finish_array(),
+            Inner::UnionSparse(b) => b.finish_array(),
         }
     }
 
-    fn try_finish(&mut self) -> Result<ArrayRef, DynError> {
+    fn try_finish(&mut self) -> Result<FinishedColumn, DynError> {
         match &mut self.inner {
-            Inner::Null(b) => Ok(Arc::new(b.finish())),
-            Inner::Bool(b) => Ok(Arc::new(b.finish())),
-            Inner::I8(b) => Ok(Arc::new(b.finish())),
-            Inner::I16(b) => Ok(Arc::new(b.finish())),
-            Inner::I32(b) => Ok(Arc::new(b.finish())),
-            Inner::I64(b) => Ok(Arc::new(b.finish())),
-            Inner::U8(b) => Ok(Arc::new(b.finish())),
-            Inner::U16(b) => Ok(Arc::new(b.finish())),
-            Inner::U32(b) => Ok(Arc::new(b.finish())),
-            Inner::U64(b) => Ok(Arc::new(b.finish())),
-            Inner::F32(b) => Ok(Arc::new(b.finish())),
-            Inner::F64(b) => Ok(Arc::new(b.finish())),
-            Inner::FixedSizeBinary(b) => Ok(Arc::new(b.finish())),
-            Inner::Date32(b) => Ok(Arc::new(b.finish())),
-            Inner::Date64(b) => Ok(Arc::new(b.finish())),
-            Inner::Time32Second(b) => Ok(Arc::new(b.finish())),
-            Inner::Time32Millisecond(b) => Ok(Arc::new(b.finish())),
-            Inner::Time64Microsecond(b) => Ok(Arc::new(b.finish())),
-            Inner::Time64Nanosecond(b) => Ok(Arc::new(b.finish())),
-            Inner::DurationSecond(b) => Ok(Arc::new(b.finish())),
-            Inner::DurationMillisecond(b) => Ok(Arc::new(b.finish())),
-            Inner::DurationMicrosecond(b) => Ok(Arc::new(b.finish())),
-            Inner::DurationNanosecond(b) => Ok(Arc::new(b.finish())),
-            Inner::TimestampSecond(b) => Ok(Arc::new(b.finish())),
-            Inner::TimestampMillisecond(b) => Ok(Arc::new(b.finish())),
-            Inner::TimestampMicrosecond(b) => Ok(Arc::new(b.finish())),
-            Inner::TimestampNanosecond(b) => Ok(Arc::new(b.finish())),
-            Inner::Utf8(b) => Ok(Arc::new(b.finish())),
-            Inner::LargeUtf8(b) => Ok(Arc::new(b.finish())),
-            Inner::Binary(b) => Ok(Arc::new(b.finish())),
-            Inner::LargeBinary(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8I8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8I16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8I32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8I64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8U8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8U16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8U32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictUtf8U64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8I8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8I16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8I32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8I64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8U8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8U16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8U32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeUtf8U64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryI8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryI16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryI32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryI64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryU8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryU16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryU32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictBinaryU64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryI8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryI16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryI32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryI64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryU8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryU16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryU32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictLargeBinaryU64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryI8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryI16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryI32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryI64(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryU8(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryU16(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryU32(b) => Ok(Arc::new(b.finish())),
-            Inner::DictFixedSizeBinaryU64(b) => Ok(Arc::new(b.finish())),
+            Inner::Null(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Bool(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::I8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::I16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::I32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::I64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::U8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::U16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::U32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::U64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::F32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::F64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::FixedSizeBinary(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Date32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Date64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Time32Second(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Time32Millisecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Time64Microsecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Time64Nanosecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DurationSecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DurationMillisecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DurationMicrosecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DurationNanosecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::TimestampSecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::TimestampMillisecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::TimestampMicrosecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::TimestampNanosecond(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Utf8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::LargeUtf8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::Binary(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::LargeBinary(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8I8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8I16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8I32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8I64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8U8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8U16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8U32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictUtf8U64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8I8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8I16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8I32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8I64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8U8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8U16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8U32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeUtf8U64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryI8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryI16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryI32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryI64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryU8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryU16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryU32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictBinaryU64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryI8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryI16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryI32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryI64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryU8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryU16(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryU32(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictLargeBinaryU64(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictFixedSizeBinaryI8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictFixedSizeBinaryI16(b) => {
+                Ok(FinishedColumn::from_array(Arc::new(b.finish())))
+            }
+            Inner::DictFixedSizeBinaryI32(b) => {
+                Ok(FinishedColumn::from_array(Arc::new(b.finish())))
+            }
+            Inner::DictFixedSizeBinaryI64(b) => {
+                Ok(FinishedColumn::from_array(Arc::new(b.finish())))
+            }
+            Inner::DictFixedSizeBinaryU8(b) => Ok(FinishedColumn::from_array(Arc::new(b.finish()))),
+            Inner::DictFixedSizeBinaryU16(b) => {
+                Ok(FinishedColumn::from_array(Arc::new(b.finish())))
+            }
+            Inner::DictFixedSizeBinaryU32(b) => {
+                Ok(FinishedColumn::from_array(Arc::new(b.finish())))
+            }
+            Inner::DictFixedSizeBinaryU64(b) => {
+                Ok(FinishedColumn::from_array(Arc::new(b.finish())))
+            }
             Inner::Struct(b) => b
                 .try_finish()
-                .map(|a| Arc::new(a) as ArrayRef)
+                .map(|(array, metadata)| FinishedColumn {
+                    array: Arc::new(array) as ArrayRef,
+                    union_metadata: metadata,
+                })
                 .map_err(|e| DynError::Builder {
                     message: e.to_string(),
                 }),
             Inner::List(b) => b
                 .try_finish()
-                .map(|a| Arc::new(a) as ArrayRef)
+                .map(|(array, metadata)| FinishedColumn {
+                    array: Arc::new(array) as ArrayRef,
+                    union_metadata: metadata,
+                })
                 .map_err(|e| DynError::Builder {
                     message: e.to_string(),
                 }),
             Inner::LargeList(b) => b
                 .try_finish()
-                .map(|a| Arc::new(a) as ArrayRef)
+                .map(|(array, metadata)| FinishedColumn {
+                    array: Arc::new(array) as ArrayRef,
+                    union_metadata: metadata,
+                })
                 .map_err(|e| DynError::Builder {
                     message: e.to_string(),
                 }),
-            Inner::FixedSizeList(b) => {
-                b.try_finish()
-                    .map(|a| Arc::new(a) as ArrayRef)
-                    .map_err(|e| DynError::Builder {
-                        message: e.to_string(),
-                    })
-            }
+            Inner::FixedSizeList(b) => b
+                .try_finish()
+                .map(|(array, metadata)| FinishedColumn {
+                    array: Arc::new(array) as ArrayRef,
+                    union_metadata: metadata,
+                })
+                .map_err(|e| DynError::Builder {
+                    message: e.to_string(),
+                }),
             Inner::Map(b) => b
                 .try_finish()
-                .map(|a| Arc::new(a) as ArrayRef)
+                .map(|(array, metadata)| FinishedColumn {
+                    array: Arc::new(array) as ArrayRef,
+                    union_metadata: metadata,
+                })
                 .map_err(|e| DynError::Builder {
                     message: e.to_string(),
                 }),
-            Inner::DictPrimitive(b) => Ok(b.finish()),
+            Inner::DictPrimitive(b) => Ok(FinishedColumn::from_array(b.finish())),
+            Inner::UnionDense(b) => b.try_finish_array(),
+            Inner::UnionSparse(b) => b.try_finish_array(),
         }
     }
 }
@@ -1147,6 +1190,29 @@ fn inner_for_nested(dt: &DataType) -> Option<Inner> {
     })
 }
 
+fn inner_for_union(dt: &DataType) -> Option<Inner> {
+    match dt {
+        DataType::Union(fields, mode) => {
+            let children: Vec<_> = fields
+                .iter()
+                .map(|(_tag, field)| new_dyn_builder(field.data_type()))
+                .collect();
+            let fields_owned: UnionFields = fields
+                .iter()
+                .map(|(tag, field)| (tag, field.clone()))
+                .collect();
+            let inner = match mode {
+                UnionMode::Dense => Inner::UnionDense(DenseUnionCol::new(fields_owned, children)),
+                UnionMode::Sparse => {
+                    Inner::UnionSparse(SparseUnionCol::new(fields_owned, children))
+                }
+            };
+            Some(inner)
+        }
+        _ => None,
+    }
+}
+
 fn build_inner(dt: &DataType) -> Inner {
     inner_for_primitives(dt)
         .or_else(|| match dt {
@@ -1154,6 +1220,7 @@ fn build_inner(dt: &DataType) -> Inner {
             _ => None,
         })
         .or_else(|| inner_for_nested(dt))
+        .or_else(|| inner_for_union(dt))
         .unwrap_or_else(|| Inner::Null(b::NullBuilder::new()))
 }
 

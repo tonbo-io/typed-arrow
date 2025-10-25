@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use arrow_array::{Array, ArrayRef, Int64Array, MapArray, StringArray, StructArray};
 use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
@@ -207,7 +207,8 @@ fn map_value_nullability_violation_detected() {
     let map = MapArray::try_new(entry_field, offsets, entries, validity, false).unwrap();
     let arrays: Vec<ArrayRef> = vec![Arc::new(map) as ArrayRef];
 
-    match validate_nullability(&schema, &arrays) {
+    let union_null_rows = HashMap::new();
+    match validate_nullability(&schema, &arrays, &union_null_rows) {
         Err(DynError::Nullability { col, path, .. }) => {
             assert_eq!(col, 0);
             assert_eq!(path, "data.values");

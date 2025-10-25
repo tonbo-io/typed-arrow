@@ -60,16 +60,25 @@ impl StructCol {
         arrow_array::StructArray::new(self.fields.clone(), cols, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> Result<arrow_array::StructArray, ArrowError> {
-        let cols: Vec<_> = self
+    pub(crate) fn try_finish(
+        &mut self,
+    ) -> Result<(arrow_array::StructArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+        let finished_children: Vec<_> = self
             .children
             .iter_mut()
             .map(|c| c.try_finish().map_err(|e| ComputeError(e.to_string())))
             .collect::<Result<_, _>>()?;
+        let mut cols = Vec::with_capacity(finished_children.len());
+        let mut union_metadata = Vec::new();
+        for mut child in finished_children {
+            union_metadata.append(&mut child.union_metadata);
+            cols.push(child.array);
+        }
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        arrow_array::StructArray::try_new(self.fields.clone(), cols, validity)
+        let array = arrow_array::StructArray::try_new(self.fields.clone(), cols, validity)?;
+        Ok((array, union_metadata))
     }
 }
 
@@ -119,17 +128,22 @@ impl ListCol {
         arrow_array::ListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> Result<arrow_array::ListArray, ArrowError> {
-        let values = self
+    pub(crate) fn try_finish(
+        &mut self,
+    ) -> Result<(arrow_array::ListArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+        let finished_child = self
             .child
             .try_finish()
             .map_err(|e| ComputeError(e.to_string()))?;
+        let values = finished_child.array;
         let offsets: OffsetBuffer<i32> =
             OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        arrow_array::ListArray::try_new(self.item_field.clone(), offsets, values, validity)
+        let array =
+            arrow_array::ListArray::try_new(self.item_field.clone(), offsets, values, validity)?;
+        Ok((array, finished_child.union_metadata))
     }
 }
 
@@ -179,83 +193,21 @@ impl LargeListCol {
         LargeListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> Result<LargeListArray, ArrowError> {
-        let values = self
+    pub(crate) fn try_finish(
+        &mut self,
+    ) -> Result<(LargeListArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+        let finished_child = self
             .child
             .try_finish()
             .map_err(|e| ComputeError(e.to_string()))?;
+        let values = finished_child.array;
         let offsets: OffsetBuffer<i64> =
             OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        LargeListArray::try_new(self.item_field.clone(), offsets, values, validity)
-    }
-}
-
-/// Fixed-size list builder.
-pub(crate) struct FixedSizeListCol {
-    pub(crate) item_field: FieldRef,
-    pub(crate) child: Box<dyn DynColumnBuilder>,
-    pub(crate) len: i32,
-    pub(crate) validity: BooleanBufferBuilder,
-}
-
-impl FixedSizeListCol {
-    pub(crate) fn new_with_child(
-        item: FieldRef,
-        len: i32,
-        child: Box<dyn DynColumnBuilder>,
-    ) -> Self {
-        Self {
-            item_field: item,
-            child,
-            len,
-            validity: BooleanBufferBuilder::new(0),
-        }
-    }
-    pub(crate) fn append_null(&mut self) {
-        for _ in 0..self.len {
-            self.child.append_null();
-        }
-        self.validity.append(false);
-    }
-    pub(crate) fn append_fixed(&mut self, items: Vec<Option<DynCell>>) -> Result<(), DynError> {
-        if usize::try_from(self.len).ok() != Some(items.len()) {
-            return Err(DynError::Builder {
-                message: format!(
-                    "fixed-size list length mismatch: expected {}, got {}",
-                    self.len,
-                    items.len()
-                ),
-            });
-        }
-        for it in items {
-            match it {
-                None => self.child.append_null(),
-                Some(v) => self.child.append_dyn(v)?,
-            }
-        }
-        self.validity.append(true);
-        Ok(())
-    }
-    pub(crate) fn finish(&mut self) -> FixedSizeListArray {
-        let values = self.child.finish();
-        let mut v = BooleanBufferBuilder::new(0);
-        std::mem::swap(&mut self.validity, &mut v);
-        let validity = Some(NullBuffer::new(v.finish()));
-        FixedSizeListArray::new(self.item_field.clone(), self.len, values, validity)
-    }
-
-    pub(crate) fn try_finish(&mut self) -> Result<FixedSizeListArray, ArrowError> {
-        let values = self
-            .child
-            .try_finish()
-            .map_err(|e| ComputeError(e.to_string()))?;
-        let mut v = BooleanBufferBuilder::new(0);
-        std::mem::swap(&mut self.validity, &mut v);
-        let validity = Some(NullBuffer::new(v.finish()));
-        FixedSizeListArray::try_new(self.item_field.clone(), self.len, values, validity)
+        let array = LargeListArray::try_new(self.item_field.clone(), offsets, values, validity)?;
+        Ok((array, finished_child.union_metadata))
     }
 }
 
@@ -375,12 +327,14 @@ impl MapCol {
         )
     }
 
-    pub(crate) fn try_finish(&mut self) -> Result<MapArray, ArrowError> {
-        let keys = self
+    pub(crate) fn try_finish(
+        &mut self,
+    ) -> Result<(MapArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+        let finished_keys = self
             .keys
             .try_finish()
             .map_err(|e| ComputeError(e.to_string()))?;
-        let values = self
+        let mut finished_values = self
             .values
             .try_finish()
             .map_err(|e| ComputeError(e.to_string()))?;
@@ -393,14 +347,92 @@ impl MapCol {
             DataType::Struct(children) => children.clone(),
             _ => unreachable!("map entry field is not struct"),
         };
-        let entries = arrow_array::StructArray::try_new(fields, vec![keys, values], None)
-            .map_err(|e| ComputeError(e.to_string()))?;
-        MapArray::try_new(
+        let entries = arrow_array::StructArray::try_new(
+            fields,
+            vec![finished_keys.array.clone(), finished_values.array.clone()],
+            None,
+        )
+        .map_err(|e| ComputeError(e.to_string()))?;
+        let array = MapArray::try_new(
             self.entry_field.clone(),
             offsets,
             entries,
             validity,
             self.keys_sorted,
-        )
+        )?;
+        let mut union_metadata = finished_keys.union_metadata;
+        union_metadata.append(&mut finished_values.union_metadata);
+        Ok((array, union_metadata))
+    }
+}
+
+/// Fixed-size list builder.
+pub(crate) struct FixedSizeListCol {
+    pub(crate) item_field: FieldRef,
+    pub(crate) child: Box<dyn DynColumnBuilder>,
+    pub(crate) len: i32,
+    pub(crate) validity: BooleanBufferBuilder,
+}
+
+impl FixedSizeListCol {
+    pub(crate) fn new_with_child(
+        item: FieldRef,
+        len: i32,
+        child: Box<dyn DynColumnBuilder>,
+    ) -> Self {
+        Self {
+            item_field: item,
+            child,
+            len,
+            validity: BooleanBufferBuilder::new(0),
+        }
+    }
+    pub(crate) fn append_null(&mut self) {
+        for _ in 0..self.len {
+            self.child.append_null();
+        }
+        self.validity.append(false);
+    }
+    pub(crate) fn append_fixed(&mut self, items: Vec<Option<DynCell>>) -> Result<(), DynError> {
+        if usize::try_from(self.len).ok() != Some(items.len()) {
+            return Err(DynError::Builder {
+                message: format!(
+                    "fixed-size list length mismatch: expected {}, got {}",
+                    self.len,
+                    items.len()
+                ),
+            });
+        }
+        for it in items {
+            match it {
+                None => self.child.append_null(),
+                Some(v) => self.child.append_dyn(v)?,
+            }
+        }
+        self.validity.append(true);
+        Ok(())
+    }
+    pub(crate) fn finish(&mut self) -> FixedSizeListArray {
+        let values = self.child.finish();
+        let mut v = BooleanBufferBuilder::new(0);
+        std::mem::swap(&mut self.validity, &mut v);
+        let validity = Some(NullBuffer::new(v.finish()));
+        FixedSizeListArray::new(self.item_field.clone(), self.len, values, validity)
+    }
+
+    pub(crate) fn try_finish(
+        &mut self,
+    ) -> Result<(FixedSizeListArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+        let finished_child = self
+            .child
+            .try_finish()
+            .map_err(|e| ComputeError(e.to_string()))?;
+        let values = finished_child.array;
+        let mut v = BooleanBufferBuilder::new(0);
+        std::mem::swap(&mut self.validity, &mut v);
+        let validity = Some(NullBuffer::new(v.finish()));
+        let array =
+            FixedSizeListArray::try_new(self.item_field.clone(), self.len, values, validity)?;
+        Ok((array, finished_child.union_metadata))
     }
 }

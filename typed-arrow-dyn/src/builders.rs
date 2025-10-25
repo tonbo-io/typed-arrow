@@ -1,5 +1,7 @@
 //! Builders collection for dynamic schema.
 
+use std::collections::HashMap;
+
 use arrow_array::RecordBatch;
 use arrow_schema::SchemaRef;
 
@@ -71,11 +73,16 @@ impl DynBuilders {
     pub fn try_finish_into_batch(mut self) -> Result<RecordBatch, DynError> {
         let schema = self.schema.clone();
         let mut arrays = Vec::with_capacity(self.cols.len());
+        let mut union_null_rows: HashMap<usize, Vec<usize>> = HashMap::new();
         for col in &mut self.cols {
-            arrays.push(col.try_finish()?);
+            let mut finished = col.try_finish()?;
+            for (key, mut rows) in finished.union_metadata.drain(..) {
+                union_null_rows.entry(key).or_default().append(&mut rows);
+            }
+            arrays.push(finished.array);
         }
         // Validate nullability using the schema before constructing the RecordBatch.
-        validate_nullability(&schema, &arrays)?;
+        validate_nullability(&schema, &arrays, &union_null_rows)?;
         // Build RecordBatch using fallible constructor.
         let rb = RecordBatch::try_new(schema, arrays).map_err(|e| DynError::Builder {
             message: e.to_string(),

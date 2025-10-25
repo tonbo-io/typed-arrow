@@ -1,6 +1,6 @@
 //! Dynamic row wrapper.
 
-use arrow_schema::{DataType, Field};
+use arrow_schema::{DataType, Field, UnionFields};
 
 use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
 
@@ -131,7 +131,44 @@ fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
         (DataType::List(_), DynCell::List(_)) => true,
         (DataType::LargeList(_), DynCell::List(_)) => true,
         (DataType::FixedSizeList(_, _), DynCell::FixedSizeList(_)) => true,
-        (DataType::Map(_, _), DynCell::Map(_)) => true,
+        (DataType::Map(entry_field, _), DynCell::Map(entries)) => {
+            let DataType::Struct(entry_fields) = entry_field.data_type() else {
+                return false;
+            };
+            if entry_fields.len() != 2 {
+                return false;
+            }
+            let Some(key_field) = entry_fields.get(0) else {
+                return false;
+            };
+            let Some(value_field) = entry_fields.get(1) else {
+                return false;
+            };
+            entries.iter().all(|(key_cell, value_cell)| {
+                if matches!(key_cell, DynCell::Null) {
+                    return false;
+                }
+                if !accepts_cell(key_field.data_type(), key_cell) {
+                    return false;
+                }
+                match value_cell {
+                    Some(cell) => accepts_cell(value_field.data_type(), cell),
+                    None => true,
+                }
+            })
+        }
+        (DataType::Union(fields, _), DynCell::Union { type_id, value }) => {
+            let field = fields
+                .iter()
+                .find_map(|(tag, field)| if tag == *type_id { Some(field) } else { None });
+            match field {
+                None => false,
+                Some(field) => match value.as_deref() {
+                    None => true,
+                    Some(inner) => accepts_cell(field.data_type(), inner),
+                },
+            }
+        }
         // Dictionary value-side validation (key width irrelevant here).
         (DataType::Dictionary(_, value), c) => match &**value {
             DataType::Utf8 | DataType::LargeUtf8 => matches!(c, DynCell::Str(_)),
@@ -222,9 +259,28 @@ fn validate_map_cell(cell: &DynCell, entry_field: &Field) -> Result<(), String> 
     Ok(())
 }
 
+fn validate_union_cell(cell: &DynCell, fields: &UnionFields) -> Result<(), String> {
+    let DynCell::Union { type_id, value } = cell else {
+        return Err(format!("expected union value, found {}", cell.type_name()));
+    };
+
+    let Some(field) = fields
+        .iter()
+        .find_map(|(tag, field)| if tag == *type_id { Some(field) } else { None })
+    else {
+        return Err(format!("union value uses unknown type id {}", type_id));
+    };
+
+    match value.as_deref() {
+        None => Ok(()),
+        Some(inner) => validate_cell_against_field(field.data_type(), inner),
+    }
+}
+
 fn validate_cell_against_field(dt: &DataType, cell: &DynCell) -> Result<(), String> {
     match dt {
         DataType::Map(entry_field, _) => validate_map_cell(cell, entry_field.as_ref()),
+        DataType::Union(fields, _) => validate_union_cell(cell, fields),
         _ if accepts_cell(dt, cell) => Ok(()),
         _ => Err(format!(
             "type mismatch: expected {:?}, found {}",

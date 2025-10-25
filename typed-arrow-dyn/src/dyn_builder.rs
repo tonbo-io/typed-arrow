@@ -1,9 +1,34 @@
 //! Trait for dynamic column builders.
 
+use std::sync::Arc;
+
 use arrow_array::ArrayRef;
 use arrow_schema::DataType;
 
 use crate::{cell::DynCell, DynError};
+
+/// Result of finishing a dynamic column builder.
+pub struct FinishedColumn {
+    pub array: ArrayRef,
+    /// Metadata describing union arrays encountered in this subtree.
+    /// Each entry stores the array pointer (for identity) and the list of
+    /// top-level row indices that were appended as `None`.
+    pub union_metadata: Vec<(usize, Vec<usize>)>,
+}
+
+impl FinishedColumn {
+    #[must_use]
+    pub fn from_array(array: ArrayRef) -> Self {
+        Self {
+            array,
+            union_metadata: Vec::new(),
+        }
+    }
+}
+
+pub(crate) fn array_key(array: &ArrayRef) -> usize {
+    Arc::as_ptr(array) as *const () as usize
+}
 
 /// Trait object for a column builder that accepts dynamic cells.
 ///
@@ -24,16 +49,15 @@ pub trait DynColumnBuilder: Send {
     fn append_dyn(&mut self, v: DynCell) -> Result<(), DynError>;
 
     /// Finish the builder into an `ArrayRef`.
-    fn finish(&mut self) -> ArrayRef;
+    fn finish(&mut self) -> ArrayRef {
+        self.try_finish()
+            .expect("builder expected to finish without error")
+            .array
+    }
 
-    /// Fallible finish into an `ArrayRef` when construction may fail.
-    ///
-    /// Default implementation delegates to `finish()` for builder types
-    /// that are infallible at construction time.
+    /// Fallible finish returning column metadata.
     ///
     /// # Errors
     /// Returns a `DynError` if the builder is in an invalid state.
-    fn try_finish(&mut self) -> Result<ArrayRef, DynError> {
-        Ok(self.finish())
-    }
+    fn try_finish(&mut self) -> Result<FinishedColumn, DynError>;
 }

@@ -12,6 +12,7 @@ mod factory;
 mod nested;
 mod rows;
 mod schema;
+mod union;
 mod validate;
 
 pub use builders::DynBuilders;

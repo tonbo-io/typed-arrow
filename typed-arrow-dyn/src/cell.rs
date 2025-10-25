@@ -50,9 +50,16 @@ pub enum DynCell {
     /// Fixed-size list; the number of items must match the list's declared length.
     /// Each item may be `None` (null) or a nested `DynCell` matching the child type.
     FixedSizeList(Vec<Option<DynCell>>),
-    /// Map entries represented as key/value pairs. Keys must be non-null.
-    /// Values follow the schema's nullability; `None` means a null value.
+    /// Map cell containing key/value entries. Keys must be non-null; values may be null depending
+    /// on the schema's value-field nullability.
     Map(Vec<(DynCell, Option<DynCell>)>),
+    /// Union cell selects a variant by `type_id` and optionally carries a nested value.
+    Union {
+        /// Tag defined in `UnionFields` identifying the active variant.
+        type_id: i8,
+        /// Nested payload for the selected variant; `None` encodes a null in that child.
+        value: Option<Box<DynCell>>,
+    },
 }
 
 impl DynCell {
@@ -78,6 +85,25 @@ impl DynCell {
             DynCell::List(_) => "list",
             DynCell::FixedSizeList(_) => "fixed_size_list",
             DynCell::Map(_) => "map",
+            DynCell::Union { .. } => "union",
+        }
+    }
+
+    /// Construct a union cell with a nested value.
+    #[must_use]
+    pub fn union_value(type_id: i8, value: DynCell) -> Self {
+        DynCell::Union {
+            type_id,
+            value: Some(Box::new(value)),
+        }
+    }
+
+    /// Construct a union cell that encodes a null for the given variant.
+    #[must_use]
+    pub fn union_null(type_id: i8) -> Self {
+        DynCell::Union {
+            type_id,
+            value: None,
         }
     }
 }

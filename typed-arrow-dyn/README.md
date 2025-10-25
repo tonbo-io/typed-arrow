@@ -69,6 +69,7 @@ For ad hoc debugging you can still call `finish_into_batch()`, which will panic 
   - `List(Vec<Option<DynCell>>)`, reused for `List` and `LargeList`.
   - `FixedSizeList(Vec<Option<DynCell>>)`—length must match the field’s declared width.
   - `Map(Vec<(DynCell, Option<DynCell>)>)`—each entry is a `(key, value)` pair; keys must be non-null and values obey the schema’s nullability.
+  - `Union { type_id, value }`—selects a variant by Arrow tag; helpers `DynCell::union_value(tag, cell)` and `DynCell::union_null(tag)` keep construction tidy.
 - Dictionary columns accept the payload type (`Str`, `Bin`, or primitive variants); the key handling stays inside the builder.
 
 `DynRow::append_into_with_fields` performs a lightweight type check before mutating builders, so arity/type mistakes fail fast without leaving partially-written columns.
@@ -94,12 +95,13 @@ High-level users rarely call the trait directly—the unified facade hands out `
 
 ## Nullability Enforcement
 
-Dynamic builders defer nullability checks until the batch is sealed. `validate_nullability(schema, arrays)` walks the resulting arrays and enforces:
+Dynamic builders defer nullability checks until the batch is sealed. `validate_nullability(schema, arrays, union_null_rows)` walks the resulting arrays—using the provided union row metadata—and enforces:
 
 - Non-nullable columns have no null slots.
 - Struct children obey their own nullability only where the parent is valid.
 - List, LargeList, and FixedSizeList items respect child nullability.
 - Map columns reject null keys and enforce the value field’s nullability.
+- Dense and sparse union variants enforce their field nullability with precise row context.
 
 Violations bubble up as `DynError::Nullability` with `col`, `path`, and `index` for precise diagnostics, allowing the unified facade to report user-friendly messages instead of panicking.
 
@@ -118,7 +120,9 @@ The factory builds the following Arrow logical types (Arrow RS v56):
 - Date32/64, Timestamp (all units, optional timezone), Duration (all units), Time32 (Second/Millisecond), Time64 (Microsecond/Nanosecond)
 - Utf8, LargeUtf8, Binary, LargeBinary, FixedSizeBinary
 - Dictionary with the above strings/binary types or primitive values
-- Struct, List, LargeList, FixedSizeList, Map (including nested combinations)
+- Struct, List, LargeList, FixedSizeList (including nested combinations)
+- Map/OrderedMap (keys non-null, value nullability configurable)
+- Union (dense and sparse)
 
 Unsupported types currently fall back to a `NullBuilder`. Extend `new_dyn_builder` as Arrow gains new logical types.
 
