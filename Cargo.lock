@@ -404,7 +404,7 @@ dependencies = [
 
 [[package]]
 name = "typed-arrow"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -417,7 +417,7 @@ dependencies = [
 
 [[package]]
 name = "typed-arrow-derive"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "proc-macro2",
  "quote",
