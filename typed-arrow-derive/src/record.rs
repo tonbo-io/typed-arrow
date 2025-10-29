@@ -530,116 +530,113 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         view_conversion_exprs.push(generate_view_conversion_expr(fname, &f.ty, nullable));
     }
 
-    let view_impl = quote! {
-        #[cfg(feature = "views")]
-        /// Zero-copy view of a single row from a RecordBatch.
-        pub struct #view_ident<'a> {
-            #(#view_struct_fields,)*
-            _phantom: ::core::marker::PhantomData<&'a ()>,
-        }
-
-        #[cfg(feature = "views")]
-        impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name {
-            type Error = ::typed_arrow::schema::ViewAccessError;
-
-            fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
-                ::core::result::Result::Ok(#name {
-                    #(#view_conversion_exprs,)*
-                })
+    let view_impl = if cfg!(feature = "views") {
+        quote! {
+            /// Zero-copy view of a single row from a RecordBatch.
+            pub struct #view_ident<'a> {
+                #(#view_struct_fields,)*
+                _phantom: ::core::marker::PhantomData<&'a ()>,
             }
-        }
 
-        #[cfg(feature = "views")]
-        /// Iterator yielding views over RecordBatch rows.
-        pub struct #views_ident<'a> {
-            #(#views_array_fields,)*
-            index: usize,
-            len: usize,
-        }
+            impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name {
+                type Error = ::typed_arrow::schema::ViewAccessError;
 
-        #[cfg(feature = "views")]
-        impl<'a> ::core::iter::Iterator for #views_ident<'a>
-        where
-            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-        {
-            type Item = ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError>;
-
-            fn next(&mut self) -> ::core::option::Option<Self::Item> {
-                if self.index >= self.len {
-                    return ::core::option::Option::None;
+                fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
+                    ::core::result::Result::Ok(#name {
+                        #(#view_conversion_exprs,)*
+                    })
                 }
-                let result = (|| -> ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError> {
+            }
+
+            /// Iterator yielding views over RecordBatch rows.
+            pub struct #views_ident<'a> {
+                #(#views_array_fields,)*
+                index: usize,
+                len: usize,
+            }
+
+            impl<'a> ::core::iter::Iterator for #views_ident<'a>
+            where
+                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+            {
+                type Item = ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError>;
+
+                fn next(&mut self) -> ::core::option::Option<Self::Item> {
+                    if self.index >= self.len {
+                        return ::core::option::Option::None;
+                    }
+                    let result = (|| -> ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError> {
+                        ::core::result::Result::Ok(#view_ident {
+                            #(#view_extract_stmts,)*
+                            _phantom: ::core::marker::PhantomData,
+                        })
+                    })();
+                    self.index += 1;
+                    ::core::option::Option::Some(result)
+                }
+
+                fn size_hint(&self) -> (usize, ::core::option::Option<usize>) {
+                    let remaining = self.len - self.index;
+                    (remaining, ::core::option::Option::Some(remaining))
+                }
+            }
+
+            impl<'a> ::core::iter::ExactSizeIterator for #views_ident<'a>
+            where
+                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+            {
+                fn len(&self) -> usize {
+                    self.len - self.index
+                }
+            }
+
+            impl ::typed_arrow::schema::FromRecordBatch for #name
+            where
+                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+            {
+                type View<'a> = #view_ident<'a>;
+                type Views<'a> = #views_ident<'a>;
+
+                fn from_record_batch(batch: &::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
+                    // Validate column count
+                    if batch.num_columns() != #len {
+                        return ::core::result::Result::Err(::typed_arrow::error::SchemaError::invalid(
+                            format!("Column count mismatch: expected {} columns for {}, but RecordBatch has {} columns",
+                                #len, stringify!(#name), batch.num_columns())
+                        ));
+                    }
+
+                    // Downcast each column and validate types
+                    ::core::result::Result::Ok(#views_ident {
+                        #(#views_init_fields)*
+                        index: 0,
+                        len: batch.num_rows(),
+                    })
+                }
+            }
+
+            impl ::typed_arrow::schema::StructView for #name
+            where
+                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+            {
+                type View<'a> = #view_ident<'a>;
+
+                fn view_at(array: &::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
+                    use ::arrow_array::Array;
                     ::core::result::Result::Ok(#view_ident {
-                        #(#view_extract_stmts,)*
+                        #(#struct_view_extract_stmts,)*
                         _phantom: ::core::marker::PhantomData,
                     })
-                })();
-                self.index += 1;
-                ::core::option::Option::Some(result)
-            }
-
-            fn size_hint(&self) -> (usize, ::core::option::Option<usize>) {
-                let remaining = self.len - self.index;
-                (remaining, ::core::option::Option::Some(remaining))
-            }
-        }
-
-        #[cfg(feature = "views")]
-        impl<'a> ::core::iter::ExactSizeIterator for #views_ident<'a>
-        where
-            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-        {
-            fn len(&self) -> usize {
-                self.len - self.index
-            }
-        }
-
-        #[cfg(feature = "views")]
-        impl ::typed_arrow::schema::FromRecordBatch for #name
-        where
-            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-        {
-            type View<'a> = #view_ident<'a>;
-            type Views<'a> = #views_ident<'a>;
-
-            fn from_record_batch(batch: &::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
-                // Validate column count
-                if batch.num_columns() != #len {
-                    return ::core::result::Result::Err(::typed_arrow::error::SchemaError::invalid(
-                        format!("Column count mismatch: expected {} columns for {}, but RecordBatch has {} columns",
-                            #len, stringify!(#name), batch.num_columns())
-                    ));
                 }
 
-                // Downcast each column and validate types
-                ::core::result::Result::Ok(#views_ident {
-                    #(#views_init_fields)*
-                    index: 0,
-                    len: batch.num_rows(),
-                })
+                fn is_null_at(array: &::arrow_array::StructArray, index: usize) -> bool {
+                    use ::arrow_array::Array;
+                    array.is_null(index)
+                }
             }
         }
-
-        #[cfg(feature = "views")]
-        impl ::typed_arrow::schema::StructView for #name
-        where
-            #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-        {
-            type View<'a> = #view_ident<'a>;
-
-            fn view_at(array: &::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
-                use ::arrow_array::Array;
-                ::core::result::Result::Ok(#view_ident {
-                    #(#struct_view_extract_stmts,)*
-                    _phantom: ::core::marker::PhantomData,
-                })
-            }
-
-            fn is_null_at(array: &::arrow_array::StructArray, index: usize) -> bool {
-                use ::arrow_array::Array;
-                array.is_null(index)
-            }
-        }
+    } else {
+        quote! {}
     };
 
     let expanded = quote! {

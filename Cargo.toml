@@ -33,7 +33,7 @@ repository = { workspace = true }
 default = ["derive", "views"]
 derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
-views = ["derive"]
+views = ["derive", "typed-arrow-derive/views"]
 
 [dependencies]
 typed-arrow-derive = { workspace = true, optional = true }
