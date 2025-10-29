@@ -13,6 +13,7 @@ proc-macro = true
 
 [features]
 ext-hooks = []
+views = []
 
 [dependencies]
 proc-macro2 = "1"

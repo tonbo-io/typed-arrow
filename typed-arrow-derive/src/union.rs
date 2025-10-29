@@ -381,66 +381,67 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         });
     }
 
-    let view_impl = quote! {
-        // View enum for union types
-        #[cfg(feature = "views")]
-        #[derive(Debug, Clone)]
-        pub enum #view_ident<'a> {
-            #(#view_variants,)*
-        }
+    let view_impl = if cfg!(feature = "views") {
+        quote! {
+            // View enum for union types
+            #[derive(Debug, Clone)]
+            pub enum #view_ident<'a> {
+                #(#view_variants,)*
+            }
 
-        // ArrowBindingView implementation
-        #[cfg(feature = "views")]
-        impl ::typed_arrow::bridge::ArrowBindingView for #name
-        where
-            #(#var_types: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-        {
-            type Array = ::typed_arrow::arrow_array::UnionArray;
-            type View<'a> = #view_ident<'a> where Self: 'a;
+            // ArrowBindingView implementation
+            impl ::typed_arrow::bridge::ArrowBindingView for #name
+            where
+                #(#var_types: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+            {
+                type Array = ::typed_arrow::arrow_array::UnionArray;
+                type View<'a> = #view_ident<'a> where Self: 'a;
 
-            fn get_view(array: &Self::Array, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
-                use ::typed_arrow::arrow_array::Array;
-                if index >= array.len() {
-                    return ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::OutOfBounds {
-                        index,
-                        len: array.len(),
-                        field_name: ::core::option::Option::None,
-                    });
+                fn get_view(array: &Self::Array, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
+                    use ::typed_arrow::arrow_array::Array;
+                    if index >= array.len() {
+                        return ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::OutOfBounds {
+                            index,
+                            len: array.len(),
+                            field_name: ::core::option::Option::None,
+                        });
+                    }
+                    if array.is_null(index) {
+                        return ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::UnexpectedNull {
+                            index,
+                            field_name: ::core::option::Option::None,
+                        });
+                    }
+
+                    let type_id = array.type_id(index);
+
+                    match type_id {
+                        #(#view_match_arms)*
+                        _ => ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::OutOfBounds {
+                            index: type_id as usize,
+                            len: #n,
+                            field_name: ::core::option::Option::Some("union type_id"),
+                        }),
+                    }
                 }
-                if array.is_null(index) {
-                    return ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::UnexpectedNull {
-                        index,
-                        field_name: ::core::option::Option::None,
-                    });
-                }
+            }
 
-                let type_id = array.type_id(index);
+            // TryFrom implementation for converting view to owned
+            impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name
+            where
+                #(#var_types: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
+            {
+                type Error = ::typed_arrow::schema::ViewAccessError;
 
-                match type_id {
-                    #(#view_match_arms)*
-                    _ => ::core::result::Result::Err(::typed_arrow::schema::ViewAccessError::OutOfBounds {
-                        index: type_id as usize,
-                        len: #n,
-                        field_name: ::core::option::Option::Some("union type_id"),
-                    }),
+                fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
+                    match view {
+                        #(#view_ident::#var_idents(inner) => ::core::result::Result::Ok(#name::#var_idents(inner.try_into()?)),)*
+                    }
                 }
             }
         }
-
-        // TryFrom implementation for converting view to owned
-        #[cfg(feature = "views")]
-        impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name
-        where
-            #(#var_types: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-        {
-            type Error = ::typed_arrow::schema::ViewAccessError;
-
-            fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
-                match view {
-                    #(#view_ident::#var_idents(inner) => ::core::result::Result::Ok(#name::#var_idents(inner.try_into()?)),)*
-                }
-            }
-        }
+    } else {
+        quote! {}
     };
 
     let expanded = quote! {
