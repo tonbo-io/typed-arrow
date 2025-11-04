@@ -24,7 +24,7 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields, UnionMode};
 
-use crate::{schema::DynSchema, DynViewError};
+use crate::{cell::DynCell, rows::DynRow, schema::DynSchema, DynViewError};
 
 macro_rules! dyn_cell_primitive_methods {
     ($(($variant:ident, $ctor:ident, $getter:ident, $into:ident, $ty:ty, $arrow:literal, $desc:literal)),* $(,)?) => {
@@ -77,6 +77,16 @@ impl<'a> DynCellRef<'a> {
     /// Consume this reference, yielding the raw payload.
     pub fn into_raw(self) -> DynCellRaw {
         self.raw
+    }
+
+    /// Convert this borrowed cell into an owned [`DynCell`], cloning any backing data as needed.
+    pub fn into_owned(self) -> Result<DynCell, DynViewError> {
+        self.raw.into_owned()
+    }
+
+    /// Clone this borrowed cell into an owned [`DynCell`] without consuming the reference.
+    pub fn to_owned(&self) -> Result<DynCell, DynViewError> {
+        self.clone().into_owned()
     }
 
     /// Returns true if this cell represents Arrow `Null`.
@@ -278,35 +288,106 @@ impl<'a> std::fmt::Debug for DynCellRef<'a> {
 /// This representation stores raw pointers in place of borrowed references. Callers must ensure the
 /// backing Arrow arrays and batches remain alive while the raw cell (and any derived views) are in
 /// use.
-#[allow(dead_code)]
 #[derive(Clone)]
 pub enum DynCellRaw {
+    /// Arrow `Null` value.
     Null,
+    /// Boolean scalar.
     Bool(bool),
+    /// 8-bit signed integer.
     I8(i8),
+    /// 16-bit signed integer.
     I16(i16),
+    /// 32-bit signed integer.
     I32(i32),
+    /// 64-bit signed integer.
     I64(i64),
+    /// 8-bit unsigned integer.
     U8(u8),
+    /// 16-bit unsigned integer.
     U16(u16),
+    /// 32-bit unsigned integer.
     U32(u32),
+    /// 64-bit unsigned integer.
     U64(u64),
+    /// 32-bit floating-point number.
     F32(f32),
+    /// 64-bit floating-point number.
     F64(f64),
-    Str { ptr: NonNull<u8>, len: usize },
-    Bin { ptr: NonNull<u8>, len: usize },
+    /// Borrowed UTF-8 string slice.
+    Str {
+        /// Pointer to the first byte of the UTF-8 value.
+        ptr: NonNull<u8>,
+        /// Length in bytes of the UTF-8 value.
+        len: usize,
+    },
+    /// Borrowed binary slice.
+    Bin {
+        /// Pointer to the first byte of the binary value.
+        ptr: NonNull<u8>,
+        /// Length in bytes of the binary value.
+        len: usize,
+    },
+    /// Borrowed struct view.
     Struct(DynStructViewRaw),
+    /// Borrowed variable-sized list view.
     List(DynListViewRaw),
+    /// Borrowed fixed-size list view.
     FixedSizeList(DynFixedSizeListViewRaw),
+    /// Borrowed map view.
     Map(DynMapViewRaw),
+    /// Borrowed union view.
     Union(DynUnionViewRaw),
 }
 
-#[allow(dead_code)]
 impl DynCellRaw {
     /// Convert a borrowed dynamic cell into its lifetime-erased form.
     pub fn from_ref(cell: DynCellRef<'_>) -> Self {
         cell.into_raw()
+    }
+
+    /// Convert this raw cell into an owned [`DynCell`] by cloning any referenced data.
+    pub fn into_owned(self) -> Result<DynCell, DynViewError> {
+        match self {
+            DynCellRaw::Null => Ok(DynCell::Null),
+            DynCellRaw::Bool(value) => Ok(DynCell::Bool(value)),
+            DynCellRaw::I8(value) => Ok(DynCell::I8(value)),
+            DynCellRaw::I16(value) => Ok(DynCell::I16(value)),
+            DynCellRaw::I32(value) => Ok(DynCell::I32(value)),
+            DynCellRaw::I64(value) => Ok(DynCell::I64(value)),
+            DynCellRaw::U8(value) => Ok(DynCell::U8(value)),
+            DynCellRaw::U16(value) => Ok(DynCell::U16(value)),
+            DynCellRaw::U32(value) => Ok(DynCell::U32(value)),
+            DynCellRaw::U64(value) => Ok(DynCell::U64(value)),
+            DynCellRaw::F32(value) => Ok(DynCell::F32(value)),
+            DynCellRaw::F64(value) => Ok(DynCell::F64(value)),
+            DynCellRaw::Str { ptr, len } => {
+                let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr(), len) };
+                let owned = unsafe { String::from_utf8_unchecked(bytes.to_vec()) };
+                Ok(DynCell::Str(owned))
+            }
+            DynCellRaw::Bin { ptr, len } => {
+                let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr(), len) };
+                Ok(DynCell::Bin(bytes.to_vec()))
+            }
+            DynCellRaw::Struct(raw) => {
+                let values = Self::collect_struct(raw)?;
+                Ok(DynCell::Struct(values))
+            }
+            DynCellRaw::List(raw) => {
+                let items = Self::collect_list(raw)?;
+                Ok(DynCell::List(items))
+            }
+            DynCellRaw::FixedSizeList(raw) => {
+                let items = Self::collect_fixed_size_list(raw)?;
+                Ok(DynCell::FixedSizeList(items))
+            }
+            DynCellRaw::Map(raw) => {
+                let entries = Self::collect_map(raw)?;
+                Ok(DynCell::Map(entries))
+            }
+            DynCellRaw::Union(raw) => Self::collect_union(raw),
+        }
     }
 
     fn from_str(value: &str) -> Self {
@@ -351,6 +432,67 @@ impl DynCellRaw {
     pub unsafe fn as_ref<'a>(&self) -> DynCellRef<'a> {
         DynCellRef::from_raw(self.clone())
     }
+
+    fn cell_opt_into_owned(cell: Option<DynCellRef<'_>>) -> Result<Option<DynCell>, DynViewError> {
+        cell.map(DynCellRef::into_owned).transpose()
+    }
+
+    fn collect_struct(raw: DynStructViewRaw) -> Result<Vec<Option<DynCell>>, DynViewError> {
+        let view = unsafe { raw.into_view() };
+        let mut values = Vec::with_capacity(view.len());
+        for idx in 0..view.len() {
+            let value = view.get(idx)?;
+            values.push(Self::cell_opt_into_owned(value)?);
+        }
+        Ok(values)
+    }
+
+    fn collect_list(raw: DynListViewRaw) -> Result<Vec<Option<DynCell>>, DynViewError> {
+        let view = unsafe { raw.into_view() };
+        let mut items = Vec::with_capacity(view.len());
+        for idx in 0..view.len() {
+            let item = view.get(idx)?;
+            items.push(Self::cell_opt_into_owned(item)?);
+        }
+        Ok(items)
+    }
+
+    fn collect_fixed_size_list(
+        raw: DynFixedSizeListViewRaw,
+    ) -> Result<Vec<Option<DynCell>>, DynViewError> {
+        let view = unsafe { raw.into_view() };
+        let mut items = Vec::with_capacity(view.len());
+        for idx in 0..view.len() {
+            let item = view.get(idx)?;
+            items.push(Self::cell_opt_into_owned(item)?);
+        }
+        Ok(items)
+    }
+
+    fn collect_map(raw: DynMapViewRaw) -> Result<Vec<(DynCell, Option<DynCell>)>, DynViewError> {
+        let view = unsafe { raw.into_view() };
+        let mut entries = Vec::with_capacity(view.len());
+        for idx in 0..view.len() {
+            let (key, value) = view.get(idx)?;
+            let owned_key = key.into_owned()?;
+            let owned_value = Self::cell_opt_into_owned(value)?;
+            entries.push((owned_key, owned_value));
+        }
+        Ok(entries)
+    }
+
+    fn collect_union(raw: DynUnionViewRaw) -> Result<DynCell, DynViewError> {
+        let view = unsafe { raw.into_view() };
+        let type_id = view.type_id();
+        let payload = view
+            .value()?
+            .map(|cell| cell.into_owned().map(Box::new))
+            .transpose()?;
+        Ok(DynCell::Union {
+            type_id,
+            value: payload,
+        })
+    }
 }
 
 impl std::fmt::Debug for DynCellRaw {
@@ -360,7 +502,6 @@ impl std::fmt::Debug for DynCellRaw {
 }
 
 /// Lifetime-erased struct view backing a [`DynCellRaw::Struct`] cell.
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct DynStructViewRaw {
     array: NonNull<StructArray>,
@@ -369,7 +510,6 @@ pub struct DynStructViewRaw {
     base_path: Path,
 }
 
-#[allow(dead_code)]
 impl DynStructViewRaw {
     fn from_view(view: DynStructView<'_>) -> Self {
         Self {
@@ -409,7 +549,6 @@ impl DynStructViewRaw {
 }
 
 /// Lifetime-erased list view backing a [`DynCellRaw::List`] cell.
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct DynListViewRaw {
     values: ArrayRef,
@@ -419,7 +558,6 @@ pub struct DynListViewRaw {
     base_path: Path,
 }
 
-#[allow(dead_code)]
 impl DynListViewRaw {
     fn from_view(view: DynListView<'_>) -> Self {
         Self {
@@ -463,7 +601,7 @@ impl DynListViewRaw {
 }
 
 /// Lifetime-erased fixed-size list view backing a [`DynCellRaw::FixedSizeList`] cell.
-#[allow(dead_code)]
+
 #[derive(Clone)]
 pub struct DynFixedSizeListViewRaw {
     values: ArrayRef,
@@ -473,7 +611,6 @@ pub struct DynFixedSizeListViewRaw {
     base_path: Path,
 }
 
-#[allow(dead_code)]
 impl DynFixedSizeListViewRaw {
     fn from_view(view: DynFixedSizeListView<'_>) -> Self {
         Self {
@@ -517,7 +654,6 @@ impl DynFixedSizeListViewRaw {
 }
 
 /// Lifetime-erased map view backing a [`DynCellRaw::Map`] cell.
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct DynMapViewRaw {
     array: NonNull<MapArray>,
@@ -526,7 +662,6 @@ pub struct DynMapViewRaw {
     base_path: Path,
 }
 
-#[allow(dead_code)]
 impl DynMapViewRaw {
     fn from_view(view: DynMapView<'_>) -> Self {
         Self {
@@ -565,7 +700,6 @@ impl DynMapViewRaw {
 }
 
 /// Lifetime-erased union view backing a [`DynCellRaw::Union`] cell.
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct DynUnionViewRaw {
     array: NonNull<UnionArray>,
@@ -575,7 +709,6 @@ pub struct DynUnionViewRaw {
     base_path: Path,
 }
 
-#[allow(dead_code)]
 impl DynUnionViewRaw {
     fn from_view(view: DynUnionView<'_>) -> Self {
         Self {
@@ -616,7 +749,6 @@ impl DynUnionViewRaw {
     }
 }
 
-#[allow(dead_code)]
 fn non_null_from_bytes(bytes: &[u8]) -> NonNull<u8> {
     let ptr = bytes.as_ptr() as *mut u8;
     // `NonNull::dangling` is acceptable for zero-length slices/strings.
@@ -777,9 +909,149 @@ impl<'a> DynRowView<'a> {
             .map(move |idx| self.get(idx))
     }
 
+    /// Clone this row into an owned [`DynRow`], allocating owned dynamic cells for each column.
+    pub fn to_owned(&self) -> Result<DynRow, DynViewError> {
+        let width = self.len();
+        let mut cells = Vec::with_capacity(width);
+        for idx in 0..width {
+            let value = self.get(idx)?;
+            let owned = match value {
+                None => None,
+                Some(cell) => Some(cell.into_owned()?),
+            };
+            cells.push(owned);
+        }
+        Ok(DynRow(cells))
+    }
+
+    /// Consume this row view and capture its values as lifetime-erased [`DynCellRaw`] entries.
+    pub fn into_raw(self) -> Result<DynRowRaw, DynViewError> {
+        let fields = self.fields.clone();
+        let mut cells = Vec::with_capacity(fields.len());
+        for idx in 0..fields.len() {
+            let value = self.get(idx)?;
+            cells.push(value.map(DynCellRef::into_raw));
+        }
+        Ok(DynRowRaw { fields, cells })
+    }
+
+    /// Apply a projection to this view, yielding a new view that references only the mapped columns.
+    ///
+    /// The projection is lazy and reuses the underlying batch buffers.
+    ///
+    /// # Errors
+    /// Returns `DynViewError::Invalid` if the projection was derived from a schema whose width
+    /// differs from the underlying batch.
+    pub fn project(self, projection: &DynProjection) -> Result<DynRowView<'a>, DynViewError> {
+        if projection.source_width() != self.batch.num_columns() {
+            return Err(DynViewError::Invalid {
+                column: 0,
+                path: "<projection>".to_string(),
+                message: format!(
+                    "projection source width {} does not match batch width {}",
+                    projection.source_width(),
+                    self.batch.num_columns()
+                ),
+            });
+        }
+        Ok(DynRowView {
+            batch: self.batch,
+            fields: projection.fields().clone(),
+            mapping: Some(projection.mapping_arc()),
+            row: self.row,
+        })
+    }
+
     /// Access the underlying row index.
     pub fn row_index(&self) -> usize {
         self.row
+    }
+}
+
+/// Lifetime-erased dynamic row produced by [`DynRowView::into_raw`].
+#[derive(Clone, Debug)]
+pub struct DynRowRaw {
+    fields: Fields,
+    cells: Vec<Option<DynCellRaw>>,
+}
+
+impl DynRowRaw {
+    /// Construct a raw row from explicit schema fields and raw cells.
+    ///
+    /// # Errors
+    /// Returns [`DynViewError::Invalid`] when the number of cells does not match
+    /// the number of fields in the provided schema slice.
+    pub fn try_new(fields: Fields, cells: Vec<Option<DynCellRaw>>) -> Result<Self, DynViewError> {
+        if fields.len() != cells.len() {
+            let column = fields.len().min(cells.len());
+            return Err(DynViewError::Invalid {
+                column,
+                path: "<row>".to_string(),
+                message: format!(
+                    "field count {} does not match cell count {}",
+                    fields.len(),
+                    cells.len()
+                ),
+            });
+        }
+        Ok(Self { fields, cells })
+    }
+
+    /// Construct a raw row from non-null cells.
+    ///
+    /// # Errors
+    /// Returns [`DynViewError::Invalid`] when the number of cells does not match the schema.
+    pub fn from_cells(fields: Fields, cells: Vec<DynCellRaw>) -> Result<Self, DynViewError> {
+        let wrapped = cells.into_iter().map(Some).collect();
+        Self::try_new(fields, wrapped)
+    }
+
+    /// Number of columns carried by this raw row.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.cells.len()
+    }
+
+    /// Returns true when the row has zero columns.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.cells.is_empty()
+    }
+
+    /// Borrow the schema fields associated with this row.
+    #[inline]
+    pub fn fields(&self) -> &Fields {
+        &self.fields
+    }
+
+    /// Borrow the raw cell payloads.
+    #[inline]
+    pub fn cells(&self) -> &[Option<DynCellRaw>] {
+        &self.cells
+    }
+
+    /// Consume the raw row, yielding the underlying raw cells.
+    #[inline]
+    pub fn into_cells(self) -> Vec<Option<DynCellRaw>> {
+        self.cells
+    }
+
+    /// Convert this raw row into an owned [`DynRow`], cloning nested data as needed.
+    pub fn into_owned(self) -> Result<DynRow, DynViewError> {
+        let mut cells = Vec::with_capacity(self.cells.len());
+        for cell in self.cells {
+            let owned = match cell {
+                None => None,
+                Some(raw) => Some(raw.into_owned()?),
+            };
+            cells.push(owned);
+        }
+        Ok(DynRow(cells))
+    }
+
+    /// Clone this raw row into an owned [`DynRow`] without consuming the raw payloads.
+    pub fn to_owned(&self) -> Result<DynRow, DynViewError> {
+        self.clone().into_owned()
     }
 }
 
@@ -896,6 +1168,32 @@ impl DynProjection {
     /// Returns `true` when the projection contains zero columns.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Project a single row from `batch` using this projection, returning a borrowed view.
+    ///
+    /// # Errors
+    /// Returns `DynViewError` when schema validation fails, the row index is out of bounds,
+    /// or the projection width mismatches the batch.
+    pub fn project_row_view<'a>(
+        &self,
+        schema: &'a DynSchema,
+        batch: &'a RecordBatch,
+        row: usize,
+    ) -> Result<DynRowView<'a>, DynViewError> {
+        let view = schema.view_at(batch, row)?;
+        view.project(self)
+    }
+
+    /// Project a single row from `batch` and capture it as lifetime-erased raw cells.
+    pub fn project_row_raw(
+        &self,
+        schema: &DynSchema,
+        batch: &RecordBatch,
+        row: usize,
+    ) -> Result<DynRowRaw, DynViewError> {
+        let view = self.project_row_view(schema, batch, row)?;
+        view.into_raw()
     }
 }
 
@@ -1820,4 +2118,23 @@ pub fn iter_batch_views<'a>(
     batch: &'a RecordBatch,
 ) -> Result<DynRowViews<'a>, DynViewError> {
     DynRowViews::new(batch, schema.schema.as_ref())
+}
+
+/// Borrow a single row from `batch` as a dynamic view after schema validation.
+pub fn view_batch_row<'a>(
+    schema: &'a DynSchema,
+    batch: &'a RecordBatch,
+    row: usize,
+) -> Result<DynRowView<'a>, DynViewError> {
+    validate_schema_matches(batch, schema.schema.as_ref())?;
+    let len = batch.num_rows();
+    if row >= len {
+        return Err(DynViewError::RowOutOfBounds { row, len });
+    }
+    Ok(DynRowView {
+        batch,
+        fields: schema.schema.fields().clone(),
+        mapping: None,
+        row,
+    })
 }

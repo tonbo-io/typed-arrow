@@ -64,6 +64,316 @@ fn primitive_views() -> Result<(), DynViewError> {
 }
 
 #[test]
+fn random_access_view() -> Result<(), DynViewError> {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("name", DataType::Utf8, true),
+        Field::new("score", DataType::Float32, false),
+    ]));
+
+    let batch = build_batch(
+        &schema,
+        vec![
+            Some(DynRow(vec![
+                Some(DynCell::I64(1)),
+                Some(DynCell::Str("alice".into())),
+                Some(DynCell::F32(9.0)),
+            ])),
+            Some(DynRow(vec![
+                Some(DynCell::I64(2)),
+                None,
+                Some(DynCell::F32(3.5)),
+            ])),
+        ],
+    );
+
+    let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+    let row = dyn_schema.view_at(&batch, 1)?;
+
+    assert_eq!(row.row_index(), 1);
+    assert_eq!(row.len(), 3);
+    assert_eq!(row.get(0)?.and_then(|cell| cell.into_i64()), Some(2));
+    assert!(row.get(1)?.is_none());
+    let score = row
+        .get(2)?
+        .and_then(|cell| cell.into_f32())
+        .expect("score should be present");
+    assert!((score - 3.5).abs() < f32::EPSILON);
+
+    Ok(())
+}
+
+#[test]
+fn projection_on_single_row() -> Result<(), DynViewError> {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::UInt64, false),
+        Field::new("name", DataType::Utf8, false),
+        Field::new("score", DataType::Float32, true),
+    ]));
+
+    let batch = build_batch(
+        &schema,
+        vec![
+            Some(DynRow(vec![
+                Some(DynCell::U64(7)),
+                Some(DynCell::Str("alpha".into())),
+                Some(DynCell::F32(3.0)),
+            ])),
+            Some(DynRow(vec![
+                Some(DynCell::U64(8)),
+                Some(DynCell::Str("beta".into())),
+                None,
+            ])),
+        ],
+    );
+
+    let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+    let projection = DynProjection::from_indices(schema.as_ref(), [1, 2])?;
+
+    let view = projection.project_row_view(&dyn_schema, &batch, 0)?;
+    assert_eq!(view.len(), 2);
+    assert_eq!(
+        view.get(0)?.and_then(|cell| cell.into_str()),
+        Some("alpha")
+    );
+    assert_eq!(
+        view.get(1)?.and_then(|cell| cell.into_f32()),
+        Some(3.0)
+    );
+
+    let raw = projection.project_row_raw(&dyn_schema, &batch, 1)?;
+    assert_eq!(raw.len(), 2);
+    let owned = raw.to_owned()?;
+    let cells = owned.0;
+    let name = cells[0]
+        .as_ref()
+        .and_then(|cell| match cell {
+            DynCell::Str(value) => Some(value.as_str()),
+            _ => None,
+        })
+        .expect("projected name");
+    assert_eq!(name, "beta");
+    assert!(cells[1].is_none(), "score should be null");
+
+    Ok(())
+}
+
+#[test]
+fn random_access_view_out_of_bounds() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+    ]));
+    let batch = build_batch(
+        &schema,
+        vec![Some(DynRow(vec![Some(DynCell::I64(1))]))],
+    );
+
+    let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+    let err = match dyn_schema.view_at(&batch, 2) {
+        Err(err) => err,
+        Ok(_) => panic!("expected error for out-of-bounds row"),
+    };
+    match err {
+        DynViewError::RowOutOfBounds { row, len } => {
+            assert_eq!(row, 2);
+            assert_eq!(len, 1);
+        }
+        other => panic!("expected RowOutOfBounds, got {other:?}"),
+    }
+}
+
+#[test]
+fn into_owned_converts_borrowed_cells() -> Result<(), DynViewError> {
+    let address_field = Field::new(
+        "address",
+        DataType::Struct(
+            vec![
+                Arc::new(Field::new("city", DataType::Utf8, false)),
+                Arc::new(Field::new("zip", DataType::Int32, true)),
+            ]
+            .into(),
+        ),
+        true,
+    );
+    let tags_field = Field::new(
+        "tags",
+        DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))),
+        true,
+    );
+    let map_field = Field::new(
+        "attrs",
+        DataType::Map(
+            Arc::new(Field::new(
+                "entries",
+                DataType::Struct(
+                    vec![
+                        Arc::new(Field::new("keys", DataType::Utf8, false)),
+                        Arc::new(Field::new("values", DataType::Int64, true)),
+                    ]
+                    .into(),
+                ),
+                false,
+            )),
+            false,
+        ),
+        true,
+    );
+    let union_fields: UnionFields = [
+        (0_i8, Arc::new(Field::new("count", DataType::Int32, true))),
+        (1_i8, Arc::new(Field::new("label", DataType::Utf8, true))),
+    ]
+    .into_iter()
+    .collect();
+    let union_field = Field::new(
+        "payload",
+        DataType::Union(union_fields, UnionMode::Dense),
+        true,
+    );
+    let fixed_field = Field::new(
+        "triplet",
+        DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Int32, true)), 3),
+        true,
+    );
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("name", DataType::Utf8, true),
+        Field::new("blob", DataType::Binary, false),
+        address_field.clone(),
+        tags_field.clone(),
+        map_field.clone(),
+        union_field.clone(),
+        fixed_field.clone(),
+    ]));
+
+    let batch = build_batch(
+        &schema,
+        vec![Some(DynRow(vec![
+            Some(DynCell::I64(42)),
+            Some(DynCell::Str("alice".into())),
+            Some(DynCell::Bin(vec![0, 1, 2])),
+            Some(DynCell::Struct(vec![
+                Some(DynCell::Str("Seattle".into())),
+                Some(DynCell::I32(98101)),
+            ])),
+            Some(DynCell::List(vec![Some(DynCell::Str("vip".into())), None])),
+            Some(DynCell::Map(vec![(
+                DynCell::Str("tier".into()),
+                Some(DynCell::I64(2)),
+            )])),
+            Some(DynCell::union_value(1, DynCell::Str("ok".into()))),
+            Some(DynCell::FixedSizeList(vec![
+                Some(DynCell::I32(7)),
+                Some(DynCell::I32(8)),
+                Some(DynCell::I32(9)),
+            ])),
+        ]))],
+    );
+
+    let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+    let mut rows = dyn_schema.iter_views(&batch)?;
+    let row = rows.next().expect("row 0")?;
+
+    fn assert_expected(row: &DynRow) {
+        let cells = &row.0;
+        assert_eq!(cells.len(), 8);
+        match cells[0].as_ref() {
+            Some(DynCell::I64(value)) => assert_eq!(*value, 42),
+            _ => panic!("unexpected id cell"),
+        }
+        match cells[1].as_ref() {
+            Some(DynCell::Str(name)) => assert_eq!(name, "alice"),
+            _ => panic!("unexpected name cell"),
+        }
+        match cells[2].as_ref() {
+            Some(DynCell::Bin(bytes)) => assert_eq!(bytes, &vec![0, 1, 2]),
+            _ => panic!("unexpected binary cell"),
+        }
+        match cells[3].as_ref() {
+            Some(DynCell::Struct(fields)) => {
+                assert_eq!(fields.len(), 2);
+                match fields[0].as_ref() {
+                    Some(DynCell::Str(city)) => assert_eq!(city, "Seattle"),
+                    _ => panic!("unexpected city field"),
+                }
+                match fields[1].as_ref() {
+                    Some(DynCell::I32(zip)) => assert_eq!(*zip, 98101),
+                    _ => panic!("unexpected zip field"),
+                }
+            }
+            _ => panic!("unexpected address cell"),
+        }
+        match cells[4].as_ref() {
+            Some(DynCell::List(items)) => {
+                assert_eq!(items.len(), 2);
+                match items[0].as_ref() {
+                    Some(DynCell::Str(tag)) => assert_eq!(tag, "vip"),
+                    _ => panic!("unexpected tag item"),
+                }
+                assert!(items[1].is_none());
+            }
+            _ => panic!("unexpected tags cell"),
+        }
+        match cells[5].as_ref() {
+            Some(DynCell::Map(entries)) => {
+                assert_eq!(entries.len(), 1);
+                let (key, value) = &entries[0];
+                match key {
+                    DynCell::Str(name) => assert_eq!(name, "tier"),
+                    _ => panic!("unexpected map key"),
+                }
+                match value.as_ref() {
+                    Some(DynCell::I64(v)) => assert_eq!(*v, 2),
+                    _ => panic!("unexpected map value"),
+                }
+            }
+            _ => panic!("unexpected attrs cell"),
+        }
+        match cells[6].as_ref() {
+            Some(DynCell::Union { type_id, value }) => {
+                assert_eq!(*type_id, 1);
+                match value.as_deref() {
+                    Some(DynCell::Str(label)) => assert_eq!(label, "ok"),
+                    _ => panic!("unexpected union payload"),
+                }
+            }
+            _ => panic!("unexpected payload cell"),
+        }
+        match cells[7].as_ref() {
+            Some(DynCell::FixedSizeList(items)) => {
+                assert_eq!(items.len(), 3);
+                for (idx, expected) in [7, 8, 9].into_iter().enumerate() {
+                    match items[idx].as_ref() {
+                        Some(DynCell::I32(value)) => assert_eq!(*value, expected),
+                        _ => panic!("unexpected fixed-size list item"),
+                    }
+                }
+            }
+            _ => panic!("unexpected triplet cell"),
+        }
+    }
+
+    let owned_from_view = row.to_owned()?;
+    assert_expected(&owned_from_view);
+
+    let raw = row.into_raw()?;
+    assert_eq!(raw.len(), 8);
+    assert_eq!(raw.fields().len(), 8);
+
+    let owned_from_raw = raw.to_owned()?;
+    assert_expected(&owned_from_raw);
+
+    let owned_via_into_owned = raw.clone().into_owned()?;
+    assert_expected(&owned_via_into_owned);
+
+    let raw_cells = raw.clone().into_cells();
+    assert_eq!(raw_cells.len(), 8);
+    assert!(raw_cells.iter().all(|cell| cell.is_some()));
+
+    assert!(rows.next().is_none());
+    Ok(())
+}
+
+#[test]
 fn nested_views() -> Result<(), DynViewError> {
     let address_field = Field::new(
         "address",

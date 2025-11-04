@@ -52,6 +52,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Iterate over borrowed views with zero-copy access.
     let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+
+    // Random-access: borrow the second row without iterating.
+    let second = dyn_schema.view_at(&batch, 1)?;
+    let second_id = second
+        .get(0)?
+        .and_then(|cell| cell.into_i64())
+        .expect("id column must be i64");
+    println!("random access id={second_id}");
+
     for row in dyn_schema.iter_views(&batch)? {
         let row = row?;
 

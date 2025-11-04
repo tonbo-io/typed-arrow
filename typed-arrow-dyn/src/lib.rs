@@ -25,6 +25,6 @@ pub use rows::DynRow;
 pub use schema::DynSchema;
 pub use validate::validate_nullability;
 pub use view::{
-    iter_batch_views, DynCellRef, DynFixedSizeListView, DynListView, DynMapView, DynProjection,
-    DynRowView, DynRowViews, DynStructView, DynUnionView,
+    iter_batch_views, view_batch_row, DynCellRaw, DynCellRef, DynFixedSizeListView, DynListView,
+    DynMapView, DynProjection, DynRowRaw, DynRowView, DynRowViews, DynStructView, DynUnionView,
 };
