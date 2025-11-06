@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "typed-arrow-dyn"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
