@@ -14,12 +14,18 @@ mod rows;
 mod schema;
 mod union;
 mod validate;
+mod view;
 
 pub use builders::DynBuilders;
 pub use cell::DynCell;
 pub use dyn_builder::DynColumnBuilder;
-pub use error::DynError;
+pub use error::{DynError, DynViewError};
 pub use factory::new_dyn_builder;
 pub use rows::DynRow;
 pub use schema::DynSchema;
 pub use validate::validate_nullability;
+pub use view::{
+    iter_batch_views, view_batch_row, DynCellRaw, DynCellRef, DynFixedSizeListView, DynListView,
+    DynMapView, DynProjection, DynRowOwned, DynRowRaw, DynRowView, DynRowViews, DynStructView,
+    DynUnionView,
+};

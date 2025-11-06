@@ -64,3 +64,73 @@ impl DynError {
         }
     }
 }
+
+/// Errors that can occur when constructing dynamic views over Arrow data.
+#[derive(Debug, Error)]
+pub enum DynViewError {
+    /// Requested row index exceeded the batch length.
+    #[error("row index {row} out of bounds for batch length {len}")]
+    RowOutOfBounds {
+        /// Provided row index.
+        row: usize,
+        /// Total number of rows in the batch.
+        len: usize,
+    },
+
+    /// Requested column index exceeded the schema width.
+    #[error("column index {column} out of bounds for schema width {width}")]
+    ColumnOutOfBounds {
+        /// Provided column index.
+        column: usize,
+        /// Number of columns in the schema.
+        width: usize,
+    },
+
+    /// Column schema did not match the array data type present in the `RecordBatch`.
+    #[error(
+        "schema mismatch at column {column} ('{field}'): expected {expected:?}, got {actual:?}"
+    )]
+    SchemaMismatch {
+        /// Column index.
+        column: usize,
+        /// Column field name.
+        field: String,
+        /// Expected Arrow data type.
+        expected: DataType,
+        /// Actual Arrow data type encountered.
+        actual: DataType,
+    },
+
+    /// Array downcast failed due to an unexpected runtime type.
+    #[error("type mismatch at {path}: expected {expected:?}, got {actual:?}")]
+    TypeMismatch {
+        /// Column index.
+        column: usize,
+        /// Dot/segment annotated path within the column.
+        path: String,
+        /// Expected Arrow data type.
+        expected: DataType,
+        /// Actual Arrow data type encountered.
+        actual: DataType,
+    },
+
+    /// Encountered a null value where a non-null was required.
+    #[error("unexpected null at {path}")]
+    UnexpectedNull {
+        /// Column index.
+        column: usize,
+        /// Dot/segment annotated path within the column.
+        path: String,
+    },
+
+    /// Invalid data encountered while materializing a view.
+    #[error("invalid data at {path}: {message}")]
+    Invalid {
+        /// Column index.
+        column: usize,
+        /// Dot/segment annotated path within the column.
+        path: String,
+        /// Explanation of the invalid condition.
+        message: String,
+    },
+}

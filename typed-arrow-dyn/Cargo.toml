@@ -12,12 +12,17 @@ resolver = "2"
 name = "typed_arrow_dyn"
 path = "src/lib.rs"
 
+[features]
+default = []
+serde = ["dep:serde"]
+
 [dependencies]
 typed-arrow = { path = "..", version = "0.4.0", package = "typed-arrow" }
 arrow-array = { workspace = true }
 arrow-schema = { workspace = true }
 arrow-buffer = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 arrow-data = { workspace = true }
