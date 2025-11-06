@@ -132,14 +132,8 @@ fn projection_on_single_row() -> Result<(), DynViewError> {
 
     let view = projection.project_row_view(&dyn_schema, &batch, 0)?;
     assert_eq!(view.len(), 2);
-    assert_eq!(
-        view.get(0)?.and_then(|cell| cell.into_str()),
-        Some("alpha")
-    );
-    assert_eq!(
-        view.get(1)?.and_then(|cell| cell.into_f32()),
-        Some(3.0)
-    );
+    assert_eq!(view.get(0)?.and_then(|cell| cell.into_str()), Some("alpha"));
+    assert_eq!(view.get(1)?.and_then(|cell| cell.into_f32()), Some(3.0));
 
     let raw = projection.project_row_raw(&dyn_schema, &batch, 1)?;
     assert_eq!(raw.len(), 2);
@@ -160,13 +154,8 @@ fn projection_on_single_row() -> Result<(), DynViewError> {
 
 #[test]
 fn random_access_view_out_of_bounds() {
-    let schema = Arc::new(Schema::new(vec![
-        Field::new("id", DataType::Int64, false),
-    ]));
-    let batch = build_batch(
-        &schema,
-        vec![Some(DynRow(vec![Some(DynCell::I64(1))]))],
-    );
+    let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+    let batch = build_batch(&schema, vec![Some(DynRow(vec![Some(DynCell::I64(1))]))]);
 
     let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
     let err = match dyn_schema.view_at(&batch, 2) {

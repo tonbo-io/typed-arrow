@@ -9,6 +9,8 @@
 //!   offset width. `FixedSizeList` must match the declared list length.
 
 /// A dynamic cell to be appended into a dynamic column builder.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DynCell {
     /// Append a null to the target column.
     Null,

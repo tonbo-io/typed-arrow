@@ -159,7 +159,8 @@ impl<'a> DynCellRef<'a> {
         }
     }
 
-    /// Returns the binary slice if this cell stores Arrow `Binary`, `LargeBinary`, or `FixedSizeBinary`.
+    /// Returns the binary slice if this cell stores Arrow `Binary`, `LargeBinary`, or
+    /// `FixedSizeBinary`.
     pub fn as_bin(&self) -> Option<&'a [u8]> {
         match &self.raw {
             DynCellRaw::Bin { ptr, len } => unsafe {
@@ -209,7 +210,8 @@ impl<'a> DynCellRef<'a> {
         }
     }
 
-    /// Consumes the cell and returns the UTF-8 string slice if it stores Arrow `Utf8` or `LargeUtf8`.
+    /// Consumes the cell and returns the UTF-8 string slice if it stores Arrow `Utf8` or
+    /// `LargeUtf8`.
     pub fn into_str(self) -> Option<&'a str> {
         match self.raw {
             DynCellRaw::Str { ptr, len } => unsafe {
@@ -220,7 +222,8 @@ impl<'a> DynCellRef<'a> {
         }
     }
 
-    /// Consumes the cell and returns the binary slice if it stores Arrow `Binary`, `LargeBinary`, or `FixedSizeBinary`.
+    /// Consumes the cell and returns the binary slice if it stores Arrow `Binary`, `LargeBinary`,
+    /// or `FixedSizeBinary`.
     pub fn into_bin(self) -> Option<&'a [u8]> {
         match self.raw {
             DynCellRaw::Bin { ptr, len } => unsafe {
@@ -783,7 +786,8 @@ impl<'a> DynRowViews<'a> {
         &self.fields
     }
 
-    /// Apply a top-level projection to this iterator, yielding views that expose only the mapped columns.
+    /// Apply a top-level projection to this iterator, yielding views that expose only the mapped
+    /// columns.
     ///
     /// The projection is lazy: rows are fetched on demand from the underlying iterator, and only
     /// the referenced columns are materialized.
@@ -792,23 +796,35 @@ impl<'a> DynRowViews<'a> {
     /// Returns `DynViewError::Invalid` if the projection was derived from a schema with a different
     /// width than this iterator.
     pub fn project(self, projection: DynProjection) -> Result<Self, DynViewError> {
-        if projection.source_width() != self.batch.num_columns() {
-            return Err(DynViewError::Invalid {
-                column: 0,
-                path: "<projection>".to_string(),
-                message: format!(
-                    "projection source width {} does not match iterator width {}",
-                    projection.source_width(),
-                    self.batch.num_columns()
-                ),
-            });
-        }
+        let DynRowViews {
+            batch,
+            fields,
+            mapping,
+            row,
+            len,
+        } = self;
+
+        let base_view = DynRowView {
+            batch,
+            fields,
+            mapping,
+            row,
+        };
+
+        let projected_view = base_view.project(&projection)?;
+        let DynRowView {
+            batch,
+            fields,
+            mapping,
+            row,
+        } = projected_view;
+
         Ok(Self {
-            batch: self.batch,
-            fields: projection.fields().clone(),
-            mapping: Some(projection.mapping_arc()),
-            row: self.row,
-            len: self.len,
+            batch,
+            fields,
+            mapping,
+            row,
+            len,
         })
     }
 }
@@ -935,7 +951,8 @@ impl<'a> DynRowView<'a> {
         Ok(DynRowRaw { fields, cells })
     }
 
-    /// Apply a projection to this view, yielding a new view that references only the mapped columns.
+    /// Apply a projection to this view, yielding a new view that references only the mapped
+    /// columns.
     ///
     /// The projection is lazy and reuses the underlying batch buffers.
     ///
@@ -975,6 +992,51 @@ pub struct DynRowRaw {
     cells: Vec<Option<DynCellRaw>>,
 }
 
+fn validate_row_width(fields: &Fields, cells_len: usize) -> Result<(), DynViewError> {
+    if fields.len() != cells_len {
+        let column = fields.len().min(cells_len);
+        return Err(DynViewError::Invalid {
+            column,
+            path: "<row>".to_string(),
+            message: format!(
+                "field count {} does not match cell count {}",
+                fields.len(),
+                cells_len
+            ),
+        });
+    }
+    Ok(())
+}
+
+fn validate_field_shape(
+    column: usize,
+    field_name: &str,
+    expected_type: &DataType,
+    expected_nullable: bool,
+    actual: &Field,
+) -> Result<(), DynViewError> {
+    if actual.data_type() != expected_type {
+        return Err(DynViewError::SchemaMismatch {
+            column,
+            field: field_name.to_string(),
+            expected: expected_type.clone(),
+            actual: actual.data_type().clone(),
+        });
+    }
+    if actual.is_nullable() != expected_nullable {
+        return Err(DynViewError::Invalid {
+            column,
+            path: field_name.to_string(),
+            message: format!(
+                "nullability mismatch: expected {}, got {}",
+                expected_nullable,
+                actual.is_nullable()
+            ),
+        });
+    }
+    Ok(())
+}
+
 impl DynRowRaw {
     /// Construct a raw row from explicit schema fields and raw cells.
     ///
@@ -982,18 +1044,7 @@ impl DynRowRaw {
     /// Returns [`DynViewError::Invalid`] when the number of cells does not match
     /// the number of fields in the provided schema slice.
     pub fn try_new(fields: Fields, cells: Vec<Option<DynCellRaw>>) -> Result<Self, DynViewError> {
-        if fields.len() != cells.len() {
-            let column = fields.len().min(cells.len());
-            return Err(DynViewError::Invalid {
-                column,
-                path: "<row>".to_string(),
-                message: format!(
-                    "field count {} does not match cell count {}",
-                    fields.len(),
-                    cells.len()
-                ),
-            });
-        }
+        validate_row_width(&fields, cells.len())?;
         Ok(Self { fields, cells })
     }
 
@@ -1052,6 +1103,152 @@ impl DynRowRaw {
     /// Clone this raw row into an owned [`DynRow`] without consuming the raw payloads.
     pub fn to_owned(&self) -> Result<DynRow, DynViewError> {
         self.clone().into_owned()
+    }
+}
+
+/// Owned dynamic row that retains schema metadata alongside owned cell payloads.
+#[derive(Clone, Debug)]
+pub struct DynRowOwned {
+    fields: Fields,
+    cells: Vec<Option<DynCell>>,
+}
+
+impl DynRowOwned {
+    /// Construct an owned row from explicit schema fields and owned cells.
+    ///
+    /// # Errors
+    /// Returns [`DynViewError::Invalid`] when the number of cells does not match the schema.
+    pub fn try_new(fields: Fields, cells: Vec<Option<DynCell>>) -> Result<Self, DynViewError> {
+        validate_row_width(&fields, cells.len())?;
+        Ok(Self { fields, cells })
+    }
+
+    /// Construct an owned row from a [`DynRow`].
+    pub fn from_dyn_row(fields: Fields, row: DynRow) -> Result<Self, DynViewError> {
+        Self::try_new(fields, row.0)
+    }
+
+    /// Clone the lifetime-erased raw row into an owned representation.
+    pub fn from_raw(raw: &DynRowRaw) -> Result<Self, DynViewError> {
+        let owned = raw.to_owned()?;
+        Self::from_dyn_row(raw.fields().clone(), owned)
+    }
+
+    /// Borrow the schema fields associated with this row.
+    #[inline]
+    pub fn fields(&self) -> &Fields {
+        &self.fields
+    }
+
+    /// Borrow the owned cell payloads.
+    #[inline]
+    pub fn cells(&self) -> &[Option<DynCell>] {
+        &self.cells
+    }
+
+    /// Number of columns carried by this row.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.cells.len()
+    }
+
+    /// Returns true when the row has zero columns.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.cells.is_empty()
+    }
+
+    /// Borrow this owned row as a lifetime-erased raw row referencing the owned buffers.
+    pub fn as_raw(&self) -> Result<DynRowRaw, DynViewError> {
+        let mut raw_cells = Vec::with_capacity(self.cells.len());
+        for (idx, cell) in self.cells.iter().enumerate() {
+            match cell {
+                None => raw_cells.push(None),
+                Some(value) => {
+                    let raw =
+                        owned_cell_to_raw(value).map_err(|message| DynViewError::Invalid {
+                            column: idx,
+                            path: self
+                                .fields
+                                .get(idx)
+                                .map(|f| f.name().to_string())
+                                .unwrap_or_else(|| format!("col{idx}")),
+                            message,
+                        })?;
+                    raw_cells.push(Some(raw));
+                }
+            }
+        }
+        DynRowRaw::try_new(self.fields.clone(), raw_cells)
+    }
+
+    /// Consume this owned row, yielding the underlying dynamic row cells.
+    pub fn into_dyn_row(self) -> DynRow {
+        DynRow(self.cells)
+    }
+
+    /// Clone this owned row into a [`DynRow`].
+    pub fn to_dyn_row(&self) -> DynRow {
+        DynRow(self.cells.clone())
+    }
+
+    /// Decompose the owned row into its schema fields and owned cells.
+    pub fn into_parts(self) -> (Fields, Vec<Option<DynCell>>) {
+        (self.fields, self.cells)
+    }
+}
+
+fn owned_cell_to_raw(cell: &DynCell) -> Result<DynCellRaw, String> {
+    use DynCell::*;
+    match cell {
+        Null => Ok(DynCellRaw::Null),
+        Bool(v) => Ok(DynCellRaw::Bool(*v)),
+        I8(v) => Ok(DynCellRaw::I8(*v)),
+        I16(v) => Ok(DynCellRaw::I16(*v)),
+        I32(v) => Ok(DynCellRaw::I32(*v)),
+        I64(v) => Ok(DynCellRaw::I64(*v)),
+        U8(v) => Ok(DynCellRaw::U8(*v)),
+        U16(v) => Ok(DynCellRaw::U16(*v)),
+        U32(v) => Ok(DynCellRaw::U32(*v)),
+        U64(v) => Ok(DynCellRaw::U64(*v)),
+        F32(v) => Ok(DynCellRaw::F32(*v)),
+        F64(v) => Ok(DynCellRaw::F64(*v)),
+        Str(value) => Ok(DynCellRaw::from_str(value)),
+        Bin(value) => Ok(DynCellRaw::from_bin(value)),
+        Struct(_) => Err("struct key component not supported".to_string()),
+        List(_) => Err("list key component not supported".to_string()),
+        FixedSizeList(_) => Err("fixed-size list key component not supported".to_string()),
+        Map(_) => Err("map key component not supported".to_string()),
+        Union { .. } => Err("union key component not supported".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use arrow_schema::{DataType, Field, Fields};
+
+    use super::{DynCell, DynCellRaw, DynRowOwned};
+
+    #[test]
+    fn dyn_row_owned_round_trip_utf8() {
+        let fields = Fields::from(vec![Arc::new(Field::new("id", DataType::Utf8, false))]);
+        let row = DynRowOwned::try_new(fields.clone(), vec![Some(DynCell::Str("hello".into()))])
+            .expect("owned key");
+        let raw = row.as_raw().expect("raw");
+        assert!(matches!(raw.cells()[0], Some(DynCellRaw::Str { .. })));
+
+        let rebuilt = DynRowOwned::from_raw(&raw).expect("from raw");
+        assert_eq!(rebuilt.len(), 1);
+        assert!(matches!(rebuilt.cells()[0], Some(DynCell::Str(_))));
+    }
+
+    #[test]
+    fn dyn_row_owned_rejects_nested() {
+        let fields = Fields::from(vec![Arc::new(Field::new("map", DataType::Binary, false))]);
+        let row = DynRowOwned::try_new(fields, vec![Some(DynCell::Map(Vec::new()))]).unwrap();
+        assert!(row.as_raw().is_err());
     }
 }
 
@@ -1121,25 +1318,13 @@ impl DynProjection {
                 }
             };
             let source_field = source_fields[source_idx].as_ref();
-            if source_field.data_type() != field.data_type() {
-                return Err(DynViewError::SchemaMismatch {
-                    column: pos,
-                    field: field.name().to_string(),
-                    expected: field.data_type().clone(),
-                    actual: source_field.data_type().clone(),
-                });
-            }
-            if source_field.is_nullable() != field.is_nullable() {
-                return Err(DynViewError::Invalid {
-                    column: pos,
-                    path: field.name().to_string(),
-                    message: format!(
-                        "nullability mismatch: expected {}, got {}",
-                        field.is_nullable(),
-                        source_field.is_nullable()
-                    ),
-                });
-            }
+            validate_field_shape(
+                pos,
+                field.name(),
+                field.data_type(),
+                field.is_nullable(),
+                source_field,
+            )?;
             mapping.push(source_idx);
             projected.push(field.clone());
         }
@@ -1228,25 +1413,13 @@ fn validate_schema_matches(batch: &RecordBatch, schema: &Schema) -> Result<(), D
                 ),
             });
         }
-        if expected_field.data_type() != actual_field.data_type() {
-            return Err(DynViewError::SchemaMismatch {
-                column: idx,
-                field: expected_field.name().to_string(),
-                expected: expected_field.data_type().clone(),
-                actual: actual_field.data_type().clone(),
-            });
-        }
-        if expected_field.is_nullable() != actual_field.is_nullable() {
-            return Err(DynViewError::Invalid {
-                column: idx,
-                path: expected_field.name().to_string(),
-                message: format!(
-                    "nullability mismatch: expected {}, got {}",
-                    expected_field.is_nullable(),
-                    actual_field.is_nullable()
-                ),
-            });
-        }
+        validate_field_shape(
+            idx,
+            expected_field.name(),
+            expected_field.data_type(),
+            expected_field.is_nullable(),
+            actual_field.as_ref(),
+        )?;
     }
 
     Ok(())
