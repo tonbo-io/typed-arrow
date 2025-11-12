@@ -1973,6 +1973,11 @@ impl<'a> DynStructView<'a> {
         self.fields.len()
     }
 
+    /// Returns true if the struct has no fields.
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+    }
+
     /// Retrieve the value of a struct field by index.
     pub fn get(&'a self, index: usize) -> Result<Option<DynCellRef<'a>>, DynViewError> {
         if index >= self.fields.len() {
@@ -2113,6 +2118,11 @@ impl<'a> DynFixedSizeListView<'a> {
         self.len
     }
 
+    /// Returns true if the fixed-size list length is zero.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Retrieve the element at `index`.
     pub fn get(&'a self, index: usize) -> Result<Option<DynCellRef<'a>>, DynViewError> {
         if index >= self.len {
@@ -2186,7 +2196,7 @@ impl<'a> DynMapView<'a> {
         let entry_fields = struct_entry.fields();
         let key_field = Arc::clone(
             entry_fields
-                .get(0)
+                .first()
                 .expect("map entries must contain key field"),
         );
         let value_field = Arc::clone(

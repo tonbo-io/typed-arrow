@@ -9,6 +9,9 @@ use arrow_schema::{
 
 use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
 
+type UnionMetadata = Vec<(usize, Vec<usize>)>;
+type ArrayResult<T> = Result<(T, UnionMetadata), ArrowError>;
+
 /// Nested struct column builder.
 pub(crate) struct StructCol {
     pub(crate) fields: Fields,
@@ -60,9 +63,7 @@ impl StructCol {
         arrow_array::StructArray::new(self.fields.clone(), cols, validity)
     }
 
-    pub(crate) fn try_finish(
-        &mut self,
-    ) -> Result<(arrow_array::StructArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+    pub(crate) fn try_finish(&mut self) -> ArrayResult<arrow_array::StructArray> {
         let finished_children: Vec<_> = self
             .children
             .iter_mut()
@@ -128,9 +129,7 @@ impl ListCol {
         arrow_array::ListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(
-        &mut self,
-    ) -> Result<(arrow_array::ListArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+    pub(crate) fn try_finish(&mut self) -> ArrayResult<arrow_array::ListArray> {
         let finished_child = self
             .child
             .try_finish()
@@ -193,9 +192,7 @@ impl LargeListCol {
         LargeListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(
-        &mut self,
-    ) -> Result<(LargeListArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+    pub(crate) fn try_finish(&mut self) -> ArrayResult<LargeListArray> {
         let finished_child = self
             .child
             .try_finish()
@@ -230,7 +227,7 @@ impl MapCol {
         values: Box<dyn DynColumnBuilder>,
     ) -> Self {
         let value_nullable = match entry_field.data_type() {
-            DataType::Struct(children) => children.get(1).map_or(true, |field| field.is_nullable()),
+            DataType::Struct(children) => children.get(1).is_none_or(|field| field.is_nullable()),
             _ => true,
         };
 
@@ -327,9 +324,7 @@ impl MapCol {
         )
     }
 
-    pub(crate) fn try_finish(
-        &mut self,
-    ) -> Result<(MapArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+    pub(crate) fn try_finish(&mut self) -> ArrayResult<MapArray> {
         let finished_keys = self
             .keys
             .try_finish()
@@ -420,9 +415,7 @@ impl FixedSizeListCol {
         FixedSizeListArray::new(self.item_field.clone(), self.len, values, validity)
     }
 
-    pub(crate) fn try_finish(
-        &mut self,
-    ) -> Result<(FixedSizeListArray, Vec<(usize, Vec<usize>)>), ArrowError> {
+    pub(crate) fn try_finish(&mut self) -> ArrayResult<FixedSizeListArray> {
         let finished_child = self
             .child
             .try_finish()

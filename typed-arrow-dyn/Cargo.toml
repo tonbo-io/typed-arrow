@@ -23,6 +23,7 @@ arrow-schema = { workspace = true }
 serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
 typed-arrow = { path = "..", version = "0.4.0", package = "typed-arrow" }
+parquet = { workspace = true }
 
 [dev-dependencies]
 arrow-data = { workspace = true }
