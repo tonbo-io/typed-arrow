@@ -24,7 +24,7 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields, UnionMode};
 
-use crate::{cell::DynCell, rows::DynRow, schema::DynSchema, DynViewError};
+use crate::{cell::DynCell, rows::DynRow, schema::DynSchema, DynViewError, ProjectionMask};
 
 macro_rules! dyn_cell_primitive_methods {
     ($(($variant:ident, $ctor:ident, $getter:ident, $into:ident, $ty:ty, $arrow:literal, $desc:literal)),* $(,)?) => {
@@ -1342,6 +1342,15 @@ impl DynProjection {
             fields,
             projectors: Arc::from(projectors),
         }))
+    }
+
+    /// Create a projection from a [`ProjectionMask`], supporting nested field paths.
+    /// **NOTE: This will replace from_indices() once the implementation is done** 
+    ///
+    /// # Errors
+    /// Returns `DynViewError::Invalid` if the mask references an out-of-bounds column or child.
+    pub fn from_mask(schema: &Schema, mask: &ProjectionMask) -> Result<Self, DynViewError> {
+        todo!()
     }
 
     /// Create a projection from explicit column indices.
