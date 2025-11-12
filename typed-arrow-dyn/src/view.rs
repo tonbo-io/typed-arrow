@@ -511,6 +511,7 @@ pub struct DynStructViewRaw {
     fields: Fields,
     row: usize,
     base_path: Path,
+    projection: Option<Arc<StructProjection>>,
 }
 
 impl DynStructViewRaw {
@@ -520,6 +521,7 @@ impl DynStructViewRaw {
             fields: view.fields.clone(),
             row: view.row,
             base_path: view.base_path.clone(),
+            projection: view.projection.clone(),
         }
     }
 
@@ -533,6 +535,7 @@ impl DynStructViewRaw {
             fields: self.fields.clone(),
             row: self.row,
             base_path: self.base_path.clone(),
+            projection: self.projection.clone(),
         }
     }
 
@@ -547,6 +550,7 @@ impl DynStructViewRaw {
             fields: self.fields,
             row: self.row,
             base_path: self.base_path,
+            projection: self.projection,
         }
     }
 }
@@ -559,6 +563,7 @@ pub struct DynListViewRaw {
     start: usize,
     end: usize,
     base_path: Path,
+    item_projector: Option<FieldProjector>,
 }
 
 impl DynListViewRaw {
@@ -569,6 +574,7 @@ impl DynListViewRaw {
             start: view.start,
             end: view.end,
             base_path: view.base_path.clone(),
+            item_projector: view.item_projector.clone(),
         }
     }
 
@@ -583,6 +589,7 @@ impl DynListViewRaw {
             start: self.start,
             end: self.end,
             base_path: self.base_path.clone(),
+            item_projector: self.item_projector.clone(),
             _marker: PhantomData,
         }
     }
@@ -598,6 +605,7 @@ impl DynListViewRaw {
             start: self.start,
             end: self.end,
             base_path: self.base_path,
+            item_projector: self.item_projector,
             _marker: PhantomData,
         }
     }
@@ -612,6 +620,7 @@ pub struct DynFixedSizeListViewRaw {
     start: usize,
     len: usize,
     base_path: Path,
+    item_projector: Option<FieldProjector>,
 }
 
 impl DynFixedSizeListViewRaw {
@@ -622,6 +631,7 @@ impl DynFixedSizeListViewRaw {
             start: view.start,
             len: view.len,
             base_path: view.base_path.clone(),
+            item_projector: view.item_projector.clone(),
         }
     }
 
@@ -636,6 +646,7 @@ impl DynFixedSizeListViewRaw {
             start: self.start,
             len: self.len,
             base_path: self.base_path.clone(),
+            item_projector: self.item_projector.clone(),
             _marker: PhantomData,
         }
     }
@@ -651,6 +662,7 @@ impl DynFixedSizeListViewRaw {
             start: self.start,
             len: self.len,
             base_path: self.base_path,
+            item_projector: self.item_projector,
             _marker: PhantomData,
         }
     }
@@ -663,6 +675,8 @@ pub struct DynMapViewRaw {
     start: usize,
     end: usize,
     base_path: Path,
+    fields: Fields,
+    projection: Option<Arc<StructProjection>>,
 }
 
 impl DynMapViewRaw {
@@ -672,6 +686,8 @@ impl DynMapViewRaw {
             start: view.start,
             end: view.end,
             base_path: view.base_path.clone(),
+            fields: view.fields.clone(),
+            projection: view.projection.clone(),
         }
     }
 
@@ -685,6 +701,8 @@ impl DynMapViewRaw {
             start: self.start,
             end: self.end,
             base_path: self.base_path.clone(),
+            fields: self.fields.clone(),
+            projection: self.projection.clone(),
         }
     }
 
@@ -698,6 +716,8 @@ impl DynMapViewRaw {
             start: self.start,
             end: self.end,
             base_path: self.base_path,
+            fields: self.fields,
+            projection: self.projection,
         }
     }
 }
@@ -763,6 +783,7 @@ pub struct DynRowViews<'a> {
     batch: &'a RecordBatch,
     fields: Fields,
     mapping: Option<Arc<[usize]>>,
+    projectors: Option<Arc<[FieldProjector]>>,
     row: usize,
     len: usize,
 }
@@ -775,6 +796,7 @@ impl<'a> DynRowViews<'a> {
             batch,
             fields: schema.fields().clone(),
             mapping: None,
+            projectors: None,
             row: 0,
             len: batch.num_rows(),
         })
@@ -800,6 +822,7 @@ impl<'a> DynRowViews<'a> {
             batch,
             fields,
             mapping,
+            projectors,
             row,
             len,
         } = self;
@@ -808,6 +831,7 @@ impl<'a> DynRowViews<'a> {
             batch,
             fields,
             mapping,
+            projectors,
             row,
         };
 
@@ -816,6 +840,7 @@ impl<'a> DynRowViews<'a> {
             batch,
             fields,
             mapping,
+            projectors,
             row,
         } = projected_view;
 
@@ -823,6 +848,7 @@ impl<'a> DynRowViews<'a> {
             batch,
             fields,
             mapping,
+            projectors,
             row,
             len,
         })
@@ -840,6 +866,7 @@ impl<'a> Iterator for DynRowViews<'a> {
             batch: self.batch,
             fields: self.fields.clone(),
             mapping: self.mapping.clone(),
+            projectors: self.projectors.clone(),
             row: self.row,
         };
         self.row += 1;
@@ -859,6 +886,7 @@ pub struct DynRowView<'a> {
     batch: &'a RecordBatch,
     fields: Fields,
     mapping: Option<Arc<[usize]>>,
+    projectors: Option<Arc<[FieldProjector]>>,
     row: usize,
 }
 
@@ -914,7 +942,11 @@ impl<'a> DynRowView<'a> {
         let field = self.fields.get(column).expect("index validated");
         let array = self.batch.column(source_index);
         let path = Path::new(column, field.name());
-        view_cell(&path, field.as_ref(), array.as_ref(), self.row)
+        let projector = self
+            .projectors
+            .as_ref()
+            .map(|projectors| projectors.get(column).expect("projection width mismatch"));
+        view_cell_with_projector(&path, field.as_ref(), projector, array.as_ref(), self.row)
     }
 
     /// Retrieve a column by name, returning `None` if the field does not exist.
@@ -975,6 +1007,7 @@ impl<'a> DynRowView<'a> {
             batch: self.batch,
             fields: projection.fields().clone(),
             mapping: Some(projection.mapping_arc()),
+            projectors: Some(projection.projectors_arc()),
             row: self.row,
         })
     }
@@ -1256,19 +1289,58 @@ mod tests {
 #[derive(Clone)]
 pub struct DynProjection(Arc<DynProjectionData>);
 
+#[derive(Debug, Clone)]
+enum FieldProjector {
+    Identity,
+    Struct(Arc<StructProjection>),
+    List(Box<FieldProjector>),
+    LargeList(Box<FieldProjector>),
+    FixedSizeList(Box<FieldProjector>),
+    Map(Arc<StructProjection>),
+}
+
+impl FieldProjector {
+    fn is_identity(&self) -> bool {
+        matches!(self, FieldProjector::Identity)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct StructProjection {
+    children: Arc<[StructChildProjection]>,
+}
+
+#[derive(Debug, Clone)]
+struct StructChildProjection {
+    source_index: usize,
+    projector: FieldProjector,
+}
+
 #[derive(Debug)]
 struct DynProjectionData {
     source_width: usize,
     mapping: Arc<[usize]>,
     fields: Fields,
+    projectors: Arc<[FieldProjector]>,
 }
 
 impl DynProjection {
-    fn new_internal(source_width: usize, mapping: Vec<usize>, fields: Fields) -> Self {
+    fn new_internal(
+        source_width: usize,
+        mapping: Vec<usize>,
+        fields: Fields,
+        projectors: Vec<FieldProjector>,
+    ) -> Self {
+        debug_assert_eq!(
+            mapping.len(),
+            projectors.len(),
+            "projection mapping and projector width mismatch"
+        );
         Self(Arc::new(DynProjectionData {
             source_width,
             mapping: Arc::from(mapping),
             fields,
+            projectors: Arc::from(projectors),
         }))
     }
 
@@ -1284,14 +1356,21 @@ impl DynProjection {
         let width = schema_fields.len();
         let mut mapping = Vec::new();
         let mut projected = Vec::new();
+        let mut projectors = Vec::new();
         for idx in indices.into_iter() {
             if idx >= width {
                 return Err(DynViewError::ColumnOutOfBounds { column: idx, width });
             }
             mapping.push(idx);
             projected.push(schema_fields[idx].clone());
+            projectors.push(FieldProjector::Identity);
         }
-        Ok(Self::new_internal(width, mapping, Fields::from(projected)))
+        Ok(Self::new_internal(
+            width,
+            mapping,
+            Fields::from(projected),
+            projectors,
+        ))
     }
 
     /// Create a projection by matching a projected schema against the source schema.
@@ -1306,6 +1385,7 @@ impl DynProjection {
         let width = source_fields.len();
         let mut mapping = Vec::with_capacity(projection.fields().len());
         let mut projected = Vec::with_capacity(projection.fields().len());
+        let mut projectors = Vec::with_capacity(projection.fields().len());
         for (pos, field) in projection.fields().iter().enumerate() {
             let source_idx = match source.index_of(field.name()) {
                 Ok(idx) => idx,
@@ -1318,17 +1398,18 @@ impl DynProjection {
                 }
             };
             let source_field = source_fields[source_idx].as_ref();
-            validate_field_shape(
-                pos,
-                field.name(),
-                field.data_type(),
-                field.is_nullable(),
-                source_field,
-            )?;
+            let path = Path::new(source_idx, field.name());
+            let projector = build_field_projector(&path, source_field, field.as_ref())?;
             mapping.push(source_idx);
             projected.push(field.clone());
+            projectors.push(projector);
         }
-        Ok(Self::new_internal(width, mapping, Fields::from(projected)))
+        Ok(Self::new_internal(
+            width,
+            mapping,
+            Fields::from(projected),
+            projectors,
+        ))
     }
 
     /// Width of the source schema this projection was derived from.
@@ -1338,6 +1419,10 @@ impl DynProjection {
 
     fn mapping_arc(&self) -> Arc<[usize]> {
         Arc::clone(&self.0.mapping)
+    }
+
+    fn projectors_arc(&self) -> Arc<[FieldProjector]> {
+        Arc::clone(&self.0.projectors)
     }
 
     /// Projected schema fields in order.
@@ -1425,6 +1510,170 @@ fn validate_schema_matches(batch: &RecordBatch, schema: &Schema) -> Result<(), D
     Ok(())
 }
 
+fn build_field_projector(
+    path: &Path,
+    source: &Field,
+    projected: &Field,
+) -> Result<FieldProjector, DynViewError> {
+    if source.is_nullable() != projected.is_nullable() {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "nullability mismatch between source and projection".to_string(),
+        });
+    }
+    if source.data_type() == projected.data_type() {
+        return Ok(FieldProjector::Identity);
+    }
+    match (source.data_type(), projected.data_type()) {
+        (DataType::Struct(source_children), DataType::Struct(projected_children)) => {
+            build_struct_projector(path, source_children, projected_children)
+        }
+        (DataType::List(source_child), DataType::List(projected_child)) => {
+            build_list_like_projector(path, source_child, projected_child, source.data_type())
+        }
+        (DataType::LargeList(source_child), DataType::LargeList(projected_child)) => {
+            build_list_like_projector(path, source_child, projected_child, source.data_type())
+        }
+        (
+            DataType::FixedSizeList(source_child, source_len),
+            DataType::FixedSizeList(projected_child, projected_len),
+        ) => {
+            if source_len != projected_len {
+                return Err(DynViewError::Invalid {
+                    column: path.column,
+                    path: path.path.clone(),
+                    message: "fixed-size list length mismatch between source and projection"
+                        .to_string(),
+                });
+            }
+            build_list_like_projector(path, source_child, projected_child, source.data_type())
+        }
+        (
+            DataType::Map(source_entry, keys_sorted),
+            DataType::Map(projected_entry, projected_sorted),
+        ) => {
+            if keys_sorted != projected_sorted {
+                return Err(DynViewError::Invalid {
+                    column: path.column,
+                    path: path.path.clone(),
+                    message: "map key ordering mismatch between source and projection".to_string(),
+                });
+            }
+            build_map_projector(path, source_entry, projected_entry)
+        }
+        _ => Err(DynViewError::SchemaMismatch {
+            column: path.column,
+            field: path.path.clone(),
+            expected: source.data_type().clone(),
+            actual: projected.data_type().clone(),
+        }),
+    }
+}
+
+fn build_struct_projector(
+    path: &Path,
+    source_children: &Fields,
+    projected_children: &Fields,
+) -> Result<FieldProjector, DynViewError> {
+    let mut children = Vec::with_capacity(projected_children.len());
+    for projected_child in projected_children.iter() {
+        let Some(source_index) = source_children
+            .iter()
+            .position(|f| f.name() == projected_child.name())
+        else {
+            return Err(DynViewError::Invalid {
+                column: path.column,
+                path: path.push_field(projected_child.name()).path,
+                message: "field not found in source schema".to_string(),
+            });
+        };
+        let child_path = path.push_field(projected_child.name());
+        let child_projector = build_field_projector(
+            &child_path,
+            source_children[source_index].as_ref(),
+            projected_child.as_ref(),
+        )?;
+        children.push(StructChildProjection {
+            source_index,
+            projector: child_projector,
+        });
+    }
+    let is_identity = projected_children.len() == source_children.len()
+        && children
+            .iter()
+            .enumerate()
+            .all(|(idx, child)| child.source_index == idx && child.projector.is_identity());
+    if is_identity {
+        Ok(FieldProjector::Identity)
+    } else {
+        Ok(FieldProjector::Struct(Arc::new(StructProjection {
+            children: children.into(),
+        })))
+    }
+}
+
+fn build_list_like_projector(
+    path: &Path,
+    source_child: &FieldRef,
+    projected_child: &FieldRef,
+    parent_type: &DataType,
+) -> Result<FieldProjector, DynViewError> {
+    let child_path = path.push_index(0);
+    let child_projector =
+        build_field_projector(&child_path, source_child.as_ref(), projected_child.as_ref())?;
+    if child_projector.is_identity() {
+        Ok(FieldProjector::Identity)
+    } else {
+        match parent_type {
+            DataType::List(_) => Ok(FieldProjector::List(Box::new(child_projector))),
+            DataType::LargeList(_) => Ok(FieldProjector::LargeList(Box::new(child_projector))),
+            DataType::FixedSizeList(_, _) => {
+                Ok(FieldProjector::FixedSizeList(Box::new(child_projector)))
+            }
+            _ => unreachable!("list-like projector invoked for non list type"),
+        }
+    }
+}
+
+fn build_map_projector(
+    path: &Path,
+    source_entry: &FieldRef,
+    projected_entry: &FieldRef,
+) -> Result<FieldProjector, DynViewError> {
+    let DataType::Struct(source_children) = source_entry.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "map entry must be a struct field".to_string(),
+        });
+    };
+    let DataType::Struct(projected_children) = projected_entry.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "projected map entry must be a struct field".to_string(),
+        });
+    };
+    if projected_children.len() < 2 {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "map projection must include both key and value fields".to_string(),
+        });
+    }
+    let entry_path = path.push_index(0);
+    match build_struct_projector(&entry_path, source_children, projected_children)? {
+        FieldProjector::Struct(proj) => Ok(FieldProjector::Map(proj)),
+        FieldProjector::Identity => Ok(FieldProjector::Identity),
+        _ => Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "unsupported map projection".to_string(),
+        }),
+    }
+}
+
 /// Helper for building dot/index annotated paths through nested structures.
 #[derive(Debug, Clone)]
 struct Path {
@@ -1495,7 +1744,7 @@ impl Path {
     }
 }
 
-fn view_cell<'a>(
+fn view_cell_identity<'a>(
     path: &Path,
     field: &Field,
     array: &'a dyn Array,
@@ -1511,6 +1760,207 @@ fn view_cell<'a>(
         return Ok(None);
     }
     Ok(Some(view_non_null(path, field, array, index)?))
+}
+
+fn view_cell_with_projector<'a>(
+    path: &Path,
+    field: &Field,
+    projector: Option<&FieldProjector>,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<Option<DynCellRef<'a>>, DynViewError> {
+    match projector {
+        None | Some(FieldProjector::Identity) => view_cell_identity(path, field, array, index),
+        Some(projector) => view_cell_projected(path, field, projector, array, index),
+    }
+}
+
+fn view_cell_projected<'a>(
+    path: &Path,
+    field: &Field,
+    projector: &FieldProjector,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<Option<DynCellRef<'a>>, DynViewError> {
+    if index >= array.len() {
+        return Err(DynViewError::RowOutOfBounds {
+            row: index,
+            len: array.len(),
+        });
+    }
+    if array.is_null(index) {
+        return Ok(None);
+    }
+    let value = match projector {
+        FieldProjector::Identity => view_non_null(path, field, array, index)?,
+        FieldProjector::Struct(struct_proj) => {
+            view_struct_projected(path, field, struct_proj, array, index)?
+        }
+        FieldProjector::List(item_proj) => {
+            view_list_projected(path, field, item_proj, array, index)?
+        }
+        FieldProjector::LargeList(item_proj) => {
+            view_large_list_projected(path, field, item_proj, array, index)?
+        }
+        FieldProjector::FixedSizeList(item_proj) => {
+            view_fixed_size_list_projected(path, field, item_proj, array, index)?
+        }
+        FieldProjector::Map(entry_proj) => {
+            view_map_projected(path, field, entry_proj, array, index)?
+        }
+    };
+    Ok(Some(value))
+}
+
+fn view_struct_projected<'a>(
+    path: &Path,
+    field: &Field,
+    projection: &Arc<StructProjection>,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<DynCellRef<'a>, DynViewError> {
+    let DataType::Struct(children) = field.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "expected struct field for projected struct".to_string(),
+        });
+    };
+    let arr = array
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
+    let view = DynStructView {
+        array: arr,
+        fields: children.clone(),
+        row: index,
+        base_path: path.clone(),
+        projection: Some(Arc::clone(projection)),
+    };
+    Ok(DynCellRef::structure(view))
+}
+
+fn view_list_projected<'a>(
+    path: &Path,
+    field: &Field,
+    item_projector: &FieldProjector,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<DynCellRef<'a>, DynViewError> {
+    let DataType::List(item_field) = field.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "expected list field for projected list".to_string(),
+        });
+    };
+    let arr = array
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
+    let view = DynListView::new_list(
+        arr,
+        item_field.clone(),
+        path.clone(),
+        index,
+        Some(item_projector.clone()),
+    )?;
+    Ok(DynCellRef::list(view))
+}
+
+fn view_large_list_projected<'a>(
+    path: &Path,
+    field: &Field,
+    item_projector: &FieldProjector,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<DynCellRef<'a>, DynViewError> {
+    let DataType::LargeList(item_field) = field.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "expected large list field for projected list".to_string(),
+        });
+    };
+    let arr = array
+        .as_any()
+        .downcast_ref::<LargeListArray>()
+        .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
+    let view = DynListView::new_large_list(
+        arr,
+        item_field.clone(),
+        path.clone(),
+        index,
+        Some(item_projector.clone()),
+    )?;
+    Ok(DynCellRef::list(view))
+}
+
+fn view_fixed_size_list_projected<'a>(
+    path: &Path,
+    field: &Field,
+    item_projector: &FieldProjector,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<DynCellRef<'a>, DynViewError> {
+    let DataType::FixedSizeList(item_field, len) = field.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "expected fixed-size list field for projection".to_string(),
+        });
+    };
+    let arr = array
+        .as_any()
+        .downcast_ref::<FixedSizeListArray>()
+        .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
+    let view = DynFixedSizeListView::new(
+        arr,
+        item_field.clone(),
+        *len as usize,
+        path.clone(),
+        index,
+        Some(item_projector.clone()),
+    )?;
+    Ok(DynCellRef::fixed_size_list(view))
+}
+
+fn view_map_projected<'a>(
+    path: &Path,
+    field: &Field,
+    entry_projection: &Arc<StructProjection>,
+    array: &'a dyn Array,
+    index: usize,
+) -> Result<DynCellRef<'a>, DynViewError> {
+    let DataType::Map(entry_field, _) = field.data_type() else {
+        return Err(DynViewError::Invalid {
+            column: path.column,
+            path: path.path.clone(),
+            message: "expected map field for projection".to_string(),
+        });
+    };
+    let arr = array
+        .as_any()
+        .downcast_ref::<MapArray>()
+        .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
+    let entry_fields = match entry_field.data_type() {
+        DataType::Struct(children) => children.clone(),
+        other => {
+            return Err(DynViewError::Invalid {
+                column: path.column,
+                path: path.path.clone(),
+                message: format!("map entry must be struct, found {other:?}"),
+            })
+        }
+    };
+    let view = DynMapView::with_projection(
+        arr,
+        entry_fields,
+        path.clone(),
+        index,
+        Some(Arc::clone(entry_projection)),
+    )?;
+    Ok(DynCellRef::map(view))
 }
 
 fn view_non_null<'a>(
@@ -1691,6 +2141,7 @@ fn view_non_null<'a>(
                 fields: children.clone(),
                 row: index,
                 base_path: path.clone(),
+                projection: None,
             };
             Ok(DynCellRef::structure(view))
         }
@@ -1699,7 +2150,7 @@ fn view_non_null<'a>(
                 .as_any()
                 .downcast_ref::<ListArray>()
                 .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
-            let view = DynListView::new_list(arr, item.clone(), path.clone(), index)?;
+            let view = DynListView::new_list(arr, item.clone(), path.clone(), index, None)?;
             Ok(DynCellRef::list(view))
         }
         DataType::LargeList(item) => {
@@ -1707,7 +2158,7 @@ fn view_non_null<'a>(
                 .as_any()
                 .downcast_ref::<LargeListArray>()
                 .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
-            let view = DynListView::new_large_list(arr, item.clone(), path.clone(), index)?;
+            let view = DynListView::new_large_list(arr, item.clone(), path.clone(), index, None)?;
             Ok(DynCellRef::list(view))
         }
         DataType::FixedSizeList(item, len) => {
@@ -1715,8 +2166,14 @@ fn view_non_null<'a>(
                 .as_any()
                 .downcast_ref::<FixedSizeListArray>()
                 .ok_or_else(|| type_mismatch(path, field.data_type().clone(), array.data_type()))?;
-            let view =
-                DynFixedSizeListView::new(arr, item.clone(), *len as usize, path.clone(), index)?;
+            let view = DynFixedSizeListView::new(
+                arr,
+                item.clone(),
+                *len as usize,
+                path.clone(),
+                index,
+                None,
+            )?;
             Ok(DynCellRef::fixed_size_list(view))
         }
         DataType::Map(_, _) => {
@@ -1965,6 +2422,7 @@ pub struct DynStructView<'a> {
     fields: Fields,
     row: usize,
     base_path: Path,
+    projection: Option<Arc<StructProjection>>,
 }
 
 impl<'a> DynStructView<'a> {
@@ -1987,9 +2445,21 @@ impl<'a> DynStructView<'a> {
             });
         }
         let field = self.fields.get(index).expect("index validated");
-        let child = self.array.column(index);
+        let (source_index, projector) = if let Some(projection) = &self.projection {
+            let child = projection
+                .children
+                .get(index)
+                .ok_or(DynViewError::ColumnOutOfBounds {
+                    column: index,
+                    width: projection.children.len(),
+                })?;
+            (child.source_index, Some(&child.projector))
+        } else {
+            (index, None)
+        };
+        let child = self.array.column(source_index);
         let path = self.base_path.push_field(field.name());
-        view_cell(&path, field.as_ref(), child.as_ref(), self.row)
+        view_cell_with_projector(&path, field.as_ref(), projector, child.as_ref(), self.row)
     }
 
     /// Retrieve a struct field by name.
@@ -2012,6 +2482,7 @@ pub struct DynListView<'a> {
     start: usize,
     end: usize,
     base_path: Path,
+    item_projector: Option<FieldProjector>,
     _marker: PhantomData<&'a ()>,
 }
 
@@ -2021,6 +2492,7 @@ impl<'a> DynListView<'a> {
         item_field: FieldRef,
         base_path: Path,
         row: usize,
+        item_projector: Option<FieldProjector>,
     ) -> Result<Self, DynViewError> {
         let offsets = array.value_offsets();
         let start = offsets[row] as usize;
@@ -2031,6 +2503,7 @@ impl<'a> DynListView<'a> {
             start,
             end,
             base_path,
+            item_projector,
             _marker: PhantomData,
         })
     }
@@ -2040,6 +2513,7 @@ impl<'a> DynListView<'a> {
         item_field: FieldRef,
         base_path: Path,
         row: usize,
+        item_projector: Option<FieldProjector>,
     ) -> Result<Self, DynViewError> {
         let offsets = array.value_offsets();
         let start = offsets[row] as usize;
@@ -2050,6 +2524,7 @@ impl<'a> DynListView<'a> {
             start,
             end,
             base_path,
+            item_projector,
             _marker: PhantomData,
         })
     }
@@ -2074,9 +2549,11 @@ impl<'a> DynListView<'a> {
         }
         let absolute = self.start + index;
         let path = self.base_path.push_index(index);
-        view_cell(
+        let projector = self.item_projector.as_ref();
+        view_cell_with_projector(
             &path,
             self.item_field.as_ref(),
+            projector,
             self.values.as_ref(),
             absolute,
         )
@@ -2091,6 +2568,7 @@ pub struct DynFixedSizeListView<'a> {
     start: usize,
     len: usize,
     base_path: Path,
+    item_projector: Option<FieldProjector>,
     _marker: PhantomData<&'a ()>,
 }
 
@@ -2101,6 +2579,7 @@ impl<'a> DynFixedSizeListView<'a> {
         len: usize,
         base_path: Path,
         row: usize,
+        item_projector: Option<FieldProjector>,
     ) -> Result<Self, DynViewError> {
         let start = row * len;
         Ok(Self {
@@ -2109,6 +2588,7 @@ impl<'a> DynFixedSizeListView<'a> {
             start,
             len,
             base_path,
+            item_projector,
             _marker: PhantomData,
         })
     }
@@ -2133,9 +2613,11 @@ impl<'a> DynFixedSizeListView<'a> {
         }
         let absolute = self.start + index;
         let path = self.base_path.push_index(index);
-        view_cell(
+        let projector = self.item_projector.as_ref();
+        view_cell_with_projector(
             &path,
             self.item_field.as_ref(),
+            projector,
             self.values.as_ref(),
             absolute,
         )
@@ -2149,10 +2631,32 @@ pub struct DynMapView<'a> {
     start: usize,
     end: usize,
     base_path: Path,
+    fields: Fields,
+    projection: Option<Arc<StructProjection>>,
 }
 
 impl<'a> DynMapView<'a> {
     fn new(array: &'a MapArray, base_path: Path, row: usize) -> Result<Self, DynViewError> {
+        let entry_fields = array
+            .entries()
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .map(|struct_arr| struct_arr.fields().clone())
+            .ok_or_else(|| DynViewError::Invalid {
+                column: 0,
+                path: base_path.path.clone(),
+                message: "map entries must be struct".to_string(),
+            })?;
+        Self::with_projection(array, entry_fields, base_path, row, None)
+    }
+
+    fn with_projection(
+        array: &'a MapArray,
+        entry_fields: Fields,
+        base_path: Path,
+        row: usize,
+        projection: Option<Arc<StructProjection>>,
+    ) -> Result<Self, DynViewError> {
         let offsets = array.value_offsets();
         let start = offsets[row] as usize;
         let end = offsets[row + 1] as usize;
@@ -2161,6 +2665,8 @@ impl<'a> DynMapView<'a> {
             start,
             end,
             base_path,
+            fields: entry_fields,
+            projection,
         })
     }
 
@@ -2191,26 +2697,62 @@ impl<'a> DynMapView<'a> {
             .downcast_ref::<StructArray>()
             .expect("map entries must be struct array");
 
-        let keys = struct_entry.column(0);
-        let values = struct_entry.column(1);
-        let entry_fields = struct_entry.fields();
+        let (key_source, key_projector) = match &self.projection {
+            Some(proj) => {
+                let child = proj
+                    .children
+                    .first()
+                    .expect("map projection must include key");
+                (child.source_index, Some(&child.projector))
+            }
+            None => (0, None),
+        };
+        let (value_source, value_projector) = match &self.projection {
+            Some(proj) => {
+                let child = proj
+                    .children
+                    .get(1)
+                    .expect("map projection must include value");
+                (child.source_index, Some(&child.projector))
+            }
+            None => (1, None),
+        };
+        let keys = struct_entry.column(key_source);
+        let values = struct_entry.column(value_source);
         let key_field = Arc::clone(
-            entry_fields
+            self.fields
                 .first()
-                .expect("map entries must contain key field"),
+                .expect("map schema must contain key field"),
         );
         let value_field = Arc::clone(
-            entry_fields
+            self.fields
                 .get(1)
-                .expect("map entries must contain value field"),
+                .expect("map schema must contain value field"),
         );
 
         let absolute = self.start + index;
         let key_path = self.base_path.push_index(index).push_key();
-        let key = view_non_null(&key_path, key_field.as_ref(), keys.as_ref(), absolute)?;
+        let key = view_cell_with_projector(
+            &key_path,
+            key_field.as_ref(),
+            key_projector,
+            keys.as_ref(),
+            absolute,
+        )?
+        .ok_or_else(|| DynViewError::Invalid {
+            column: key_path.column,
+            path: key_path.path.clone(),
+            message: "map keys may not be null".to_string(),
+        })?;
 
         let value_path = self.base_path.push_index(index).push_value();
-        let value = view_cell(&value_path, value_field.as_ref(), values.as_ref(), absolute)?;
+        let value = view_cell_with_projector(
+            &value_path,
+            value_field.as_ref(),
+            value_projector,
+            values.as_ref(),
+            absolute,
+        )?;
 
         Ok((key, value))
     }
@@ -2291,7 +2833,7 @@ impl<'a> DynUnionView<'a> {
             UnionMode::Sparse => self.row,
         };
         let path = self.base_path.push_variant(field.name().as_str(), tag);
-        view_cell(&path, field.as_ref(), child.as_ref(), child_index)
+        view_cell_with_projector(&path, field.as_ref(), None, child.as_ref(), child_index)
     }
 }
 
@@ -2318,6 +2860,7 @@ pub fn view_batch_row<'a>(
         batch,
         fields: schema.schema.fields().clone(),
         mapping: None,
+        projectors: None,
         row,
     })
 }

@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
-use arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError};
+use arrow_array::{ArrayRef, Int64Array, ListArray, StringArray, StructArray};
+use arrow_buffer::OffsetBuffer;
+use arrow_schema::{DataType, Field, Fields, Schema, TimeUnit, UnionFields, UnionMode};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError, ProjectionMask,
+};
 
 fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> arrow_array::RecordBatch {
     let mut builders = DynBuilders::new(Arc::clone(schema), rows.len());
@@ -757,6 +761,144 @@ fn projected_views() -> Result<(), DynViewError> {
     assert_eq!(second.get(1)?.and_then(|cell| cell.into_i64()), Some(2));
     assert!(index_rows.next().is_none());
 
+    Ok(())
+}
+
+#[test]
+fn nested_projection_masks_drive_dyn_projection() -> Result<(), DynViewError> {
+    let address_fields = Fields::from(vec![
+        Arc::new(Field::new("street", DataType::Utf8, false)),
+        Arc::new(Field::new("city", DataType::Utf8, false)),
+        Arc::new(Field::new("zip", DataType::Utf8, false)),
+    ]);
+    let phone_fields = Fields::from(vec![
+        Arc::new(Field::new("kind", DataType::Utf8, false)),
+        Arc::new(Field::new("number", DataType::Utf8, false)),
+    ]);
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("address", DataType::Struct(address_fields.clone()), false),
+        Field::new(
+            "phones",
+            DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Struct(phone_fields.clone()),
+                true,
+            ))),
+            true,
+        ),
+    ]));
+    let ids = Arc::new(Int64Array::from(vec![1, 2])) as ArrayRef;
+    let streets = Arc::new(StringArray::from(vec!["1st", "2nd"])) as ArrayRef;
+    let cities = Arc::new(StringArray::from(vec!["Springfield", "Shelbyville"])) as ArrayRef;
+    let zips = Arc::new(StringArray::from(vec!["11111", "22222"])) as ArrayRef;
+    let address = Arc::new(StructArray::new(
+        address_fields.clone(),
+        vec![streets, cities.clone(), zips],
+        None,
+    )) as ArrayRef;
+
+    let phone_kinds = Arc::new(StringArray::from(vec!["home", "work", "mobile"])) as ArrayRef;
+    let phone_numbers = Arc::new(StringArray::from(vec!["111", "222", "333"])) as ArrayRef;
+    let phone_values = Arc::new(StructArray::new(
+        phone_fields.clone(),
+        vec![phone_kinds, phone_numbers],
+        None,
+    )) as ArrayRef;
+    let offsets = OffsetBuffer::new(vec![0i32, 2, 3].into());
+    let phones = Arc::new(ListArray::new(
+        Arc::new(Field::new("item", DataType::Struct(phone_fields), true)),
+        offsets,
+        phone_values,
+        None,
+    )) as ArrayRef;
+
+    let batch = arrow_array::RecordBatch::try_new(Arc::clone(&schema), vec![ids, address, phones])
+        .expect("nested batch");
+
+    let mask = ProjectionMask::new(vec![vec![0], vec![1, 1], vec![2, 0, 1]]);
+    let projected_schema = mask.to_schema(&schema);
+    let projection = DynProjection::from_schema(schema.as_ref(), projected_schema.as_ref())?;
+
+    let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+    let mut rows = dyn_schema.iter_views(&batch)?.project(projection)?;
+
+    let first = rows.next().unwrap()?;
+    assert_eq!(first.len(), 3);
+    assert_eq!(
+        first.get_by_name("id").unwrap()?.and_then(|c| c.into_i64()),
+        Some(1)
+    );
+    let address_cell = first
+        .get_by_name("address")
+        .unwrap()?
+        .and_then(|cell| cell.into_struct())
+        .expect("projected address");
+    assert_eq!(address_cell.len(), 1);
+    assert_eq!(
+        address_cell
+            .get_by_name("city")
+            .unwrap()?
+            .and_then(|cell| cell.into_str()),
+        Some("Springfield")
+    );
+    let phones_cell = first
+        .get_by_name("phones")
+        .unwrap()?
+        .and_then(|cell| cell.into_list())
+        .expect("phones list");
+    assert_eq!(phones_cell.len(), 2);
+    let first_entry = phones_cell
+        .get(0)?
+        .and_then(|cell| cell.into_struct())
+        .unwrap();
+    assert_eq!(first_entry.len(), 1);
+    assert_eq!(
+        first_entry
+            .get_by_name("number")
+            .unwrap()?
+            .and_then(|cell| cell.into_str()),
+        Some("111")
+    );
+
+    let second = rows.next().unwrap()?;
+    assert_eq!(
+        second
+            .get_by_name("id")
+            .unwrap()?
+            .and_then(|c| c.into_i64()),
+        Some(2)
+    );
+    let address_cell = second
+        .get_by_name("address")
+        .unwrap()?
+        .and_then(|cell| cell.into_struct())
+        .expect("address row2");
+    assert_eq!(
+        address_cell
+            .get_by_name("city")
+            .unwrap()?
+            .and_then(|cell| cell.into_str()),
+        Some("Shelbyville")
+    );
+    let phones_cell = second
+        .get_by_name("phones")
+        .unwrap()?
+        .and_then(|cell| cell.into_list())
+        .expect("phones row2");
+    assert_eq!(phones_cell.len(), 1);
+    let entry = phones_cell
+        .get(0)?
+        .and_then(|cell| cell.into_struct())
+        .unwrap();
+    assert_eq!(
+        entry
+            .get_by_name("number")
+            .unwrap()?
+            .and_then(|cell| cell.into_str()),
+        Some("333")
+    );
+    assert!(rows.next().is_none());
     Ok(())
 }
 

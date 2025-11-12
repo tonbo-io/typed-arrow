@@ -1,8 +1,8 @@
 //! Projection masks for nested Arrow schemas.
 
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
-use arrow_schema::{DataType, FieldRef, Schema, SchemaRef};
+use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, SchemaRef};
 use parquet::arrow::{ArrowSchemaConverter, ProjectionMask as ParquetProjectionMask};
 use thiserror::Error;
 
@@ -118,21 +118,22 @@ impl ProjectionMask {
         let Some(paths) = self.paths() else {
             return schema.clone();
         };
-        let mut indices = BTreeSet::new();
+        let mut root = MaskNode::default();
         for path in paths {
             if path.is_empty() {
                 return schema.clone();
             }
-            indices.insert(path[0]);
+            root.insert(path);
         }
-        if indices.is_empty() {
-            return schema.clone();
-        }
-        let mut selected = Vec::with_capacity(indices.len());
-        for idx in indices {
-            if let Some(field) = schema.fields().get(idx) {
-                selected.push(field.clone());
-            }
+        let mut selected = Vec::with_capacity(root.children.len());
+        for (&idx, node) in &root.children {
+            let field = schema.fields().get(idx).map(Arc::clone).unwrap_or_else(|| {
+                panic!(
+                    "projection index {idx} out of bounds for schema with {} fields",
+                    schema.fields().len()
+                )
+            });
+            selected.push(project_field(&field, node));
         }
         Arc::new(Schema::new(selected))
     }
@@ -147,6 +148,97 @@ impl ProjectionMask {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Default, Clone)]
+struct MaskNode {
+    children: BTreeMap<usize, MaskNode>,
+}
+
+impl MaskNode {
+    fn insert(&mut self, path: &[usize]) {
+        if path.is_empty() {
+            return;
+        }
+        let (first, rest) = path.split_first().expect("non-empty path");
+        let child = self.children.entry(*first).or_default();
+        child.insert(rest);
+    }
+}
+
+fn project_field(field: &FieldRef, node: &MaskNode) -> FieldRef {
+    if node.children.is_empty() {
+        return field.clone();
+    }
+    match field.data_type() {
+        DataType::Struct(children) => {
+            let mut projected = Vec::with_capacity(node.children.len());
+            for (&idx, child_node) in &node.children {
+                let child = children.get(idx).unwrap_or_else(|| {
+                    panic!(
+                        "struct child index {idx} out of bounds (len={}) for field {}",
+                        children.len(),
+                        field.name()
+                    )
+                });
+                projected.push(project_field(child, child_node));
+            }
+            clone_field_with_type(field.as_ref(), DataType::Struct(Fields::from(projected)))
+        }
+        DataType::List(item) => {
+            let child_node = node
+                .children
+                .get(&0)
+                .unwrap_or_else(|| panic!("list field {} must use child index 0", field.name()));
+            let projected_item = project_field(item, child_node);
+            clone_field_with_type(field.as_ref(), DataType::List(projected_item))
+        }
+        DataType::LargeList(item) => {
+            let child_node = node.children.get(&0).unwrap_or_else(|| {
+                panic!("large list field {} must use child index 0", field.name())
+            });
+            let projected_item = project_field(item, child_node);
+            clone_field_with_type(field.as_ref(), DataType::LargeList(projected_item))
+        }
+        DataType::FixedSizeList(item, len) => {
+            let child_node = node.children.get(&0).unwrap_or_else(|| {
+                panic!(
+                    "fixed-size list field {} must use child index 0",
+                    field.name()
+                )
+            });
+            let projected_item = project_field(item, child_node);
+            clone_field_with_type(
+                field.as_ref(),
+                DataType::FixedSizeList(projected_item, *len),
+            )
+        }
+        DataType::Map(entry, keys_sorted) => {
+            let mut entry_node = node.children.get(&0).cloned().unwrap_or_default();
+            entry_node
+                .children
+                .entry(0)
+                .or_insert_with(MaskNode::default);
+            entry_node
+                .children
+                .entry(1)
+                .or_insert_with(MaskNode::default);
+            let projected_entry = project_field(entry, &entry_node);
+            clone_field_with_type(field.as_ref(), DataType::Map(projected_entry, *keys_sorted))
+        }
+        other => {
+            if !node.children.is_empty() {
+                panic!("type {other:?} has no children to project");
+            }
+            field.clone()
+        }
+    }
+}
+
+fn clone_field_with_type(field: &Field, data_type: DataType) -> FieldRef {
+    let projected = Field::new(field.name(), data_type, field.is_nullable())
+        .with_metadata(field.metadata().clone());
+    Arc::new(projected)
 }
 
 fn collect_leaf_paths(schema: &Schema) -> Vec<Vec<usize>> {
@@ -297,13 +389,29 @@ mod tests {
     }
 
     #[test]
-    fn projection_mask_to_schema_keeps_full_fields() {
+    fn projection_mask_to_schema_trims_nested_fields() {
         let (schema, _batch, mask) = nested_projection_fixture();
         let projected = mask.to_schema(&schema);
         assert_eq!(projected.fields().len(), 3);
         let address = projected.field_with_name("address").expect("address");
-        let original = schema.field_with_name("address").expect("original address");
-        assert_eq!(address.data_type(), original.data_type());
+        match address.data_type() {
+            DataType::Struct(children) => {
+                assert_eq!(children.len(), 1);
+                assert_eq!(children[0].name(), "city");
+            }
+            other => panic!("expected struct, got {other:?}"),
+        }
+        let phones = projected.field_with_name("phones").expect("phones");
+        match phones.data_type() {
+            DataType::List(item) => match item.data_type() {
+                DataType::Struct(children) => {
+                    assert_eq!(children.len(), 1);
+                    assert_eq!(children[0].name(), "number");
+                }
+                other => panic!("expected struct item, got {other:?}"),
+            },
+            other => panic!("expected list, got {other:?}"),
+        }
     }
 
     #[test]
