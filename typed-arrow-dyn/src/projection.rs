@@ -358,8 +358,9 @@ fn invalid_path(path: &[usize], message: String) -> ProjectionMaskError {
 mod tests {
     use arrow_array::{ArrayRef, Int64Array, ListArray, RecordBatch, StringArray, StructArray};
     use arrow_buffer::OffsetBuffer;
-    use arrow_schema::{DataType, Field, Fields, SchemaRef};
+    use arrow_schema::{DataType, Field, Fields, Schema, SchemaRef};
     use parquet::arrow::ArrowSchemaConverter;
+    use std::sync::Arc;
 
     use super::{ProjectionMask, ProjectionMaskError};
 
