@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use arrow_array::{Int64Array, StringArray};
-use arrow_schema::{DataType, Field, Fields, Schema, TimeUnit, UnionFields, UnionMode};
+use arrow_array::RecordBatch;
+use arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError};
 
-fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> arrow_array::RecordBatch {
+fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> RecordBatch {
     let mut builders = DynBuilders::new(Arc::clone(schema), rows.len());
     for row in rows {
         builders.append_option_row(row).unwrap();

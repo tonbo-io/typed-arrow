@@ -1260,9 +1260,13 @@ fn owned_cell_to_raw(cell: &DynCell) -> Result<DynCellRaw, String> {
 mod tests {
     use std::sync::Arc;
 
+    use arrow_array::{ArrayRef, Int32Array, MapArray, StringArray, StructArray};
+    use arrow_buffer::OffsetBuffer;
     use arrow_schema::{DataType, Field, Fields};
 
-    use super::{DynCell, DynCellRaw, DynRowOwned};
+    use super::{
+        DynCell, DynCellRaw, DynMapView, DynRowOwned, DynViewError, Path, StructProjection,
+    };
 
     #[test]
     fn dyn_row_owned_round_trip_utf8() {
@@ -1282,6 +1286,86 @@ mod tests {
         let fields = Fields::from(vec![Arc::new(Field::new("map", DataType::Binary, false))]);
         let row = DynRowOwned::try_new(fields, vec![Some(DynCell::Map(Vec::new()))]).unwrap();
         assert!(row.as_raw().is_err());
+    }
+
+    #[test]
+    fn dyn_map_view_errors_when_schema_missing_key_field() {
+        let map = sample_map_array();
+        let entry_fields = Fields::from(Vec::<Arc<Field>>::new());
+        let view = DynMapView::with_projection(&map, entry_fields, Path::new(0, "map"), 0, None)
+            .expect("map view");
+        match view.get(0) {
+            Err(DynViewError::Invalid { message, .. }) => {
+                assert!(
+                    message.contains("map schema missing key field"),
+                    "unexpected message: {message}"
+                );
+            }
+            other => panic!("expected invalid error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dyn_map_view_errors_when_schema_missing_value_field() {
+        let map = sample_map_array();
+        let entry_fields = Fields::from(vec![Arc::new(Field::new("key", DataType::Utf8, false))]);
+        let view = DynMapView::with_projection(&map, entry_fields, Path::new(0, "map"), 0, None)
+            .expect("map view");
+        match view.get(0) {
+            Err(DynViewError::Invalid { message, .. }) => {
+                assert!(
+                    message.contains("map schema missing value field"),
+                    "unexpected message: {message}"
+                );
+            }
+            other => panic!("expected invalid error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dyn_map_view_errors_when_projection_missing_children() {
+        let map = sample_map_array();
+        let entry_fields = Fields::from(vec![
+            Arc::new(Field::new("keys", DataType::Utf8, false)),
+            Arc::new(Field::new("values", DataType::Int32, true)),
+        ]);
+        let projection = Arc::new(StructProjection {
+            children: Arc::from(Vec::new()),
+        });
+        let view = DynMapView::with_projection(
+            &map,
+            entry_fields,
+            Path::new(0, "map"),
+            0,
+            Some(projection),
+        )
+        .expect("map view");
+        match view.get(0) {
+            Err(DynViewError::Invalid { message, .. }) => {
+                assert!(
+                    message.contains("map projection missing key child"),
+                    "unexpected message: {message}"
+                );
+            }
+            other => panic!("expected invalid error, got {other:?}"),
+        }
+    }
+
+    fn sample_map_array() -> MapArray {
+        let entry_fields = Fields::from(vec![
+            Arc::new(Field::new("keys", DataType::Utf8, false)),
+            Arc::new(Field::new("values", DataType::Int32, true)),
+        ]);
+        let keys: ArrayRef = Arc::new(StringArray::from(vec!["a"]));
+        let values: ArrayRef = Arc::new(Int32Array::from(vec![Some(1)]));
+        let entries = StructArray::new(entry_fields.clone(), vec![keys, values], None);
+        let entry_field = Arc::new(Field::new(
+            "entries",
+            DataType::Struct(entry_fields.clone()),
+            false,
+        ));
+        let offsets = OffsetBuffer::new(vec![0i32, 1].into());
+        MapArray::new(entry_field, offsets, entries, None, false)
     }
 }
 
@@ -1345,11 +1429,11 @@ impl DynProjection {
     }
 
     /// Create a projection from a [`ProjectionMask`], supporting nested field paths.
-    /// **NOTE: This will replace from_indices() once the implementation is done** 
+    /// **NOTE: This will replace from_indices() once the implementation is done**
     ///
     /// # Errors
     /// Returns `DynViewError::Invalid` if the mask references an out-of-bounds column or child.
-    pub fn from_mask(schema: &Schema, mask: &ProjectionMask) -> Result<Self, DynViewError> {
+    pub fn from_mask(_schema: &Schema, _mask: &ProjectionMask) -> Result<Self, DynViewError> {
         todo!()
     }
 
@@ -1664,16 +1748,34 @@ fn build_map_projector(
             message: "projected map entry must be a struct field".to_string(),
         });
     };
-    if projected_children.len() < 2 {
+    if projected_children.len() != 2 {
         return Err(DynViewError::Invalid {
             column: path.column,
             path: path.path.clone(),
-            message: "map projection must include both key and value fields".to_string(),
+            message: "map projection must contain exactly two fields (key then value)".to_string(),
         });
     }
     let entry_path = path.push_index(0);
     match build_struct_projector(&entry_path, source_children, projected_children)? {
-        FieldProjector::Struct(proj) => Ok(FieldProjector::Map(proj)),
+        FieldProjector::Struct(proj) => {
+            let children = proj.children.as_ref();
+            if children.len() != 2 {
+                return Err(DynViewError::Invalid {
+                    column: path.column,
+                    path: path.path.clone(),
+                    message: "map projection must preserve exactly two children".to_string(),
+                });
+            }
+            if children[0].source_index != 0 || children[1].source_index != 1 {
+                return Err(DynViewError::Invalid {
+                    column: path.column,
+                    path: path.path.clone(),
+                    message: "map projection must keep the key field before the value field"
+                        .to_string(),
+                });
+            }
+            Ok(FieldProjector::Map(proj))
+        }
         FieldProjector::Identity => Ok(FieldProjector::Identity),
         _ => Err(DynViewError::Invalid {
             column: path.column,
@@ -2704,40 +2806,44 @@ impl<'a> DynMapView<'a> {
         let struct_entry = entries
             .as_any()
             .downcast_ref::<StructArray>()
-            .expect("map entries must be struct array");
+            .ok_or_else(|| DynViewError::Invalid {
+                column: self.base_path.column,
+                path: self.base_path.path.clone(),
+                message: "map entries must be struct arrays".to_string(),
+            })?;
 
-        let (key_source, key_projector) = match &self.projection {
-            Some(proj) => {
-                let child = proj
-                    .children
-                    .first()
-                    .expect("map projection must include key");
-                (child.source_index, Some(&child.projector))
-            }
-            None => (0, None),
+        let (key_source, key_projector) = if let Some(proj) = &self.projection {
+            let child = proj.children.first().ok_or_else(|| DynViewError::Invalid {
+                column: self.base_path.column,
+                path: self.base_path.path.clone(),
+                message: "map projection missing key child".to_string(),
+            })?;
+            (child.source_index, Some(&child.projector))
+        } else {
+            (0, None)
         };
-        let (value_source, value_projector) = match &self.projection {
-            Some(proj) => {
-                let child = proj
-                    .children
-                    .get(1)
-                    .expect("map projection must include value");
-                (child.source_index, Some(&child.projector))
-            }
-            None => (1, None),
+        let (value_source, value_projector) = if let Some(proj) = &self.projection {
+            let child = proj.children.get(1).ok_or_else(|| DynViewError::Invalid {
+                column: self.base_path.column,
+                path: self.base_path.path.clone(),
+                message: "map projection missing value child".to_string(),
+            })?;
+            (child.source_index, Some(&child.projector))
+        } else {
+            (1, None)
         };
         let keys = struct_entry.column(key_source);
         let values = struct_entry.column(value_source);
-        let key_field = Arc::clone(
-            self.fields
-                .first()
-                .expect("map schema must contain key field"),
-        );
-        let value_field = Arc::clone(
-            self.fields
-                .get(1)
-                .expect("map schema must contain value field"),
-        );
+        let key_field = Arc::clone(self.fields.first().ok_or_else(|| DynViewError::Invalid {
+            column: self.base_path.column,
+            path: self.base_path.path.clone(),
+            message: "map schema missing key field".to_string(),
+        })?);
+        let value_field = Arc::clone(self.fields.get(1).ok_or_else(|| DynViewError::Invalid {
+            column: self.base_path.column,
+            path: self.base_path.path.clone(),
+            message: "map schema missing value field".to_string(),
+        })?);
 
         let absolute = self.start + index;
         let key_path = self.base_path.push_index(index).push_key();
