@@ -911,16 +911,17 @@ impl<'a> DynRowView<'a> {
 
     /// Retrieve the cell at `column` as a borrowed [`DynCellRef`].
     pub fn get(&self, column: usize) -> Result<Option<DynCellRef<'_>>, DynViewError> {
-        let width = self.fields.len();
-        if column >= width {
-            return Err(DynViewError::ColumnOutOfBounds { column, width });
-        }
         if self.row >= self.batch.num_rows() {
             return Err(DynViewError::RowOutOfBounds {
                 row: self.row,
                 len: self.batch.num_rows(),
             });
         }
+        let width = self.fields.len();
+        let field = self
+            .fields
+            .get(column)
+            .ok_or(DynViewError::ColumnOutOfBounds { column, width })?;
         let source_index = match &self.mapping {
             Some(mapping) => mapping[column],
             None => column,
@@ -939,13 +940,22 @@ impl<'a> DynRowView<'a> {
                 ),
             });
         }
-        let field = self.fields.get(column).expect("index validated");
         let array = self.batch.column(source_index);
         let path = Path::new(column, field.name());
-        let projector = self
-            .projectors
-            .as_ref()
-            .map(|projectors| projectors.get(column).expect("projection width mismatch"));
+        let projector = match self.projectors.as_ref() {
+            Some(projectors) => {
+                Some(
+                    projectors
+                        .get(column)
+                        .ok_or_else(|| DynViewError::Invalid {
+                            column,
+                            path: field.name().to_string(),
+                            message: "projection width mismatch".to_string(),
+                        })?,
+                )
+            }
+            None => None,
+        };
         view_cell_with_projector(&path, field.as_ref(), projector, array.as_ref(), self.row)
     }
 
@@ -1260,23 +1270,24 @@ fn owned_cell_to_raw(cell: &DynCell) -> Result<DynCellRaw, String> {
 mod tests {
     use std::sync::Arc;
 
-    use arrow_array::{ArrayRef, Int32Array, MapArray, StringArray, StructArray};
+    use arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
     use arrow_buffer::OffsetBuffer;
-    use arrow_schema::{DataType, Field, Fields};
+    use arrow_schema::{DataType, Field, Fields, Schema};
 
     use super::{
-        DynCell, DynCellRaw, DynMapView, DynRowOwned, DynViewError, Path, StructProjection,
+        DynCell, DynCellRaw, DynMapView, DynRowOwned, DynRowView, DynStructView, DynViewError,
+        Path, StructProjection,
     };
 
     #[test]
     fn dyn_row_owned_round_trip_utf8() {
         let fields = Fields::from(vec![Arc::new(Field::new("id", DataType::Utf8, false))]);
-        let row = DynRowOwned::try_new(fields.clone(), vec![Some(DynCell::Str("hello".into()))])
-            .expect("owned key");
-        let raw = row.as_raw().expect("raw");
+        let row =
+            DynRowOwned::try_new(fields.clone(), vec![Some(DynCell::Str("hello".into()))]).unwrap();
+        let raw = row.as_raw().unwrap();
         assert!(matches!(raw.cells()[0], Some(DynCellRaw::Str { .. })));
 
-        let rebuilt = DynRowOwned::from_raw(&raw).expect("from raw");
+        let rebuilt = DynRowOwned::from_raw(&raw).unwrap();
         assert_eq!(rebuilt.len(), 1);
         assert!(matches!(rebuilt.cells()[0], Some(DynCell::Str(_))));
     }
@@ -1292,8 +1303,8 @@ mod tests {
     fn dyn_map_view_errors_when_schema_missing_key_field() {
         let map = sample_map_array();
         let entry_fields = Fields::from(Vec::<Arc<Field>>::new());
-        let view = DynMapView::with_projection(&map, entry_fields, Path::new(0, "map"), 0, None)
-            .expect("map view");
+        let view =
+            DynMapView::with_projection(&map, entry_fields, Path::new(0, "map"), 0, None).unwrap();
         match view.get(0) {
             Err(DynViewError::Invalid { message, .. }) => {
                 assert!(
@@ -1309,8 +1320,8 @@ mod tests {
     fn dyn_map_view_errors_when_schema_missing_value_field() {
         let map = sample_map_array();
         let entry_fields = Fields::from(vec![Arc::new(Field::new("key", DataType::Utf8, false))]);
-        let view = DynMapView::with_projection(&map, entry_fields, Path::new(0, "map"), 0, None)
-            .expect("map view");
+        let view =
+            DynMapView::with_projection(&map, entry_fields, Path::new(0, "map"), 0, None).unwrap();
         match view.get(0) {
             Err(DynViewError::Invalid { message, .. }) => {
                 assert!(
@@ -1339,7 +1350,7 @@ mod tests {
             0,
             Some(projection),
         )
-        .expect("map view");
+        .unwrap();
         match view.get(0) {
             Err(DynViewError::Invalid { message, .. }) => {
                 assert!(
@@ -1366,6 +1377,51 @@ mod tests {
         ));
         let offsets = OffsetBuffer::new(vec![0i32, 1].into());
         MapArray::new(entry_field, offsets, entries, None, false)
+    }
+
+    #[test]
+    fn row_view_errors_when_projector_width_mismatch() {
+        let field = Arc::new(Field::new("id", DataType::Int32, false));
+        let schema = Arc::new(Schema::new(vec![field.as_ref().clone()]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int32Array::from(vec![1])) as ArrayRef],
+        )
+        .unwrap();
+        let view = DynRowView {
+            batch: &batch,
+            fields: Fields::from(vec![Arc::clone(&field)]),
+            mapping: Some(Arc::from(vec![0])),
+            projectors: Some(Arc::from(Vec::new())),
+            row: 0,
+        };
+        match view.get(0) {
+            Err(DynViewError::Invalid { message, .. }) => {
+                assert!(message.contains("projection width mismatch"));
+            }
+            other => panic!("expected mismatch error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn struct_view_errors_when_index_missing() {
+        let fields = Fields::from(vec![Arc::new(Field::new("a", DataType::Int32, false))]);
+        let struct_array = StructArray::new(
+            fields.clone(),
+            vec![Arc::new(Int32Array::from(vec![1])) as ArrayRef],
+            None,
+        );
+        let view = DynStructView {
+            array: &struct_array,
+            fields,
+            row: 0,
+            base_path: Path::new(0, "root"),
+            projection: None,
+        };
+        match view.get(1) {
+            Err(DynViewError::ColumnOutOfBounds { column, .. }) => assert_eq!(column, 1),
+            other => panic!("expected column out of bounds, got {other:?}"),
+        }
     }
 }
 
@@ -2549,13 +2605,13 @@ impl<'a> DynStructView<'a> {
 
     /// Retrieve the value of a struct field by index.
     pub fn get(&'a self, index: usize) -> Result<Option<DynCellRef<'a>>, DynViewError> {
-        if index >= self.fields.len() {
-            return Err(DynViewError::ColumnOutOfBounds {
+        let field = self
+            .fields
+            .get(index)
+            .ok_or_else(|| DynViewError::ColumnOutOfBounds {
                 column: index,
                 width: self.fields.len(),
-            });
-        }
-        let field = self.fields.get(index).expect("index validated");
+            })?;
         let (source_index, projector) = if let Some(projection) = &self.projection {
             let child = projection
                 .children

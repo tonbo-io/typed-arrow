@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use arrow_array::{ArrayRef, Int32Array, RecordBatch, StringArray, StructArray};
 use arrow_schema::{DataType, Field, Fields, Schema};
-use typed_arrow_dyn::{DynProjection, DynViewError};
+use typed_arrow_dyn::{DynProjection, DynSchema, DynViewError};
 
 #[test]
 fn map_projection_rejects_reordered_entry_fields() {
@@ -18,8 +19,8 @@ fn map_projection_rejects_reordered_entry_fields() {
                 "unexpected message: {message}"
             );
         }
+        Err(err) => panic!("unexpected error: {err}"),
         Ok(_) => panic!("expected invalid projection error, got success"),
-        Err(err) => panic!("unexpected error: {err:?}"),
     }
 }
 
@@ -38,8 +39,8 @@ fn map_projection_rejects_duplicate_key_field() {
                 "unexpected message: {message}"
             );
         }
+        Err(err) => panic!("unexpected error: {err}"),
         Ok(_) => panic!("expected invalid projection error, got success"),
-        Err(err) => panic!("unexpected error: {err:?}"),
     }
 }
 
@@ -55,8 +56,8 @@ fn map_projection_rejects_missing_value_field() {
                 "unexpected message: {message}"
             );
         }
+        Err(err) => panic!("unexpected error: {err}"),
         Ok(_) => panic!("expected invalid projection error, got success"),
-        Err(err) => panic!("unexpected error: {err:?}"),
     }
 }
 
@@ -78,8 +79,85 @@ fn map_projection_rejects_non_struct_entry() {
                 "unexpected message: {message}"
             );
         }
+        Err(err) => panic!("unexpected error: {err}"),
         Ok(_) => panic!("expected invalid projection error, got success"),
-        Err(err) => panic!("unexpected error: {err:?}"),
+    }
+}
+
+#[test]
+fn row_view_reports_column_out_of_bounds() {
+    let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![Arc::new(Int32Array::from(vec![1])) as ArrayRef],
+    )
+    .unwrap();
+    let dyn_schema = DynSchema::from_ref(schema);
+    let mut rows = dyn_schema.iter_views(&batch).unwrap();
+    let view = rows.next().unwrap().unwrap();
+    match view.get(1) {
+        Err(DynViewError::ColumnOutOfBounds { column, .. }) => assert_eq!(column, 1),
+        Ok(_) => panic!("expected column out of bounds"),
+        Err(err) => panic!("unexpected error: {err}"),
+    }
+}
+
+#[test]
+fn struct_view_reports_column_out_of_bounds() {
+    let inner_fields = Fields::from(vec![Arc::new(Field::new("name", DataType::Utf8, false))]);
+    let struct_array = StructArray::new(
+        inner_fields.clone(),
+        vec![Arc::new(StringArray::from(vec!["alice"])) as ArrayRef],
+        None,
+    );
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "user",
+        DataType::Struct(inner_fields),
+        false,
+    )]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![Arc::new(struct_array) as ArrayRef],
+    )
+    .unwrap();
+    let dyn_schema = DynSchema::from_ref(schema);
+    let mut rows = dyn_schema.iter_views(&batch).unwrap();
+    let view = rows.next().unwrap().unwrap();
+    let struct_view = view.get(0).unwrap().unwrap().into_struct().unwrap();
+    match struct_view.get(1) {
+        Err(DynViewError::ColumnOutOfBounds { column, .. }) => assert_eq!(column, 1),
+        Ok(_) => panic!("expected column out of bounds"),
+        Err(err) => panic!("unexpected error: {err}"),
+    }
+}
+
+#[test]
+fn nested_struct_projection_missing_child_errors() {
+    let source_struct = Fields::from(vec![Arc::new(Field::new("a", DataType::Int32, false))]);
+    let source = Arc::new(Schema::new(vec![Field::new(
+        "root",
+        DataType::Struct(source_struct),
+        false,
+    )]));
+    let projection_struct = Fields::from(vec![Arc::new(Field::new(
+        "missing",
+        DataType::Int32,
+        false,
+    ))]);
+    let projection = Schema::new(vec![Field::new(
+        "root",
+        DataType::Struct(projection_struct),
+        false,
+    )]);
+    match DynProjection::from_schema(source.as_ref(), &projection) {
+        Err(DynViewError::Invalid { message, .. }) => {
+            assert!(
+                message.contains("field not found"),
+                "unexpected message: {message}"
+            );
+        }
+        Err(err) => panic!("unexpected error: {err}"),
+        Ok(_) => panic!("expected invalid projection error, got success"),
     }
 }
 
