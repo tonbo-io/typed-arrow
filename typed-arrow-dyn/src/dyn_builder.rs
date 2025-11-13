@@ -8,6 +8,7 @@ use arrow_schema::DataType;
 use crate::{cell::DynCell, DynError};
 
 /// Result of finishing a dynamic column builder.
+#[derive(Debug)]
 pub struct FinishedColumn {
     pub array: ArrayRef,
     /// Metadata describing union arrays encountered in this subtree.

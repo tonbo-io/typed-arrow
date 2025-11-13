@@ -8,7 +8,7 @@ use arrow_schema::{Schema, SchemaRef};
 use crate::{DynRowView, DynRowViews, DynViewError};
 
 /// A runtime Arrow schema wrapper used by the unified facade.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynSchema {
     /// The underlying `arrow_schema::SchemaRef`.
     pub schema: SchemaRef,
