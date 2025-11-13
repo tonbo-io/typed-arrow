@@ -506,7 +506,7 @@ impl std::fmt::Debug for DynCellRaw {
 }
 
 /// Lifetime-erased struct view backing a [`DynCellRaw::Struct`] cell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynStructViewRaw {
     array: NonNull<StructArray>,
     fields: Fields,
@@ -557,7 +557,7 @@ impl DynStructViewRaw {
 }
 
 /// Lifetime-erased list view backing a [`DynCellRaw::List`] cell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynListViewRaw {
     values: ArrayRef,
     item_field: FieldRef,
@@ -614,7 +614,7 @@ impl DynListViewRaw {
 
 /// Lifetime-erased fixed-size list view backing a [`DynCellRaw::FixedSizeList`] cell.
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynFixedSizeListViewRaw {
     values: ArrayRef,
     item_field: FieldRef,
@@ -670,7 +670,7 @@ impl DynFixedSizeListViewRaw {
 }
 
 /// Lifetime-erased map view backing a [`DynCellRaw::Map`] cell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynMapViewRaw {
     array: NonNull<MapArray>,
     start: usize,
@@ -724,7 +724,7 @@ impl DynMapViewRaw {
 }
 
 /// Lifetime-erased union view backing a [`DynCellRaw::Union`] cell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynUnionViewRaw {
     array: NonNull<UnionArray>,
     fields: UnionFields,
@@ -780,6 +780,7 @@ fn non_null_from_bytes(bytes: &[u8]) -> NonNull<u8> {
 }
 
 /// Iterator over borrowed dynamic rows.
+#[derive(Debug)]
 pub struct DynRowViews<'a> {
     batch: &'a RecordBatch,
     fields: Fields,
@@ -883,6 +884,7 @@ impl<'a> Iterator for DynRowViews<'a> {
 impl<'a> ExactSizeIterator for DynRowViews<'a> {}
 
 /// Borrowed dynamic row backed by an `arrow_array::RecordBatch`.
+#[derive(Debug)]
 pub struct DynRowView<'a> {
     batch: &'a RecordBatch,
     fields: Fields,
@@ -1427,7 +1429,7 @@ mod tests {
 }
 
 /// Column projection descriptor used to derive projected dynamic views.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynProjection(Arc<DynProjectionData>);
 
 #[derive(Debug, Clone)]
@@ -2947,7 +2949,7 @@ impl<'a> DynFixedSizeListView<'a> {
         self.len
     }
 
-    /// Returns true if the fixed-size list length is zero.
+    /// Returns true when the list contains no items.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }

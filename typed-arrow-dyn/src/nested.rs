@@ -10,7 +10,7 @@ use arrow_schema::{
 use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
 
 type UnionMetadata = Vec<(usize, Vec<usize>)>;
-type ArrayResult<T> = Result<(T, UnionMetadata), ArrowError>;
+type TryFinishResult<T> = Result<(T, UnionMetadata), ArrowError>;
 
 /// Nested struct column builder.
 pub(crate) struct StructCol {
@@ -63,7 +63,7 @@ impl StructCol {
         arrow_array::StructArray::new(self.fields.clone(), cols, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> ArrayResult<arrow_array::StructArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<arrow_array::StructArray> {
         let finished_children: Vec<_> = self
             .children
             .iter_mut()
@@ -129,7 +129,7 @@ impl ListCol {
         arrow_array::ListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> ArrayResult<arrow_array::ListArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<arrow_array::ListArray> {
         let finished_child = self
             .child
             .try_finish()
@@ -192,7 +192,7 @@ impl LargeListCol {
         LargeListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> ArrayResult<LargeListArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<LargeListArray> {
         let finished_child = self
             .child
             .try_finish()
@@ -324,7 +324,7 @@ impl MapCol {
         )
     }
 
-    pub(crate) fn try_finish(&mut self) -> ArrayResult<MapArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<MapArray> {
         let finished_keys = self
             .keys
             .try_finish()
@@ -415,7 +415,7 @@ impl FixedSizeListCol {
         FixedSizeListArray::new(self.item_field.clone(), self.len, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> ArrayResult<FixedSizeListArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<FixedSizeListArray> {
         let finished_child = self
             .child
             .try_finish()
