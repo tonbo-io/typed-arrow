@@ -19,6 +19,7 @@ arrow-data = { version = "56" }
 half = "2"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
+parquet = { version = "56" }
 
 [package]
 name = "typed-arrow"

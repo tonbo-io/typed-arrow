@@ -1,14 +1,53 @@
 use std::sync::Arc;
 
+use arrow_array::RecordBatch;
 use arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode};
+use parquet::arrow::ArrowSchemaConverter;
 use typed_arrow_dyn::{DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError};
 
-fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> arrow_array::RecordBatch {
+fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> RecordBatch {
     let mut builders = DynBuilders::new(Arc::clone(schema), rows.len());
     for row in rows {
         builders.append_option_row(row).unwrap();
     }
     builders.try_finish_into_batch().unwrap()
+}
+
+/// Helper mirroring the deep nested schema used across runtime tests.
+fn deep_projection_schema() -> Arc<Schema> {
+    let device_fields = vec![
+        Arc::new(Field::new("id", DataType::Int64, false)),
+        Arc::new(Field::new(
+            "last_seen",
+            DataType::Timestamp(TimeUnit::Millisecond, None),
+            true,
+        )),
+    ];
+    let devices_item = Arc::new(Field::new(
+        "item",
+        DataType::Struct(device_fields.into()),
+        false,
+    ));
+    let user_fields = vec![
+        Arc::new(Field::new("name", DataType::Utf8, false)),
+        Arc::new(Field::new("devices", DataType::List(devices_item), false)),
+    ];
+    let root_user = Arc::new(Field::new(
+        "user",
+        DataType::Struct(user_fields.into()),
+        false,
+    ));
+    let root_field = Field::new("root", DataType::Struct(vec![root_user].into()), true);
+
+    let metrics_inner = Arc::new(Field::new("item", DataType::Int32, false));
+    let metrics_list_item = Arc::new(Field::new(
+        "item",
+        DataType::FixedSizeList(metrics_inner, 3),
+        false,
+    ));
+    let metrics_field = Field::new("metrics", DataType::LargeList(metrics_list_item), true);
+
+    Arc::new(Schema::new(vec![root_field, metrics_field]))
 }
 
 #[test]
@@ -757,6 +796,176 @@ fn projected_views() -> Result<(), DynViewError> {
     assert_eq!(second.get(1)?.and_then(|cell| cell.into_i64()), Some(2));
     assert!(index_rows.next().is_none());
 
+    Ok(())
+}
+
+#[test]
+fn projected_nested_schema_from_schema() -> Result<(), DynViewError> {
+    let schema = deep_projection_schema();
+    let projected_device_last_seen = Arc::new(Field::new(
+        "last_seen",
+        DataType::Timestamp(TimeUnit::Millisecond, None),
+        true,
+    ));
+    let projected_devices_item = Arc::new(Field::new(
+        "item",
+        DataType::Struct(vec![projected_device_last_seen].into()),
+        false,
+    ));
+    let projection_schema = Schema::new(vec![
+        Field::new(
+            "root",
+            DataType::Struct(
+                vec![Arc::new(Field::new(
+                    "user",
+                    DataType::Struct(
+                        vec![
+                            Arc::new(Field::new("name", DataType::Utf8, false)),
+                            Arc::new(Field::new(
+                                "devices",
+                                DataType::List(Arc::clone(&projected_devices_item)),
+                                false,
+                            )),
+                        ]
+                        .into(),
+                    ),
+                    false,
+                ))]
+                .into(),
+            ),
+            true,
+        ),
+        Field::new(
+            "metrics",
+            DataType::LargeList(Arc::new(Field::new(
+                "item",
+                DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Int32, false)), 3),
+                false,
+            ))),
+            true,
+        ),
+    ]);
+    let projection = DynProjection::from_schema(schema.as_ref(), &projection_schema)?;
+
+    let batch = build_batch(
+        &schema,
+        vec![Some(DynRow(vec![
+            Some(DynCell::Struct(vec![Some(DynCell::Struct(vec![
+                Some(DynCell::Str("carol".into())),
+                Some(DynCell::List(vec![
+                    Some(DynCell::Struct(vec![
+                        Some(DynCell::I64(42)),
+                        Some(DynCell::I64(1_000)),
+                    ])),
+                    Some(DynCell::Struct(vec![Some(DynCell::I64(43)), None])),
+                ])),
+            ]))])),
+            Some(DynCell::List(vec![Some(DynCell::FixedSizeList(vec![
+                Some(DynCell::I32(1)),
+                Some(DynCell::I32(2)),
+                Some(DynCell::I32(3)),
+            ]))])),
+        ]))],
+    );
+    let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+    let mut projected_rows = dyn_schema.iter_views(&batch)?.project(projection.clone())?;
+
+    let row = projected_rows.next().expect("row 0")?;
+    assert_eq!(row.len(), 2);
+    let root = row
+        .get(0)?
+        .and_then(|cell| cell.into_struct())
+        .expect("root struct");
+    let user = root
+        .get_by_name("user")
+        .expect("user field")?
+        .and_then(|cell| cell.into_struct())
+        .expect("user struct");
+    assert_eq!(
+        user.get_by_name("name")
+            .expect("name field")?
+            .and_then(|cell| cell.into_str()),
+        Some("carol")
+    );
+    let devices = user
+        .get_by_name("devices")
+        .expect("devices field")?
+        .and_then(|cell| cell.into_list())
+        .expect("devices list");
+    assert_eq!(devices.len(), 2);
+    let first_device = devices
+        .get(0)?
+        .and_then(|cell| cell.into_struct())
+        .expect("first device");
+    assert_eq!(first_device.len(), 1, "projected struct keeps single field");
+    assert_eq!(
+        first_device
+            .get(0)?
+            .and_then(|cell| cell.into_i64())
+            .expect("last_seen value"),
+        1_000
+    );
+    assert!(
+        first_device.get_by_name("id").is_none(),
+        "device id should not be projected"
+    );
+    let second_device = devices
+        .get(1)?
+        .and_then(|cell| cell.into_struct())
+        .expect("second device");
+    assert!(second_device.get(0)?.is_none());
+
+    let metrics = row
+        .get(1)?
+        .and_then(|cell| cell.into_list())
+        .expect("metrics list");
+    assert_eq!(metrics.len(), 1);
+    let bucket = metrics
+        .get(0)?
+        .and_then(|cell| cell.into_fixed_size_list())
+        .expect("fixed-size bucket");
+    let mut metric_values = Vec::new();
+    for idx in 0..bucket.len() {
+        let value = bucket
+            .get(idx)?
+            .and_then(|cell| cell.into_i32())
+            .expect("metric value");
+        metric_values.push(value);
+    }
+    assert_eq!(metric_values, vec![1, 2, 3]);
+
+    let mask = projection.to_parquet_mask();
+    let descriptor = ArrowSchemaConverter::new()
+        .convert(schema.as_ref())
+        .expect("convert schema");
+    let mut included_paths = Vec::new();
+    for idx in 0..descriptor.num_columns() {
+        let path = descriptor.column(idx).path().string();
+        if mask.leaf_included(idx) {
+            included_paths.push(path);
+        }
+    }
+    assert_eq!(
+        included_paths,
+        vec![
+            "root.user.name".to_string(),
+            "root.user.devices.list.item.last_seen".to_string(),
+            "metrics.list.item.list.item".to_string(),
+        ]
+    );
+    let column_paths: Vec<_> = (0..descriptor.num_columns())
+        .map(|idx| descriptor.column(idx).path().string())
+        .collect();
+    let id_index = column_paths
+        .iter()
+        .position(|path| path == "root.user.devices.list.item.id")
+        .expect("device id column path");
+    assert!(
+        !mask.leaf_included(id_index),
+        "non-projected device id leaf should be excluded"
+    );
+
+    assert!(projected_rows.next().is_none());
     Ok(())
 }
 
