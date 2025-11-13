@@ -138,7 +138,7 @@ fn accepts_cell(dt: &DataType, cell: &DynCell) -> bool {
             if entry_fields.len() != 2 {
                 return false;
             }
-            let Some(key_field) = entry_fields.get(0) else {
+            let Some(key_field) = entry_fields.first() else {
                 return false;
             };
             let Some(value_field) = entry_fields.get(1) else {

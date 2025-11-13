@@ -1,4 +1,4 @@
-name: Rust
+name: cargo
 
 on:
   push:
@@ -10,16 +10,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  fmt:
+    name: +nightly fmt
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --verbose
-      - name: Run typed-arrow tests
-        run: cargo test --verbose
-      - name: Run typed-arrow-dyn test
-        run: cargo test --verbose -p typed-arrow-dyn
-      - name: Run typed-arrow-unified test
-        run: cargo test --verbose -p typed-arrow-unified
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
+
+  build:
+    name: clippy && test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          cache-on-failure: false
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace -- -D warnings
+
+      - name: Run cargo test
+        run: cargo test --verbose --workspace
