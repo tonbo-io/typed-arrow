@@ -23,8 +23,9 @@ use arrow_array::{
     UnionArray,
 };
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields, UnionMode};
+use parquet::arrow::{ArrowSchemaConverter, ProjectionMask as ParquetProjectionMask};
 
-use crate::{cell::DynCell, rows::DynRow, schema::DynSchema, DynViewError, ProjectionMask};
+use crate::{cell::DynCell, rows::DynRow, schema::DynSchema, DynViewError};
 
 macro_rules! dyn_cell_primitive_methods {
     ($(($variant:ident, $ctor:ident, $getter:ident, $into:ident, $ty:ty, $arrow:literal, $desc:literal)),* $(,)?) => {
@@ -1462,35 +1463,31 @@ struct DynProjectionData {
     mapping: Arc<[usize]>,
     fields: Fields,
     projectors: Arc<[FieldProjector]>,
+    parquet_mask: ParquetProjectionMask,
 }
 
 impl DynProjection {
     fn new_internal(
+        schema: &Schema,
         source_width: usize,
         mapping: Vec<usize>,
         fields: Fields,
         projectors: Vec<FieldProjector>,
-    ) -> Self {
+        selected_paths: Vec<Vec<usize>>,
+    ) -> Result<Self, DynViewError> {
         debug_assert_eq!(
             mapping.len(),
             projectors.len(),
             "projection mapping and projector width mismatch"
         );
-        Self(Arc::new(DynProjectionData {
+        let parquet_mask = build_parquet_mask(schema, selected_paths)?;
+        Ok(Self(Arc::new(DynProjectionData {
             source_width,
             mapping: Arc::from(mapping),
             fields,
             projectors: Arc::from(projectors),
-        }))
-    }
-
-    /// Create a projection from a [`ProjectionMask`], supporting nested field paths.
-    /// **NOTE: This will replace from_indices() once the implementation is done**
-    ///
-    /// # Errors
-    /// Returns `DynViewError::Invalid` if the mask references an out-of-bounds column or child.
-    pub fn from_mask(_schema: &Schema, _mask: &ProjectionMask) -> Result<Self, DynViewError> {
-        todo!()
+            parquet_mask,
+        })))
     }
 
     /// Create a projection from explicit column indices.
@@ -1506,6 +1503,7 @@ impl DynProjection {
         let mut mapping = Vec::new();
         let mut projected = Vec::new();
         let mut projectors = Vec::new();
+        let mut selected_paths = Vec::new();
         for idx in indices.into_iter() {
             if idx >= width {
                 return Err(DynViewError::ColumnOutOfBounds { column: idx, width });
@@ -1513,13 +1511,21 @@ impl DynProjection {
             mapping.push(idx);
             projected.push(schema_fields[idx].clone());
             projectors.push(FieldProjector::Identity);
+            let mut index_path = vec![idx];
+            collect_all_leaf_paths_for_field(
+                schema_fields[idx].as_ref(),
+                &mut index_path,
+                &mut selected_paths,
+            );
         }
-        Ok(Self::new_internal(
+        Self::new_internal(
+            schema,
             width,
             mapping,
             Fields::from(projected),
             projectors,
-        ))
+            selected_paths,
+        )
     }
 
     /// Create a projection by matching a projected schema against the source schema.
@@ -1535,6 +1541,7 @@ impl DynProjection {
         let mut mapping = Vec::with_capacity(projection.fields().len());
         let mut projected = Vec::with_capacity(projection.fields().len());
         let mut projectors = Vec::with_capacity(projection.fields().len());
+        let mut selected_paths = Vec::new();
         for (pos, field) in projection.fields().iter().enumerate() {
             let source_idx = match source.index_of(field.name()) {
                 Ok(idx) => idx,
@@ -1548,17 +1555,26 @@ impl DynProjection {
             };
             let source_field = source_fields[source_idx].as_ref();
             let path = Path::new(source_idx, field.name());
-            let projector = build_field_projector(&path, source_field, field.as_ref())?;
+            let mut index_path = vec![source_idx];
+            let projector = build_field_projector(
+                &path,
+                source_field,
+                field.as_ref(),
+                &mut index_path,
+                &mut selected_paths,
+            )?;
             mapping.push(source_idx);
             projected.push(field.clone());
             projectors.push(projector);
         }
-        Ok(Self::new_internal(
+        Self::new_internal(
+            source,
             width,
             mapping,
             Fields::from(projected),
             projectors,
-        ))
+            selected_paths,
+        )
     }
 
     /// Width of the source schema this projection was derived from.
@@ -1589,6 +1605,11 @@ impl DynProjection {
         self.len() == 0
     }
 
+    /// Returns the Parquet projection mask corresponding to this projection.
+    pub fn to_parquet_mask(&self) -> ParquetProjectionMask {
+        self.0.parquet_mask.clone()
+    }
+
     /// Project a single row from `batch` using this projection, returning a borrowed view.
     ///
     /// # Errors
@@ -1614,6 +1635,105 @@ impl DynProjection {
         let view = self.project_row_view(schema, batch, row)?;
         view.into_raw()
     }
+}
+
+fn build_parquet_mask(
+    schema: &Schema,
+    mut selected_paths: Vec<Vec<usize>>,
+) -> Result<ParquetProjectionMask, DynViewError> {
+    let converter = ArrowSchemaConverter::new();
+    let descriptor = converter
+        .convert(schema)
+        .map_err(|err| DynViewError::Invalid {
+            column: 0,
+            path: "<projection>".to_string(),
+            message: format!("failed to convert schema to Parquet: {err}"),
+        })?;
+
+    if selected_paths.is_empty() {
+        return Ok(ParquetProjectionMask::none(descriptor.num_columns()));
+    }
+
+    selected_paths.sort();
+    selected_paths.dedup();
+
+    let mut leaf_paths = Vec::new();
+    collect_schema_leaf_paths(schema.fields(), &mut Vec::new(), &mut leaf_paths);
+    if selected_paths.len() == leaf_paths.len() {
+        return Ok(ParquetProjectionMask::all());
+    }
+    let leaf_indices = map_paths_to_leaf_indices(&selected_paths, &leaf_paths);
+    if leaf_indices.is_empty() {
+        return Ok(ParquetProjectionMask::none(descriptor.num_columns()));
+    }
+    Ok(ParquetProjectionMask::leaves(&descriptor, leaf_indices))
+}
+
+fn collect_all_leaf_paths_for_field(
+    field: &Field,
+    path: &mut Vec<usize>,
+    acc: &mut Vec<Vec<usize>>,
+) {
+    match field.data_type() {
+        DataType::Struct(children) => {
+            for (idx, child) in children.iter().enumerate() {
+                path.push(idx);
+                collect_all_leaf_paths_for_field(child.as_ref(), path, acc);
+                path.pop();
+            }
+        }
+        DataType::List(child) | DataType::LargeList(child) => {
+            path.push(0);
+            collect_all_leaf_paths_for_field(child.as_ref(), path, acc);
+            path.pop();
+        }
+        DataType::FixedSizeList(child, _) => {
+            path.push(0);
+            collect_all_leaf_paths_for_field(child.as_ref(), path, acc);
+            path.pop();
+        }
+        DataType::Map(entry, _) => {
+            path.push(0);
+            collect_all_leaf_paths_for_field(entry.as_ref(), path, acc);
+            path.pop();
+        }
+        _ => acc.push(path.clone()),
+    }
+}
+
+fn collect_schema_leaf_paths(
+    fields: &Fields,
+    prefix: &mut Vec<usize>,
+    leaves: &mut Vec<Vec<usize>>,
+) {
+    for (idx, field) in fields.iter().enumerate() {
+        prefix.push(idx);
+        collect_all_leaf_paths_for_field(field.as_ref(), prefix, leaves);
+        prefix.pop();
+    }
+}
+
+fn map_paths_to_leaf_indices(
+    selected_paths: &[Vec<usize>],
+    leaf_paths: &[Vec<usize>],
+) -> Vec<usize> {
+    let mut indices = Vec::new();
+    'outer: for (idx, leaf_path) in leaf_paths.iter().enumerate() {
+        for selected in selected_paths {
+            if is_prefix(selected, leaf_path) {
+                indices.push(idx);
+                continue 'outer;
+            }
+        }
+    }
+    indices
+}
+
+fn is_prefix(prefix: &[usize], whole: &[usize]) -> bool {
+    if prefix.len() > whole.len() {
+        return false;
+    }
+    prefix.iter().zip(whole.iter()).all(|(lhs, rhs)| lhs == rhs)
 }
 
 /// Validate that the batch schema matches the runtime schema exactly.
@@ -1663,6 +1783,8 @@ fn build_field_projector(
     path: &Path,
     source: &Field,
     projected: &Field,
+    index_path: &mut Vec<usize>,
+    selected_paths: &mut Vec<Vec<usize>>,
 ) -> Result<FieldProjector, DynViewError> {
     if source.is_nullable() != projected.is_nullable() {
         return Err(DynViewError::Invalid {
@@ -1672,17 +1794,38 @@ fn build_field_projector(
         });
     }
     if source.data_type() == projected.data_type() {
+        collect_all_leaf_paths_for_field(source, index_path, selected_paths);
         return Ok(FieldProjector::Identity);
     }
     match (source.data_type(), projected.data_type()) {
         (DataType::Struct(source_children), DataType::Struct(projected_children)) => {
-            build_struct_projector(path, source_children, projected_children)
+            build_struct_projector(
+                path,
+                source_children,
+                projected_children,
+                index_path,
+                selected_paths,
+            )
         }
         (DataType::List(source_child), DataType::List(projected_child)) => {
-            build_list_like_projector(path, source_child, projected_child, source.data_type())
+            build_list_like_projector(
+                path,
+                source_child,
+                projected_child,
+                source.data_type(),
+                index_path,
+                selected_paths,
+            )
         }
         (DataType::LargeList(source_child), DataType::LargeList(projected_child)) => {
-            build_list_like_projector(path, source_child, projected_child, source.data_type())
+            build_list_like_projector(
+                path,
+                source_child,
+                projected_child,
+                source.data_type(),
+                index_path,
+                selected_paths,
+            )
         }
         (
             DataType::FixedSizeList(source_child, source_len),
@@ -1696,7 +1839,14 @@ fn build_field_projector(
                         .to_string(),
                 });
             }
-            build_list_like_projector(path, source_child, projected_child, source.data_type())
+            build_list_like_projector(
+                path,
+                source_child,
+                projected_child,
+                source.data_type(),
+                index_path,
+                selected_paths,
+            )
         }
         (
             DataType::Map(source_entry, keys_sorted),
@@ -1709,7 +1859,13 @@ fn build_field_projector(
                     message: "map key ordering mismatch between source and projection".to_string(),
                 });
             }
-            build_map_projector(path, source_entry, projected_entry)
+            build_map_projector(
+                path,
+                source_entry,
+                projected_entry,
+                index_path,
+                selected_paths,
+            )
         }
         _ => Err(DynViewError::SchemaMismatch {
             column: path.column,
@@ -1724,6 +1880,8 @@ fn build_struct_projector(
     path: &Path,
     source_children: &Fields,
     projected_children: &Fields,
+    index_path: &mut Vec<usize>,
+    selected_paths: &mut Vec<Vec<usize>>,
 ) -> Result<FieldProjector, DynViewError> {
     let mut children = Vec::with_capacity(projected_children.len());
     for projected_child in projected_children.iter() {
@@ -1738,11 +1896,15 @@ fn build_struct_projector(
             });
         };
         let child_path = path.push_field(projected_child.name());
+        index_path.push(source_index);
         let child_projector = build_field_projector(
             &child_path,
             source_children[source_index].as_ref(),
             projected_child.as_ref(),
+            index_path,
+            selected_paths,
         )?;
+        index_path.pop();
         children.push(StructChildProjection {
             source_index,
             projector: child_projector,
@@ -1767,10 +1929,19 @@ fn build_list_like_projector(
     source_child: &FieldRef,
     projected_child: &FieldRef,
     parent_type: &DataType,
+    index_path: &mut Vec<usize>,
+    selected_paths: &mut Vec<Vec<usize>>,
 ) -> Result<FieldProjector, DynViewError> {
     let child_path = path.push_index(0);
-    let child_projector =
-        build_field_projector(&child_path, source_child.as_ref(), projected_child.as_ref())?;
+    index_path.push(0);
+    let child_projector = build_field_projector(
+        &child_path,
+        source_child.as_ref(),
+        projected_child.as_ref(),
+        index_path,
+        selected_paths,
+    )?;
+    index_path.pop();
     if child_projector.is_identity() {
         Ok(FieldProjector::Identity)
     } else {
@@ -1789,6 +1960,8 @@ fn build_map_projector(
     path: &Path,
     source_entry: &FieldRef,
     projected_entry: &FieldRef,
+    index_path: &mut Vec<usize>,
+    selected_paths: &mut Vec<Vec<usize>>,
 ) -> Result<FieldProjector, DynViewError> {
     let DataType::Struct(source_children) = source_entry.data_type() else {
         return Err(DynViewError::Invalid {
@@ -1812,7 +1985,16 @@ fn build_map_projector(
         });
     }
     let entry_path = path.push_index(0);
-    match build_struct_projector(&entry_path, source_children, projected_children)? {
+    index_path.push(0);
+    let projector = build_struct_projector(
+        &entry_path,
+        source_children,
+        projected_children,
+        index_path,
+        selected_paths,
+    )?;
+    index_path.pop();
+    match projector {
         FieldProjector::Struct(proj) => {
             let children = proj.children.as_ref();
             if children.len() != 2 {
