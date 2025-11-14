@@ -6,7 +6,9 @@
 - `DynSchema`: a thin `Arc<Schema>` wrapper that feeds the unified `SchemaLike` trait.
 - `DynBuilders`: one builder per field, created directly from the runtime schema and monomorphized per Arrow logical type.
 - `DynRow` and `DynCell`: ergonomics for appending rows where every cell is either a value or `None`.
-- `DynError`: structured diagnostics for arity, type mismatches, builder failures, and deferred nullability violations.
+- `DynRowViews`, `DynRowView`, `DynCellRef`, and friends (`DynStructView`, `DynListView`, …): zero-copy views over `RecordBatch` data with the same logical model as the owned builders.
+- `DynProjection`: reusable column/field projections that work for row iteration *and* hand the same Parquet projection mask to readers.
+- `DynError` / `DynViewError`: structured diagnostics for arity, type mismatches, builder failures, view errors, and deferred nullability violations.
 - `validate_nullability`: a post-build walk that enforces field and item nullability, returning precise paths such as `person.address.street[]`.
 
 Everything is designed to mirror the infallible typed path: builder allocation happens up front, appends stream through with minimal branching, and nullability is validated once via `try_finish_into_batch`.
@@ -61,6 +63,51 @@ fn build_batch() -> Result<arrow_array::RecordBatch, DynError> {
 ```
 
 For ad hoc debugging you can still call `finish_into_batch()`, which will panic if Arrow rejects the arrays. Production code should stick with `try_finish_into_batch()` to get `DynError::Nullability` or `DynError::Builder` with context.
+
+## Zero-Copy Views & Projection
+
+Sometimes you just need to *read* a `RecordBatch` with a runtime schema. The `view` module exposes zero-copy row iterators that give you borrowed `DynCellRef<'_>` handles and rich nested views:
+
+```rust
+use std::sync::Arc;
+
+use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::{iter_batch_views, DynProjection, DynSchema, DynViewError};
+
+fn inspect(batch: &arrow_array::RecordBatch) -> Result<(), DynViewError> {
+    let dyn_schema = DynSchema::new(Arc::clone(batch.schema()));
+    let projection = DynProjection::from_indices(batch.schema().as_ref(), [0, 2])?;
+
+    for row in iter_batch_views(&dyn_schema, batch)? {
+        let row = row?;                      // DynRowView<'_>
+        let projected = row.project(&projection)?;
+        if let Some(cell) = projected.get(0)? { // borrow without cloning
+            if let Some(id) = cell.as_i64() {
+                println!("id={id}");
+            }
+        }
+        if let Some(list) = projected.get(1)?.and_then(|c| c.as_list()) {
+            for idx in 0..list.len() {
+                let entry = list.get(idx)?.and_then(|c| c.as_struct());
+                // drill into DynStructView / DynMapView / DynUnionView as needed
+            }
+        }
+    }
+    Ok(())
+}
+```
+
+Views cover all Arrow logical types via the same wrappers the owned path understands (`DynStructView`, `DynListView`, `DynFixedSizeListView`, `DynMapView`, `DynUnionView`). Every accessor returns `DynViewError` with the exact dotted/indexed path (`orders[3].items[0].sku`) so you can bubble rich diagnostics to callers.
+
+`DynProjection` lets you describe projected schemas once and reuse them across readers:
+
+- `DynProjection::from_schema(source, projection)` matches by field name (including nested children) and records the selection paths.
+- `DynProjection::from_indices(schema, indices)` is a quick column slice.
+- `DynRowView::project(&projection)` lazily remaps columns without copying buffers.
+- `DynProjection::project_row_view(&schema, batch, row)` and `iter_batch_views(...).project(projection)` give you the same projected iterator.
+- `DynProjection::to_parquet_mask()` returns the `parquet::arrow::ProjectionMask` so Parquet readers only decode the needed leaf columns.
+
+Borrowed values can be converted to owned `DynCell` instances via `DynCellRef::to_owned()` or `DynCellRef::into_owned()`, which makes it easy to bridge inspected data back into the dynamic builders if you need to rewrite batches.
 
 ## Rows & Cells
 - `DynRow(Vec<Option<DynCell>>)` lines up with the schema width. Passing `None` at the top level appends a null to the entire column.
