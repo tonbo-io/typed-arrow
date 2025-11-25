@@ -51,7 +51,7 @@ impl SchemaError {
 
 /// Error type for view access failures when reading from Arrow arrays.
 #[cfg(feature = "views")]
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 pub enum ViewAccessError {
     /// Index out of bounds
     #[error("index {index} out of bounds (len {len}){}", field_name.map(|n| format!(" for field '{n}'")).unwrap_or_default())]
@@ -81,6 +81,13 @@ pub enum ViewAccessError {
         /// Optional field name for context
         field_name: Option<&'static str>,
     },
+    /// Custom user-defined error from domain-specific validation
+    ///
+    /// This variant allows custom types (newtypes) to wrap their own error types
+    /// while still using the common `ViewAccessError` type. The error can be
+    /// downcast to the specific type when needed.
+    #[error("custom validation error: {0}")]
+    Custom(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 /// Allows generic code to uniformly handle both infallible and fallible view-to-owned conversions.
