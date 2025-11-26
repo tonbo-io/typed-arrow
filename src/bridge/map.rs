@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use arrow_array::{builder::MapBuilder, MapArray};
+use arrow_array::{MapArray, builder::MapBuilder};
 use arrow_schema::{DataType, Field};
 
 use super::ArrowBinding;

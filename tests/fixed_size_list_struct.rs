@@ -1,4 +1,4 @@
-use arrow_array::{cast::as_primitive_array, types::Int32Type, Array};
+use arrow_array::{Array, cast::as_primitive_array, types::Int32Type};
 use typed_arrow::prelude::*;
 
 #[derive(typed_arrow::Record)]

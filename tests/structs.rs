@@ -1,4 +1,4 @@
-use arrow_array::{builder::StructBuilder, cast::as_string_array, Array};
+use arrow_array::{Array, builder::StructBuilder, cast::as_string_array};
 use typed_arrow::prelude::*;
 
 #[derive(typed_arrow::Record)]

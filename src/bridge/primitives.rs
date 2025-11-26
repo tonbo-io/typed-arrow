@@ -1,12 +1,12 @@
 //! Primitive Arrow bindings (integers, floats, bool, f16).
 
 use arrow_array::{
+    Array, PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{
-        Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-        UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+        Float16Type, Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type,
+        UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
-    Array, PrimitiveArray,
 };
 use arrow_schema::DataType;
 use half::f16;

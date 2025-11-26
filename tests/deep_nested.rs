@@ -1,9 +1,9 @@
 #![allow(clippy::float_cmp)]
 
 use arrow_array::{
+    Array,
     cast::{as_primitive_array, as_string_array, as_struct_array},
     types::{Float64Type, Int32Type},
-    Array,
 };
 use typed_arrow::prelude::*;
 

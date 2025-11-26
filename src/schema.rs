@@ -5,8 +5,8 @@ use std::{
 };
 
 use arrow_array::{
-    builder::{ArrayBuilder, StructBuilder},
     Array, RecordBatch,
+    builder::{ArrayBuilder, StructBuilder},
 };
 use arrow_schema::{DataType, Field, Schema};
 

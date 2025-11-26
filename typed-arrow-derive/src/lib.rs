@@ -5,7 +5,7 @@ mod record;
 mod union;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 #[proc_macro_derive(Record, attributes(nested, schema_metadata, metadata, record))]
 pub fn derive_record(input: TokenStream) -> TokenStream {

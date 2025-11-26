@@ -1,6 +1,6 @@
 //! Showcase: derive `Record`, inspect schema, build primitive columns.
 
-use arrow_array::{cast, Array};
+use arrow_array::{Array, cast};
 use typed_arrow::prelude::*;
 
 #[derive(typed_arrow::Record)]

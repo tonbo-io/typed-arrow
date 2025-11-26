@@ -1,6 +1,6 @@
 //! Showcase: Struct arrays from nested `Record` types.
 
-use arrow_array::{cast::as_string_array, Array};
+use arrow_array::{Array, cast::as_string_array};
 use typed_arrow::prelude::*;
 
 #[derive(typed_arrow::Record)]

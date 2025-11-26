@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use arrow_array::{cast, Array, Int32Array, LargeListArray, ListArray, RecordBatch};
+use arrow_array::{Array, Int32Array, LargeListArray, ListArray, RecordBatch, cast};
 use arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 

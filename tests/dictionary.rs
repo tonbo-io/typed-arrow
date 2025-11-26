@@ -1,6 +1,6 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
 use arrow_array::types::Int32Type;
-use typed_arrow::{prelude::*, Dictionary};
+use typed_arrow::{Dictionary, prelude::*};
 
 #[derive(typed_arrow::Record)]
 pub struct Row {

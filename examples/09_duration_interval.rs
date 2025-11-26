@@ -1,11 +1,11 @@
 //! Showcase: Duration and Interval types in a typed Record.
 
 // Native structs for DayTime and MonthDayNano interval values
-use arrow_array::{types as t, Array};
+use arrow_array::{Array, types as t};
 use typed_arrow::{
+    IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth,
     bridge::{Duration as Dur, Millisecond, Nanosecond},
     prelude::*,
-    IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth,
 };
 
 #[derive(typed_arrow::Record)]

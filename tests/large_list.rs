@@ -1,6 +1,6 @@
 use arrow_array::Array;
 use arrow_schema::{DataType, Field};
-use typed_arrow::{bridge::ArrowBinding, LargeList};
+use typed_arrow::{LargeList, bridge::ArrowBinding};
 
 #[test]
 fn large_list_datatype() {
@@ -39,7 +39,7 @@ fn large_list_nullable_items_build() {
 
 #[test]
 fn large_list_offsets_and_values() {
-    use arrow_array::{cast, Array};
+    use arrow_array::{Array, cast};
     type L = LargeList<Option<i32>>;
     let mut b = <L as ArrowBinding>::new_builder(4);
     // row0: []

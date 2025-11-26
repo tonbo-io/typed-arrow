@@ -36,7 +36,7 @@ impl DynStructViewRaw {
     /// The caller must ensure the underlying `StructArray` outlives `'a`.
     pub unsafe fn as_view<'a>(&self) -> DynStructView<'a> {
         DynStructView {
-            array: self.array.as_ref(),
+            array: unsafe { self.array.as_ref() },
             fields: self.fields.clone(),
             row: self.row,
             base_path: self.base_path.clone(),
@@ -49,7 +49,7 @@ impl DynStructViewRaw {
     /// # Safety
     /// The caller must ensure the underlying `StructArray` outlives `'a`.
     pub unsafe fn into_view<'a>(self) -> DynStructView<'a> {
-        let array = self.array.as_ref();
+        let array = unsafe { self.array.as_ref() };
         DynStructView {
             array,
             fields: self.fields,
@@ -202,7 +202,7 @@ impl DynMapViewRaw {
     /// The caller must ensure the underlying `MapArray` outlives `'a`.
     pub unsafe fn as_view<'a>(&self) -> DynMapView<'a> {
         DynMapView {
-            array: self.array.as_ref(),
+            array: unsafe { self.array.as_ref() },
             start: self.start,
             end: self.end,
             base_path: self.base_path.clone(),
@@ -217,7 +217,7 @@ impl DynMapViewRaw {
     /// The caller must ensure the underlying `MapArray` outlives `'a`.
     pub unsafe fn into_view<'a>(self) -> DynMapView<'a> {
         DynMapView {
-            array: self.array.as_ref(),
+            array: unsafe { self.array.as_ref() },
             start: self.start,
             end: self.end,
             base_path: self.base_path,
@@ -254,7 +254,7 @@ impl DynUnionViewRaw {
     /// The caller must ensure the underlying `UnionArray` outlives `'a`.
     pub unsafe fn as_view<'a>(&self) -> DynUnionView<'a> {
         DynUnionView {
-            array: self.array.as_ref(),
+            array: unsafe { self.array.as_ref() },
             fields: self.fields.clone(),
             mode: self.mode,
             row: self.row,
@@ -268,7 +268,7 @@ impl DynUnionViewRaw {
     /// The caller must ensure the underlying `UnionArray` outlives `'a`.
     pub unsafe fn into_view<'a>(self) -> DynUnionView<'a> {
         DynUnionView {
-            array: self.array.as_ref(),
+            array: unsafe { self.array.as_ref() },
             fields: self.fields,
             mode: self.mode,
             row: self.row,

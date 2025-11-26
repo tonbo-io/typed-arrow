@@ -7,7 +7,7 @@ use arrow_array::{
 use arrow_schema::{FieldRef, Fields, UnionFields, UnionMode};
 
 use super::{
-    cell::{view_cell_with_projector, DynCellRef},
+    cell::{DynCellRef, view_cell_with_projector},
     path::Path,
     projection::{FieldProjector, StructProjection},
 };

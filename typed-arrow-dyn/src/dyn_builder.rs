@@ -5,7 +5,7 @@ use std::sync::Arc;
 use arrow_array::ArrayRef;
 use arrow_schema::DataType;
 
-use crate::{cell::DynCell, DynError};
+use crate::{DynError, cell::DynCell};
 
 /// Result of finishing a dynamic column builder.
 #[derive(Debug)]

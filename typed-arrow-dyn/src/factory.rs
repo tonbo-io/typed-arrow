@@ -2,15 +2,15 @@
 
 use std::sync::Arc;
 
-use arrow_array::{builder as b, types as t, ArrayRef};
+use arrow_array::{ArrayRef, builder as b, types as t};
 use arrow_schema::{DataType, UnionFields, UnionMode};
 
 use crate::{
+    DynError,
     cell::DynCell,
     dyn_builder::{DynColumnBuilder, FinishedColumn},
     nested::{FixedSizeListCol, LargeListCol, ListCol, MapCol, StructCol},
     union::{DenseUnionCol, SparseUnionCol},
-    DynError,
 };
 
 // All concrete builder variants wrapped under a single enum used by the factory.

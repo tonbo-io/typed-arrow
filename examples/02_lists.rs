@@ -1,7 +1,7 @@
 //! Showcase: List and item-nullable lists via List<Option<T>> for Arrow `ListArray`.
 
 use arrow_array::Array;
-use typed_arrow::{bridge::ArrowBinding, prelude::*, List};
+use typed_arrow::{List, bridge::ArrowBinding, prelude::*};
 
 #[derive(typed_arrow::Record)]
 struct Row {

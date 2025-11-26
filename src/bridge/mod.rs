@@ -92,7 +92,7 @@ mod temporal;
 
 // Public re-exports for convenience
 pub use binary::LargeBinary;
-pub use column::{data_type_of, ColumnBuilder};
+pub use column::{ColumnBuilder, data_type_of};
 pub use decimals::{Decimal128, Decimal256};
 pub use dictionary::{DictKey, Dictionary};
 pub use intervals::{IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth};

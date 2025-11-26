@@ -1,8 +1,8 @@
 //! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`).
 
 use arrow_array::{
-    builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
     Array, FixedSizeBinaryArray, LargeBinaryArray,
+    builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
 };
 use arrow_schema::DataType;
 

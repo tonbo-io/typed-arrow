@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{Attribute, Data, DataEnum, DeriveInput, Fields, Ident, LitStr};
 
 pub(crate) fn derive_union(input: &DeriveInput) -> TokenStream {
@@ -339,7 +339,7 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
     };
 
-    let gen = if is_sparse { sparse_ts } else { dense_ts };
+    let r#gen = if is_sparse { sparse_ts } else { dense_ts };
 
     // Generate View enum for ArrowBindingView
     let view_ident = Ident::new(&format!("{name}View"), name.span());
@@ -445,7 +445,7 @@ fn impl_union(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     };
 
     let expanded = quote! {
-        #gen
+        #r#gen
         #view_impl
     };
 
@@ -510,13 +510,14 @@ fn parse_union_container_attrs(
     }
 
     // Validate mode
-    if let Some(m) = &out.mode {
-        if m != "dense" && m != "sparse" {
-            return Err(syn::Error::new_spanned(
-                &attrs[0],
-                "#[derive(Union)] supports mode=\"dense\" or mode=\"sparse\"",
-            ));
-        }
+    if let Some(m) = &out.mode
+        && m != "dense"
+        && m != "sparse"
+    {
+        return Err(syn::Error::new_spanned(
+            &attrs[0],
+            "#[derive(Union)] supports mode=\"dense\" or mode=\"sparse\"",
+        ));
     }
 
     // Validate unknown names in container-level maps
@@ -529,13 +530,13 @@ fn parse_union_container_attrs(
             ));
         }
     }
-    if let Some(nv) = &out.null_variant {
-        if !known.contains(nv.as_str()) {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("#[union(null_variant = \"{nv}\")] references unknown variant"),
-            ));
-        }
+    if let Some(nv) = &out.null_variant
+        && !known.contains(nv.as_str())
+    {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!("#[union(null_variant = \"{nv}\")] references unknown variant"),
+        ));
     }
 
     Ok(out)

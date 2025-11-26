@@ -9,7 +9,7 @@ use arrow_array::{
 use arrow_buffer::OffsetBuffer;
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
 
-use crate::{dyn_builder::array_key, DynError};
+use crate::{DynError, dyn_builder::array_key};
 
 /// Validate that arrays satisfy nullability constraints declared by `schema`.
 /// Returns the first violation encountered with a descriptive path.
@@ -23,15 +23,16 @@ pub fn validate_nullability(
 ) -> Result<(), DynError> {
     for (col, (field, array)) in schema.fields().iter().zip(arrays.iter()).enumerate() {
         // Top-level field nullability
-        if !field.is_nullable() && array.null_count() > 0 {
-            if let Some(idx) = first_null_index(array.as_ref()) {
-                return Err(DynError::Nullability {
-                    col,
-                    path: field.name().to_string(),
-                    index: idx,
-                    message: "non-nullable field contains null".to_string(),
-                });
-            }
+        if !field.is_nullable()
+            && array.null_count() > 0
+            && let Some(idx) = first_null_index(array.as_ref())
+        {
+            return Err(DynError::Nullability {
+                col,
+                path: field.name().to_string(),
+                index: idx,
+                message: "non-nullable field contains null".to_string(),
+            });
         }
 
         // Nested
@@ -154,18 +155,17 @@ fn validate_union(
             .unwrap_or(false)
     };
 
-    if !nullable {
-        if let Some(&row) = null_rows
+    if !nullable
+        && let Some(&row) = null_rows
             .iter()
             .find(|&&row| parent_valid.get(row).copied().unwrap_or(false))
-        {
-            return Err(DynError::Nullability {
-                col,
-                path: col_name.to_string(),
-                index: row,
-                message: "non-nullable field contains null".to_string(),
-            });
-        }
+    {
+        return Err(DynError::Nullability {
+            col,
+            path: col_name.to_string(),
+            index: row,
+            message: "non-nullable field contains null".to_string(),
+        });
     }
 
     let variants: Vec<(i8, FieldRef)> = fields

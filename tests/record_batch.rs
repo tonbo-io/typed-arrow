@@ -1,4 +1,4 @@
-use arrow_array::{cast::as_string_array, Array, RecordBatch};
+use arrow_array::{Array, RecordBatch, cast::as_string_array};
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
 #[derive(typed_arrow::Record)]

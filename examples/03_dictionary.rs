@@ -1,7 +1,7 @@
 //! Showcase: Dictionary<K, String> columns using typed builder.
 
 use arrow_array::{Array, DictionaryArray};
-use typed_arrow::{prelude::*, Dictionary};
+use typed_arrow::{Dictionary, prelude::*};
 
 #[derive(typed_arrow::Record)]
 struct Row {

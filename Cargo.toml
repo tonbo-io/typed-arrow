@@ -1,35 +1,35 @@
 [workspace]
 members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-unified"]
+package.edition = "2024"
+package.license = "Apache-2.0"
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
-package.license = "Apache-2.0"
-package.version = "0.4.2"
-package.edition = "2021"
+package.version = "0.5.0"
 
 [workspace.dependencies]
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.4.1", package = "typed-arrow-derive" }
-typed-arrow = { path = ".", version = "0.4.1", package = "typed-arrow" }
+typed-arrow = { path = ".", version = "0.5.0", package = "typed-arrow" }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.0", package = "typed-arrow-derive" }
 typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.3", package = "typed-arrow-dyn" }
 typed-arrow-unified = { path = "typed-arrow-unified", version = "0.0.1", package = "typed-arrow-unified" }
 
 arrow-array = { version = "56" }
-arrow-schema = { version = "56" }
 arrow-buffer = { version = "56" }
 arrow-data = { version = "56" }
+arrow-schema = { version = "56" }
 half = "2"
-thiserror = "2"
-serde = { version = "1", features = ["derive"] }
 parquet = { version = "56" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
 
 [package]
-name = "typed-arrow"
-version = { workspace = true }
-edition = { workspace = true }
 description = "Compile-time Arrow schemas for Rust."
+edition = { workspace = true }
 license = { workspace = true }
+name = "typed-arrow"
 readme = { workspace = true }
-resolver = "2"
 repository = { workspace = true }
+resolver = "2"
+version = { workspace = true }
 
 [features]
 default = ["derive", "views"]
@@ -38,13 +38,13 @@ ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
 views = ["derive", "typed-arrow-derive/views"]
 
 [dependencies]
-typed-arrow-derive = { workspace = true, optional = true }
 arrow-array = { workspace = true }
-arrow-schema = { workspace = true }
 arrow-buffer = { workspace = true }
 arrow-data = { workspace = true }
+arrow-schema = { workspace = true }
 half = { workspace = true }
 thiserror = { workspace = true }
+typed-arrow-derive = { workspace = true, optional = true }
 
 [[example]]
 name = "12_ext_hooks"

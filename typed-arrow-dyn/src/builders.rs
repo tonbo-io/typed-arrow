@@ -6,8 +6,8 @@ use arrow_array::RecordBatch;
 use arrow_schema::SchemaRef;
 
 use crate::{
-    dyn_builder::DynColumnBuilder, factory::new_dyn_builder, rows::DynRow, validate_nullability,
-    DynError,
+    DynError, dyn_builder::DynColumnBuilder, factory::new_dyn_builder, rows::DynRow,
+    validate_nullability,
 };
 
 /// Dynamic builders collection for a runtime schema.

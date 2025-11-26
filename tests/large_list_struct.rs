@@ -1,7 +1,7 @@
 use arrow_array::{
+    Array, LargeListArray,
     cast::{as_primitive_array, as_struct_array},
     types::Int32Type,
-    Array, LargeListArray,
 };
 use typed_arrow::prelude::*;
 

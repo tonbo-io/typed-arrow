@@ -1,8 +1,8 @@
 //! Decimal128/Decimal256 bindings.
 
 use arrow_array::{
-    builder::{Decimal128Builder, Decimal256Builder},
     Array, Decimal128Array, Decimal256Array,
+    builder::{Decimal128Builder, Decimal256Builder},
 };
 use arrow_buffer::i256;
 use arrow_schema::DataType;
