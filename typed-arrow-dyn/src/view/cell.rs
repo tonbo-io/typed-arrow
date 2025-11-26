@@ -25,6 +25,34 @@ use super::{
 };
 use crate::{DynViewError, cell::DynCell};
 
+impl DynCell {
+    /// Borrow this owned cell as a [`DynCellRef`] without cloning underlying buffers.
+    ///
+    /// Container variants (`Struct`, `List`, `FixedSizeList`, `Map`, `Union`) are not supported
+    /// because their borrowed form requires array-backed views; in those cases this returns `None`.
+    #[must_use]
+    pub fn as_ref(&self) -> Option<DynCellRef<'_>> {
+        use DynCell::*;
+        Some(match self {
+            Null => DynCellRef::null(),
+            Bool(v) => DynCellRef::from_raw(DynCellRaw::Bool(*v)),
+            I8(v) => DynCellRef::from_raw(DynCellRaw::I8(*v)),
+            I16(v) => DynCellRef::from_raw(DynCellRaw::I16(*v)),
+            I32(v) => DynCellRef::from_raw(DynCellRaw::I32(*v)),
+            I64(v) => DynCellRef::from_raw(DynCellRaw::I64(*v)),
+            U8(v) => DynCellRef::from_raw(DynCellRaw::U8(*v)),
+            U16(v) => DynCellRef::from_raw(DynCellRaw::U16(*v)),
+            U32(v) => DynCellRef::from_raw(DynCellRaw::U32(*v)),
+            U64(v) => DynCellRef::from_raw(DynCellRaw::U64(*v)),
+            F32(v) => DynCellRef::from_raw(DynCellRaw::F32(*v)),
+            F64(v) => DynCellRef::from_raw(DynCellRaw::F64(*v)),
+            Str(s) => DynCellRef::from_raw(DynCellRaw::from_str(s)),
+            Bin(b) => DynCellRef::from_raw(DynCellRaw::from_bin(b)),
+            Struct(_) | List(_) | FixedSizeList(_) | Map(_) | Union { .. } => return None,
+        })
+    }
+}
+
 macro_rules! dyn_cell_primitive_methods {
     ($(($variant:ident, $ctor:ident, $getter:ident, $into:ident, $ty:ty, $arrow:literal, $desc:literal)),* $(,)?) => {
         $(

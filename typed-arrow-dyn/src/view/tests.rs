@@ -24,6 +24,36 @@ fn dyn_row_owned_round_trip_utf8() {
 }
 
 #[test]
+fn dyn_cell_as_ref_scalars() {
+    let c_bool = DynCell::Bool(true);
+    let c_str = DynCell::Str("hi".into());
+    let c_bin = DynCell::Bin(vec![1, 2, 3]);
+
+    let r_bool = c_bool.as_ref().unwrap();
+    assert_eq!(r_bool.as_bool(), Some(true));
+
+    let r_str = c_str.as_ref().unwrap();
+    assert_eq!(r_str.as_str(), Some("hi"));
+
+    let r_bin = c_bin.as_ref().unwrap();
+    assert_eq!(r_bin.as_bin(), Some(&[1, 2, 3][..]));
+}
+
+#[test]
+fn dyn_cell_as_ref_rejects_nested() {
+    assert!(DynCell::List(Vec::new()).as_ref().is_none());
+    assert!(DynCell::Struct(Vec::new()).as_ref().is_none());
+    assert!(
+        DynCell::Union {
+            type_id: 0,
+            value: None
+        }
+        .as_ref()
+        .is_none()
+    );
+}
+
+#[test]
 fn dyn_row_owned_rejects_nested() {
     let fields = Fields::from(vec![Arc::new(Field::new("map", DataType::Binary, false))]);
     let row = DynRowOwned::try_new(fields, vec![Some(DynCell::Map(Vec::new()))]).unwrap();
