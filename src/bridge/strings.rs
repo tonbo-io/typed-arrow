@@ -1,8 +1,8 @@
 //! `Utf8` and `LargeUtf8` string bindings.
 
 use arrow_array::{
-    builder::{LargeStringBuilder, StringBuilder},
     Array, LargeStringArray, StringArray,
+    builder::{LargeStringBuilder, StringBuilder},
 };
 use arrow_schema::DataType;
 

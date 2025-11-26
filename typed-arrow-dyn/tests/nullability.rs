@@ -4,7 +4,7 @@ use arrow_array::{Array, ArrayRef, Int64Array, MapArray, StringArray, StructArra
 use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
 use arrow_data::ArrayData;
 use arrow_schema::{DataType, Field, Fields, Schema};
-use typed_arrow_dyn::{validate_nullability, DynBuilders, DynCell, DynError, DynRow};
+use typed_arrow_dyn::{DynBuilders, DynCell, DynError, DynRow, validate_nullability};
 
 #[test]
 fn rejects_none_for_non_nullable_primitive() {

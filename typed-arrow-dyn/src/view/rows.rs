@@ -4,11 +4,11 @@ use arrow_array::RecordBatch;
 use arrow_schema::{DataType, Field, Fields, Schema};
 
 use super::{
-    cell::{view_cell_with_projector, DynCellRaw, DynCellRef},
+    cell::{DynCellRaw, DynCellRef, view_cell_with_projector},
     path::Path,
     projection::{DynProjection, FieldProjector},
 };
-use crate::{cell::DynCell, rows::DynRow, schema::DynSchema, DynViewError};
+use crate::{DynViewError, cell::DynCell, rows::DynRow, schema::DynSchema};
 
 /// Iterator over borrowed dynamic rows.
 #[derive(Debug)]

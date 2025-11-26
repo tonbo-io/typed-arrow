@@ -1,4 +1,4 @@
-use typed_arrow::{prelude::*, Millisecond, Nanosecond, Second, TimestampTz, Utc};
+use typed_arrow::{Millisecond, Nanosecond, Second, TimestampTz, Utc, prelude::*};
 
 #[derive(typed_arrow::Record)]
 struct RowTz {

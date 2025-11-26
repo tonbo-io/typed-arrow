@@ -8,13 +8,13 @@ use arrow_array::{
         LargeStringDictionaryBuilder, PrimitiveDictionaryBuilder, StringDictionaryBuilder,
     },
     types::{
-        Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type,
+        Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type, UInt16Type,
+        UInt32Type, UInt64Type,
     },
 };
 use arrow_schema::DataType;
 
-use super::{binary::LargeBinary, strings::LargeUtf8, ArrowBinding};
+use super::{ArrowBinding, binary::LargeBinary, strings::LargeUtf8};
 
 /// Wrapper denoting an Arrow Dictionary column with key type `K` and values of `V`.
 ///

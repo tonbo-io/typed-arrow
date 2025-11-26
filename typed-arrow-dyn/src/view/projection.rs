@@ -8,7 +8,7 @@ use super::{
     path::Path,
     rows::{DynRowRaw, DynRowView},
 };
-use crate::{schema::DynSchema, DynViewError};
+use crate::{DynViewError, schema::DynSchema};
 
 /// Column projection descriptor used to derive projected dynamic views.
 #[derive(Debug, Clone)]
@@ -134,7 +134,7 @@ impl DynProjection {
                         column: pos,
                         path: field.name().to_string(),
                         message: "field not found in source schema".to_string(),
-                    })
+                    });
                 }
             };
             let source_field = source_fields[source_idx].as_ref();

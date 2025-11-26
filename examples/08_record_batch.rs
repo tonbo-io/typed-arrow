@@ -1,6 +1,6 @@
 //! Showcase: Compile-time Schema + `RecordBatch` from typed arrays.
 
-use arrow_array::{cast::as_string_array, RecordBatch};
+use arrow_array::{RecordBatch, cast::as_string_array};
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
 #[derive(typed_arrow::Record)]

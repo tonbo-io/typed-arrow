@@ -70,7 +70,7 @@ fn union_variant_level_attrs_and_null_carrier() {
     // auto tag for S: any i8 other than 42 is acceptable
     assert_ne!(arr.type_id(1), 42);
     assert_eq!(arr.type_id(2), 42); // null encoded into I
-                                    // Check offsets increment for I
+    // Check offsets increment for I
     assert_eq!(arr.value_offset(0), 0);
     assert_eq!(arr.value_offset(2), 1);
     // Check child arrays directly by looking up field order

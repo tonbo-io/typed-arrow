@@ -15,7 +15,7 @@ mod views;
 
 pub use cell::{DynCellRaw, DynCellRef};
 pub use projection::DynProjection;
-pub use rows::{iter_batch_views, view_batch_row, DynRowOwned, DynRowRaw, DynRowView, DynRowViews};
+pub use rows::{DynRowOwned, DynRowRaw, DynRowView, DynRowViews, iter_batch_views, view_batch_row};
 pub use views::{DynFixedSizeListView, DynListView, DynMapView, DynStructView, DynUnionView};
 
 #[cfg(test)]

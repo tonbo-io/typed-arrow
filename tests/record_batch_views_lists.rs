@@ -1,5 +1,5 @@
 use arrow_array::RecordBatch;
-use typed_arrow::{prelude::*, FixedSizeList, LargeList, List};
+use typed_arrow::{FixedSizeList, LargeList, List, prelude::*};
 
 #[derive(typed_arrow::Record)]
 struct ListRecord {

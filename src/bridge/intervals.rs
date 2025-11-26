@@ -1,9 +1,9 @@
 //! Interval types: `YearMonth`, `DayTime`, `MonthDayNano`.
 
 use arrow_array::{
+    Array, PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{IntervalDayTimeType, IntervalMonthDayNanoType, IntervalYearMonthType},
-    Array, PrimitiveArray,
 };
 use arrow_schema::{DataType, IntervalUnit};
 

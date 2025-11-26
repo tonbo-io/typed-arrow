@@ -8,11 +8,11 @@ pub mod schema;
 /// Prelude exporting the most common traits and markers.
 pub mod prelude {
     #[cfg(feature = "views")]
+    pub use crate::AsViewsIterator;
+    #[cfg(feature = "views")]
     pub use crate::error::ViewAccessError;
     #[cfg(feature = "views")]
     pub use crate::schema::{FromRecordBatch, ViewResultIteratorExt};
-    #[cfg(feature = "views")]
-    pub use crate::AsViewsIterator;
     pub use crate::{
         error::SchemaError,
         schema::{BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record},

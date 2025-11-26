@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{Attribute, Data, DataStruct, DeriveInput, Fields, Ident, Path, Type};
 
 #[cfg(feature = "ext-hooks")]
@@ -688,16 +688,13 @@ fn check_no_legacy_nested_attr(attrs: &[Attribute]) -> syn::Result<()> {
 }
 
 fn unwrap_option(ty: &Type) -> (Type, bool) {
-    if let Type::Path(tp) = ty {
-        if let Some(seg) = tp.path.segments.last() {
-            if seg.ident == "Option" {
-                if let syn::PathArguments::AngleBracketed(args) = &seg.arguments {
-                    if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                        return (inner.clone(), true);
-                    }
-                }
-            }
-        }
+    if let Type::Path(tp) = ty
+        && let Some(seg) = tp.path.segments.last()
+        && seg.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &seg.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+    {
+        return (inner.clone(), true);
     }
     (ty.clone(), false)
 }
@@ -721,57 +718,56 @@ fn generate_view_type(ty: &Type, nullable: bool) -> proc_macro2::TokenStream {
 /// Check if a type is a Copy value type where View<'a> = Self.
 /// This includes primitives and temporal types.
 fn is_copy_primitive(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty {
-        if type_path.path.segments.len() == 1 {
-            let segment = &type_path.path.segments[0];
-            let ident = &segment.ident;
-            let name = ident.to_string();
+    if let Type::Path(type_path) = ty
+        && type_path.path.segments.len() == 1
+    {
+        let segment = &type_path.path.segments[0];
+        let ident = &segment.ident;
+        let name = ident.to_string();
 
-            return matches!(
-                name.as_str(),
-                // Integer types
-                "i8" | "i16" | "i32" | "i64" |
-                "u8" | "u16" | "u32" | "u64" |
-                // Float types
-                "f16" | "f32" | "f64" |
-                // Boolean
-                "bool" |
-                // Timestamp types
-                "Timestamp" | "TimestampTz" |
-                // Date types
-                "Date32" | "Date64" |
-                // Time types
-                "Time32" | "Time64" |
-                // Duration
-                "Duration" |
-                // Interval types
-                "IntervalYearMonth" | "IntervalDayTime" | "IntervalMonthDayNano"
-            );
-        }
+        return matches!(
+            name.as_str(),
+            // Integer types
+            "i8" | "i16" | "i32" | "i64" |
+            "u8" | "u16" | "u32" | "u64" |
+            // Float types
+            "f16" | "f32" | "f64" |
+            // Boolean
+            "bool" |
+            // Timestamp types
+            "Timestamp" | "TimestampTz" |
+            // Date types
+            "Date32" | "Date64" |
+            // Time types
+            "Time32" | "Time64" |
+            // Duration
+            "Duration" |
+            // Interval types
+            "IntervalYearMonth" | "IntervalDayTime" | "IntervalMonthDayNano"
+        );
     }
     false
 }
 
 /// Check if a type is String (which has infallible conversion from &str).
 fn is_string(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty {
-        if type_path.path.segments.len() == 1 {
-            let segment = &type_path.path.segments[0];
-            return segment.ident == "String";
-        }
+    if let Type::Path(type_path) = ty
+        && type_path.path.segments.len() == 1
+    {
+        let segment = &type_path.path.segments[0];
+        return segment.ident == "String";
     }
     false
 }
 
 /// Check if a type is a fixed-size byte array [u8; N].
 fn is_fixed_size_binary(ty: &Type) -> bool {
-    if let Type::Array(type_array) = ty {
-        if let Type::Path(elem_type) = &*type_array.elem {
-            if elem_type.path.segments.len() == 1 {
-                let seg = &elem_type.path.segments[0];
-                return seg.ident == "u8";
-            }
-        }
+    if let Type::Array(type_array) = ty
+        && let Type::Path(elem_type) = &*type_array.elem
+        && elem_type.path.segments.len() == 1
+    {
+        let seg = &elem_type.path.segments[0];
+        return seg.ident == "u8";
     }
     false
 }

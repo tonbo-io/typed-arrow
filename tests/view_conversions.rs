@@ -1,7 +1,7 @@
 //! Test view-to-owned conversion functionality
 
 use arrow_array::RecordBatch;
-use typed_arrow::{prelude::*, Dictionary, FixedSizeList, List, Map, OrderedMap};
+use typed_arrow::{Dictionary, FixedSizeList, List, Map, OrderedMap, prelude::*};
 
 #[derive(typed_arrow::Record, Clone)]
 struct Address {

@@ -3,6 +3,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use arrow_array::{
+    Array, PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{
         Date32Type, Date64Type, DurationMicrosecondType, DurationMillisecondType,
@@ -10,7 +11,6 @@ use arrow_array::{
         Time64MicrosecondType, Time64NanosecondType, TimestampMicrosecondType,
         TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType,
     },
-    Array, PrimitiveArray,
 };
 use arrow_schema::{DataType, TimeUnit};
 

@@ -5,10 +5,10 @@ use arrow_buffer::OffsetBuffer;
 use arrow_schema::{DataType, Field, Fields, Schema};
 
 use super::{
-    path::Path, projection::StructProjection, DynCellRaw, DynMapView, DynRowOwned, DynRowView,
-    DynStructView,
+    DynCellRaw, DynMapView, DynRowOwned, DynRowView, DynStructView, path::Path,
+    projection::StructProjection,
 };
-use crate::{cell::DynCell, DynViewError};
+use crate::{DynViewError, cell::DynCell};
 
 #[test]
 fn dyn_row_owned_round_trip_utf8() {

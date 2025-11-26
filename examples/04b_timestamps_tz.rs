@@ -1,7 +1,7 @@
 //! Showcase: `TimestampTz`<U, Z> with timezone markers.
 
 use arrow_array::Array;
-use typed_arrow::{prelude::*, Millisecond, Nanosecond, Second, TimestampTz, Utc};
+use typed_arrow::{Millisecond, Nanosecond, Second, TimestampTz, Utc, prelude::*};
 
 // Custom timezone marker example
 enum AsiaShanghai {}

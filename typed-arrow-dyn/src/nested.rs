@@ -7,7 +7,7 @@ use arrow_schema::{
     DataType, FieldRef, Fields,
 };
 
-use crate::{cell::DynCell, dyn_builder::DynColumnBuilder, DynError};
+use crate::{DynError, cell::DynCell, dyn_builder::DynColumnBuilder};
 
 type UnionMetadata = Vec<(usize, Vec<usize>)>;
 type TryFinishResult<T> = Result<(T, UnionMetadata), ArrowError>;

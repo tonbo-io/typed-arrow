@@ -1,6 +1,6 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
 // Import List wrapper; use List<Option<T>> for item-nullability
-use typed_arrow::{prelude::*, List};
+use typed_arrow::{List, prelude::*};
 
 #[derive(typed_arrow::Record)]
 pub struct Row {
@@ -15,9 +15,9 @@ impl<T> Same<T> for T {}
 #[test]
 fn list_datatypes_and_associated_types() {
     use arrow_array::{
+        ListArray,
         builder::{ListBuilder, PrimitiveBuilder, StringBuilder},
         types::Int32Type,
-        ListArray,
     };
     use arrow_schema::{DataType, Field};
 
@@ -70,7 +70,7 @@ fn list_datatypes_and_associated_types() {
 
 #[test]
 fn list_build_and_values() {
-    use arrow_array::{cast, Array};
+    use arrow_array::{Array, cast};
 
     // Non-null item list: List<String>
     type L = List<String>;

@@ -1,17 +1,17 @@
 use std::{marker::PhantomData, ptr::NonNull, slice, str, sync::Arc};
 
 use arrow_array::{
+    Array, ArrayRef, BinaryArray, BooleanArray, DictionaryArray, FixedSizeBinaryArray,
+    FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array,
+    LargeBinaryArray, LargeListArray, LargeStringArray, ListArray, MapArray, PrimitiveArray,
+    StringArray, StructArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array, UnionArray,
     types::{
         Date32Type, Date64Type, DurationMicrosecondType, DurationMillisecondType,
-        DurationNanosecondType, DurationSecondType, Int16Type, Int32Type, Int64Type, Int8Type,
+        DurationNanosecondType, DurationSecondType, Int8Type, Int16Type, Int32Type, Int64Type,
         Time32MillisecondType, Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
         TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
-        TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+        TimestampSecondType, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
-    Array, ArrayRef, BinaryArray, BooleanArray, DictionaryArray, FixedSizeBinaryArray,
-    FixedSizeListArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
-    LargeBinaryArray, LargeListArray, LargeStringArray, ListArray, MapArray, PrimitiveArray,
-    StringArray, StructArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array, UnionArray,
 };
 use arrow_schema::{DataType, Field};
 
@@ -23,7 +23,7 @@ use super::{
     },
     views::{DynFixedSizeListView, DynListView, DynMapView, DynStructView, DynUnionView},
 };
-use crate::{cell::DynCell, DynViewError};
+use crate::{DynViewError, cell::DynCell};
 
 macro_rules! dyn_cell_primitive_methods {
     ($(($variant:ident, $ctor:ident, $getter:ident, $into:ident, $ty:ty, $arrow:literal, $desc:literal)),* $(,)?) => {
@@ -715,7 +715,7 @@ fn view_map_projected<'a>(
                 column: path.column,
                 path: path.path.clone(),
                 message: format!("map entry must be struct, found {other:?}"),
-            })
+            });
         }
     };
     let view = DynMapView::with_projection(

@@ -1,7 +1,7 @@
 //! Showcase: Timestamp units (Second/Millisecond/Microsecond/Nanosecond).
 
 use arrow_array::Array;
-use typed_arrow::{prelude::*, Microsecond, Millisecond, Nanosecond, Second, Timestamp};
+use typed_arrow::{Microsecond, Millisecond, Nanosecond, Second, Timestamp, prelude::*};
 
 #[derive(typed_arrow::Record)]
 struct RowTs {

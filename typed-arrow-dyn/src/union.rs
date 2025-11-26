@@ -7,9 +7,9 @@ use arrow_buffer::ScalarBuffer;
 use arrow_schema::UnionFields;
 
 use crate::{
-    cell::DynCell,
-    dyn_builder::{array_key, DynColumnBuilder, FinishedColumn},
     DynError,
+    cell::DynCell,
+    dyn_builder::{DynColumnBuilder, FinishedColumn, array_key},
 };
 
 /// Dense union column builder.
@@ -77,7 +77,7 @@ impl DenseUnionCol {
             None => {
                 return Err(DynError::Builder {
                     message: format!("unknown union type id {tag}"),
-                })
+                });
             }
         };
         let canonical_tag = self.tags[idx];
@@ -229,7 +229,7 @@ impl SparseUnionCol {
             None => {
                 return Err(DynError::Builder {
                     message: format!("unknown union type id {tag}"),
-                })
+                });
             }
         };
         let canonical_tag = self.tags[idx];

@@ -20,10 +20,10 @@ serde = ["dep:serde"]
 arrow-array = { workspace = true }
 arrow-buffer = { workspace = true }
 arrow-schema = { workspace = true }
+parquet = { workspace = true }
 serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
-typed-arrow = { path = "..", version = "0.4.0", package = "typed-arrow" }
-parquet = { workspace = true }
+typed-arrow = { workspace = true }
 
 [dev-dependencies]
 arrow-data = { workspace = true }
