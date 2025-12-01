@@ -370,6 +370,12 @@ pub enum DynCellRaw {
     Union(DynUnionViewRaw),
 }
 
+// Safety: the raw variants only carry pointer/address data to Arrow arrays or plain POD values.
+// Arrow arrays themselves are `Send + Sync`; forwarding these markers relies on callers upholding
+// the documented lifetime requirement that the backing arrays outlive any raw handles.
+unsafe impl Send for DynCellRaw {}
+unsafe impl Sync for DynCellRaw {}
+
 impl DynCellRaw {
     /// Convert a borrowed dynamic cell into its lifetime-erased form.
     pub fn from_ref(cell: DynCellRef<'_>) -> Self {

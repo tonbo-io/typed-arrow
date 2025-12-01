@@ -286,6 +286,12 @@ pub struct DynRowRaw {
     cells: Vec<Option<DynCellRaw>>,
 }
 
+// Safety: this type is a lightweight handle over raw cells and schema metadata. The same lifetime
+// caveats as `DynCellRaw` apply: callers must ensure the backing Arrow data outlives any moved
+// `DynRowRaw` instances.
+unsafe impl Send for DynRowRaw {}
+unsafe impl Sync for DynRowRaw {}
+
 fn validate_row_width(fields: &Fields, cells_len: usize) -> Result<(), DynViewError> {
     if fields.len() != cells_len {
         let column = fields.len().min(cells_len);
