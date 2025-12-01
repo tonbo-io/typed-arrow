@@ -60,6 +60,12 @@ impl DynStructViewRaw {
     }
 }
 
+// Safety: callers already uphold that the backing `RecordBatch` / arrays outlive any raw view
+// handles. Arrow arrays are `Send + Sync`, so forwarding the marker traits is sound under the
+// existing lifetime contract.
+unsafe impl Send for DynStructViewRaw {}
+unsafe impl Sync for DynStructViewRaw {}
+
 /// Lifetime-erased list view backing a [`DynCellRaw::List`] cell.
 #[derive(Debug, Clone)]
 pub struct DynListViewRaw {
@@ -115,6 +121,9 @@ impl DynListViewRaw {
         }
     }
 }
+
+unsafe impl Send for DynListViewRaw {}
+unsafe impl Sync for DynListViewRaw {}
 
 /// Lifetime-erased fixed-size list view backing a [`DynCellRaw::FixedSizeList`] cell.
 
@@ -173,6 +182,9 @@ impl DynFixedSizeListViewRaw {
     }
 }
 
+unsafe impl Send for DynFixedSizeListViewRaw {}
+unsafe impl Sync for DynFixedSizeListViewRaw {}
+
 /// Lifetime-erased map view backing a [`DynCellRaw::Map`] cell.
 #[derive(Debug, Clone)]
 pub struct DynMapViewRaw {
@@ -227,6 +239,9 @@ impl DynMapViewRaw {
     }
 }
 
+unsafe impl Send for DynMapViewRaw {}
+unsafe impl Sync for DynMapViewRaw {}
+
 /// Lifetime-erased union view backing a [`DynCellRaw::Union`] cell.
 #[derive(Debug, Clone)]
 pub struct DynUnionViewRaw {
@@ -276,3 +291,6 @@ impl DynUnionViewRaw {
         }
     }
 }
+
+unsafe impl Send for DynUnionViewRaw {}
+unsafe impl Sync for DynUnionViewRaw {}
