@@ -8,7 +8,6 @@
 - Single `DataType` switch: map `arrow_schema::DataType` to a concrete builder once per column (factory).
 - Minimal append-time checks: pre-validate row arity and value type compatibility only; avoid expensive checks per append.
 - Nullability: validate column/field/item constraints before finishing and return `DynError::Nullability { col, path, index, message }`; avoid panics from arrow-rs by catching issues earlier.
-- Unified surface: interoperate with `typed-arrow-unified` (`SchemaLike`/`BuildersLike`) so typed and dynamic paths feel symmetric.
 
 ## Public API Surface
 - `DynSchema`: thin wrapper over `Arc<Schema>` for the dynamic path.

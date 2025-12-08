@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "typed-arrow-dyn"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -832,16 +832,6 @@ dependencies = [
  "serde",
  "thiserror",
  "typed-arrow",
-]
-
-[[package]]
-name = "typed-arrow-unified"
-version = "0.0.1"
-dependencies = [
- "arrow-array",
- "arrow-schema",
- "typed-arrow",
- "typed-arrow-dyn",
 ]
 
 [[package]]
