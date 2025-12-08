@@ -597,7 +597,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 type View<'a> = #view_ident<'a>;
                 type Views<'a> = #views_ident<'a>;
 
-                fn from_record_batch(batch: &::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
+                fn from_record_batch(batch: &::typed_arrow::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
                     // Validate column count
                     if batch.num_columns() != #len {
                         return ::core::result::Result::Err(::typed_arrow::error::SchemaError::invalid(
@@ -621,16 +621,16 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             {
                 type View<'a> = #view_ident<'a>;
 
-                fn view_at(array: &::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
-                    use ::arrow_array::Array;
+                fn view_at(array: &::typed_arrow::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
+                    use ::typed_arrow::arrow_array::Array;
                     ::core::result::Result::Ok(#view_ident {
                         #(#struct_view_extract_stmts,)*
                         _phantom: ::core::marker::PhantomData,
                     })
                 }
 
-                fn is_null_at(array: &::arrow_array::StructArray, index: usize) -> bool {
-                    use ::arrow_array::Array;
+                fn is_null_at(array: &::typed_arrow::arrow_array::StructArray, index: usize) -> bool {
+                    use ::typed_arrow::arrow_array::Array;
                     array.is_null(index)
                 }
             }
