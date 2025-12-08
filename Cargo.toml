@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-unified"]
+members = [".", "typed-arrow-derive", "typed-arrow-dyn"]
 package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
@@ -10,7 +10,6 @@ package.version = "0.5.0"
 typed-arrow = { path = ".", version = "0.5.0", package = "typed-arrow" }
 typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.0", package = "typed-arrow-derive" }
 typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.3", package = "typed-arrow-dyn" }
-typed-arrow-unified = { path = "typed-arrow-unified", version = "0.0.1", package = "typed-arrow-unified" }
 
 arrow-array = { version = "56" }
 arrow-buffer = { version = "56" }

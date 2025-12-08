@@ -1,6 +1,6 @@
 # typed-arrow-dyn
 
-`typed-arrow-dyn` is the runtime half of the typed-arrow story. Where the main crate gives you a fully compile-time schema, this crate builds Arrow arrays and `RecordBatch`es from schemas that are only known at runtime. It keeps the API surface focused on batch construction so you can plug dynamic data sources into the `typed-arrow-unified` facade without sprinkling `match DataType` throughout your code.
+`typed-arrow-dyn` is the runtime half of the typed-arrow story. Where the main crate gives you a fully compile-time schema, this crate builds Arrow arrays and `RecordBatch`es from schemas that are only known at runtime.
 
 ## What It Provides
 - `DynSchema`: a thin `Arc<Schema>` wrapper that feeds the unified `SchemaLike` trait.

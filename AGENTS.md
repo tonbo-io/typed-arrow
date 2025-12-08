@@ -79,20 +79,6 @@
   - Ordered Map: `OrderedMap<K, V>` with sorted keys (`keys_sorted = true`).
   - Union: `#[derive(Union)]` with Dense and Sparse modes.
 
----
-
-## Unified Facade (typed-arrow-unified)
-- Traits:
-  - `SchemaLike` exposes a `Row` type, concrete `Builders`, `schema_ref()`, `new_builders(capacity)`, and `build_batch(rows)`.
-  - `BuildersLike` unifies append/finish APIs across typed and dynamic builders and returns `Result` on append.
-- Implementations:
-  - Typed: `Typed<R>` where `R: SchemaMeta + BuildRows` with `TypedBuilders<R>` adapter; typed appends are infallible and use a `NoError` type for zero-cost.
-  - Dynamic: `DynSchema` and `Arc<Schema>` produce `DynBuilders` and accept `DynRow`s.
-- Behavior:
-  - `SchemaLike::build_batch` infers capacity from iterator `size_hint` (uses upper bound if present, else lower bound) and calls `try_finish_into_batch` to return diagnostic errors when possible.
-  - No projection helpers included; focus is batch building from rows only.
-  - Dynamic builds: appends return `Result` for arity/type/builder issues; nullability violations are validated at `try_finish_into_batch` and returned as `DynError::Nullability { col, path, index, message }`.
-
 ## Dynamic Runtime (typed-arrow-dyn)
 - Row/cell types:
   - `DynRow(Vec<Option<DynCell>>)` holds per-column optional values.
