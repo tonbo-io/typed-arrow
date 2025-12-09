@@ -955,64 +955,88 @@ fn new_prim_dict_inner(key: &DataType, value: &DataType) -> Option<Inner> {
     }
 }
 
-fn inner_for_primitives(dt: &DataType) -> Option<Inner> {
+fn inner_for_primitives(dt: &DataType, capacity: usize) -> Option<Inner> {
     Some(match dt {
-        DataType::Boolean => Inner::Bool(b::BooleanBuilder::new()),
-        DataType::Int8 => Inner::I8(b::PrimitiveBuilder::<t::Int8Type>::new()),
-        DataType::Int16 => Inner::I16(b::PrimitiveBuilder::<t::Int16Type>::new()),
-        DataType::Int32 => Inner::I32(b::PrimitiveBuilder::<t::Int32Type>::new()),
-        DataType::Int64 => Inner::I64(b::PrimitiveBuilder::<t::Int64Type>::new()),
-        DataType::UInt8 => Inner::U8(b::PrimitiveBuilder::<t::UInt8Type>::new()),
-        DataType::UInt16 => Inner::U16(b::PrimitiveBuilder::<t::UInt16Type>::new()),
-        DataType::UInt32 => Inner::U32(b::PrimitiveBuilder::<t::UInt32Type>::new()),
-        DataType::UInt64 => Inner::U64(b::PrimitiveBuilder::<t::UInt64Type>::new()),
-        DataType::Float32 => Inner::F32(b::PrimitiveBuilder::<t::Float32Type>::new()),
-        DataType::Float64 => Inner::F64(b::PrimitiveBuilder::<t::Float64Type>::new()),
+        DataType::Boolean => Inner::Bool(b::BooleanBuilder::with_capacity(capacity)),
+        DataType::Int8 => Inner::I8(b::PrimitiveBuilder::<t::Int8Type>::with_capacity(capacity)),
+        DataType::Int16 => Inner::I16(b::PrimitiveBuilder::<t::Int16Type>::with_capacity(capacity)),
+        DataType::Int32 => Inner::I32(b::PrimitiveBuilder::<t::Int32Type>::with_capacity(capacity)),
+        DataType::Int64 => Inner::I64(b::PrimitiveBuilder::<t::Int64Type>::with_capacity(capacity)),
+        DataType::UInt8 => Inner::U8(b::PrimitiveBuilder::<t::UInt8Type>::with_capacity(capacity)),
+        DataType::UInt16 => Inner::U16(b::PrimitiveBuilder::<t::UInt16Type>::with_capacity(
+            capacity,
+        )),
+        DataType::UInt32 => Inner::U32(b::PrimitiveBuilder::<t::UInt32Type>::with_capacity(
+            capacity,
+        )),
+        DataType::UInt64 => Inner::U64(b::PrimitiveBuilder::<t::UInt64Type>::with_capacity(
+            capacity,
+        )),
+        DataType::Float32 => Inner::F32(b::PrimitiveBuilder::<t::Float32Type>::with_capacity(
+            capacity,
+        )),
+        DataType::Float64 => Inner::F64(b::PrimitiveBuilder::<t::Float64Type>::with_capacity(
+            capacity,
+        )),
         DataType::FixedSizeBinary(w) => {
-            Inner::FixedSizeBinary(b::FixedSizeBinaryBuilder::with_capacity(0, *w))
+            Inner::FixedSizeBinary(b::FixedSizeBinaryBuilder::with_capacity(capacity, *w))
         }
-        DataType::Date32 => Inner::Date32(b::PrimitiveBuilder::<t::Date32Type>::new()),
-        DataType::Date64 => Inner::Date64(b::PrimitiveBuilder::<t::Date64Type>::new()),
-        DataType::Time32(arrow_schema::TimeUnit::Second) => {
-            Inner::Time32Second(b::PrimitiveBuilder::<t::Time32SecondType>::new())
-        }
-        DataType::Time32(arrow_schema::TimeUnit::Millisecond) => {
-            Inner::Time32Millisecond(b::PrimitiveBuilder::<t::Time32MillisecondType>::new())
-        }
-        DataType::Time64(arrow_schema::TimeUnit::Microsecond) => {
-            Inner::Time64Microsecond(b::PrimitiveBuilder::<t::Time64MicrosecondType>::new())
-        }
-        DataType::Time64(arrow_schema::TimeUnit::Nanosecond) => {
-            Inner::Time64Nanosecond(b::PrimitiveBuilder::<t::Time64NanosecondType>::new())
-        }
-        DataType::Duration(arrow_schema::TimeUnit::Second) => {
-            Inner::DurationSecond(b::PrimitiveBuilder::<t::DurationSecondType>::new())
-        }
-        DataType::Duration(arrow_schema::TimeUnit::Millisecond) => {
-            Inner::DurationMillisecond(b::PrimitiveBuilder::<t::DurationMillisecondType>::new())
-        }
-        DataType::Duration(arrow_schema::TimeUnit::Microsecond) => {
-            Inner::DurationMicrosecond(b::PrimitiveBuilder::<t::DurationMicrosecondType>::new())
-        }
-        DataType::Duration(arrow_schema::TimeUnit::Nanosecond) => {
-            Inner::DurationNanosecond(b::PrimitiveBuilder::<t::DurationNanosecondType>::new())
-        }
-        DataType::Timestamp(arrow_schema::TimeUnit::Second, _tz) => {
-            Inner::TimestampSecond(b::PrimitiveBuilder::<t::TimestampSecondType>::new())
-        }
+        DataType::Date32 => Inner::Date32(b::PrimitiveBuilder::<t::Date32Type>::with_capacity(
+            capacity,
+        )),
+        DataType::Date64 => Inner::Date64(b::PrimitiveBuilder::<t::Date64Type>::with_capacity(
+            capacity,
+        )),
+        DataType::Time32(arrow_schema::TimeUnit::Second) => Inner::Time32Second(
+            b::PrimitiveBuilder::<t::Time32SecondType>::with_capacity(capacity),
+        ),
+        DataType::Time32(arrow_schema::TimeUnit::Millisecond) => Inner::Time32Millisecond(
+            b::PrimitiveBuilder::<t::Time32MillisecondType>::with_capacity(capacity),
+        ),
+        DataType::Time64(arrow_schema::TimeUnit::Microsecond) => Inner::Time64Microsecond(
+            b::PrimitiveBuilder::<t::Time64MicrosecondType>::with_capacity(capacity),
+        ),
+        DataType::Time64(arrow_schema::TimeUnit::Nanosecond) => Inner::Time64Nanosecond(
+            b::PrimitiveBuilder::<t::Time64NanosecondType>::with_capacity(capacity),
+        ),
+        DataType::Duration(arrow_schema::TimeUnit::Second) => Inner::DurationSecond(
+            b::PrimitiveBuilder::<t::DurationSecondType>::with_capacity(capacity),
+        ),
+        DataType::Duration(arrow_schema::TimeUnit::Millisecond) => Inner::DurationMillisecond(
+            b::PrimitiveBuilder::<t::DurationMillisecondType>::with_capacity(capacity),
+        ),
+        DataType::Duration(arrow_schema::TimeUnit::Microsecond) => Inner::DurationMicrosecond(
+            b::PrimitiveBuilder::<t::DurationMicrosecondType>::with_capacity(capacity),
+        ),
+        DataType::Duration(arrow_schema::TimeUnit::Nanosecond) => Inner::DurationNanosecond(
+            b::PrimitiveBuilder::<t::DurationNanosecondType>::with_capacity(capacity),
+        ),
+        DataType::Timestamp(arrow_schema::TimeUnit::Second, _tz) => Inner::TimestampSecond(
+            b::PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(capacity),
+        ),
         DataType::Timestamp(arrow_schema::TimeUnit::Millisecond, _tz) => {
-            Inner::TimestampMillisecond(b::PrimitiveBuilder::<t::TimestampMillisecondType>::new())
+            Inner::TimestampMillisecond(
+                b::PrimitiveBuilder::<t::TimestampMillisecondType>::with_capacity(capacity),
+            )
         }
         DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, _tz) => {
-            Inner::TimestampMicrosecond(b::PrimitiveBuilder::<t::TimestampMicrosecondType>::new())
+            Inner::TimestampMicrosecond(
+                b::PrimitiveBuilder::<t::TimestampMicrosecondType>::with_capacity(capacity),
+            )
         }
-        DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _tz) => {
-            Inner::TimestampNanosecond(b::PrimitiveBuilder::<t::TimestampNanosecondType>::new())
-        }
-        DataType::Utf8 => Inner::Utf8(b::StringBuilder::new()),
-        DataType::LargeUtf8 => Inner::LargeUtf8(b::LargeStringBuilder::new()),
-        DataType::Binary => Inner::Binary(b::BinaryBuilder::new()),
-        DataType::LargeBinary => Inner::LargeBinary(b::LargeBinaryBuilder::new()),
+        DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _tz) => Inner::TimestampNanosecond(
+            b::PrimitiveBuilder::<t::TimestampNanosecondType>::with_capacity(capacity),
+        ),
+        DataType::Utf8 => Inner::Utf8(b::StringBuilder::with_capacity(capacity, capacity * 32)),
+        DataType::LargeUtf8 => Inner::LargeUtf8(b::LargeStringBuilder::with_capacity(
+            capacity,
+            capacity * 32,
+        )),
+        DataType::Binary => Inner::Binary(b::BinaryBuilder::with_capacity(capacity, capacity * 32)),
+        DataType::LargeBinary => Inner::LargeBinary(b::LargeBinaryBuilder::with_capacity(
+            capacity,
+            capacity * 32,
+        )),
         _ => return None,
     })
 }
@@ -1149,36 +1173,39 @@ fn inner_for_dictionary(key: &DataType, value: &DataType) -> Option<Inner> {
     })
 }
 
-fn inner_for_nested(dt: &DataType) -> Option<Inner> {
-    Some(match dt {
+fn inner_for_nested(dt: &DataType, capacity: usize) -> Result<Option<Inner>, DynError> {
+    Ok(Some(match dt {
         DataType::Struct(fields) => {
-            let children = fields
+            let children: Result<Vec<_>, _> = fields
                 .iter()
-                .map(|f| new_dyn_builder(f.data_type()))
+                .map(|f| try_new_dyn_builder_with_capacity(f.data_type(), capacity))
                 .collect();
-            Inner::Struct(StructCol::new_with_children(fields.clone(), children))
+            Inner::Struct(StructCol::new_with_children(fields.clone(), children?))
         }
         DataType::List(item) => {
-            let child = new_dyn_builder(item.data_type());
+            // For nested types, we don't know the child capacity, so use 0
+            let child = try_new_dyn_builder_with_capacity(item.data_type(), 0)?;
             Inner::List(ListCol::new_with_child(item.clone(), child))
         }
         DataType::LargeList(item) => {
-            let child = new_dyn_builder(item.data_type());
+            let child = try_new_dyn_builder_with_capacity(item.data_type(), 0)?;
             Inner::LargeList(LargeListCol::new_with_child(item.clone(), child))
         }
         DataType::FixedSizeList(item, len) => {
-            let child = new_dyn_builder(item.data_type());
+            // For fixed-size list, child capacity = parent capacity * list length
+            let child_capacity = capacity.saturating_mul((*len).max(0) as usize);
+            let child = try_new_dyn_builder_with_capacity(item.data_type(), child_capacity)?;
             Inner::FixedSizeList(FixedSizeListCol::new_with_child(item.clone(), *len, child))
         }
         DataType::Map(entry_field, ordered) => {
             let DataType::Struct(children) = entry_field.data_type() else {
-                return None;
+                return Ok(None);
             };
             if children.len() != 2 {
-                return None;
+                return Ok(None);
             }
-            let key_builder = new_dyn_builder(children[0].data_type());
-            let value_builder = new_dyn_builder(children[1].data_type());
+            let key_builder = try_new_dyn_builder_with_capacity(children[0].data_type(), 0)?;
+            let value_builder = try_new_dyn_builder_with_capacity(children[1].data_type(), 0)?;
             Inner::Map(MapCol::new_with_children(
                 entry_field.clone(),
                 *ordered,
@@ -1186,53 +1213,98 @@ fn inner_for_nested(dt: &DataType) -> Option<Inner> {
                 value_builder,
             ))
         }
-        _ => return None,
-    })
+        _ => return Ok(None),
+    }))
 }
 
-fn inner_for_union(dt: &DataType) -> Option<Inner> {
+fn inner_for_union(dt: &DataType, capacity: usize) -> Result<Option<Inner>, DynError> {
     match dt {
         DataType::Union(fields, mode) => {
-            let children: Vec<_> = fields
+            // Union children share capacity (only one variant active per row)
+            let children: Result<Vec<_>, _> = fields
                 .iter()
-                .map(|(_tag, field)| new_dyn_builder(field.data_type()))
+                .map(|(_tag, field)| try_new_dyn_builder_with_capacity(field.data_type(), capacity))
                 .collect();
+            let children = children?;
             let fields_owned: UnionFields = fields
                 .iter()
                 .map(|(tag, field)| (tag, field.clone()))
                 .collect();
             let inner = match mode {
-                UnionMode::Dense => Inner::UnionDense(DenseUnionCol::new(fields_owned, children)),
+                UnionMode::Dense => Inner::UnionDense(DenseUnionCol::new(fields_owned, children)?),
                 UnionMode::Sparse => {
-                    Inner::UnionSparse(SparseUnionCol::new(fields_owned, children))
+                    Inner::UnionSparse(SparseUnionCol::new(fields_owned, children)?)
                 }
             };
-            Some(inner)
+            Ok(Some(inner))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
-fn build_inner(dt: &DataType) -> Inner {
-    inner_for_primitives(dt)
-        .or_else(|| match dt {
-            DataType::Dictionary(k, v) => inner_for_dictionary(k, v),
-            _ => None,
-        })
-        .or_else(|| inner_for_nested(dt))
-        .or_else(|| inner_for_union(dt))
-        .unwrap_or_else(|| Inner::Null(b::NullBuilder::new()))
+fn try_build_inner(dt: &DataType, capacity: usize) -> Result<Inner, DynError> {
+    if let Some(inner) = inner_for_primitives(dt, capacity) {
+        return Ok(inner);
+    }
+    if let DataType::Dictionary(k, v) = dt
+        && let Some(inner) = inner_for_dictionary(k, v)
+    {
+        return Ok(inner);
+    }
+    if let Some(inner) = inner_for_nested(dt, capacity)? {
+        return Ok(inner);
+    }
+    if let Some(inner) = inner_for_union(dt, capacity)? {
+        return Ok(inner);
+    }
+    if matches!(dt, DataType::Null) {
+        return Ok(Inner::Null(b::NullBuilder::new()));
+    }
+    Err(DynError::Builder {
+        message: format!("unsupported DataType: {dt:?}"),
+    })
+}
+
+/// Factory function that returns a dynamic builder for a given `DataType` with capacity hint.
+///
+/// This is the only place intended to perform a `match DataType`.
+///
+/// # Errors
+/// Returns `DynError::Builder` if the schema contains invalid union definitions
+/// (e.g., duplicate type ids, empty unions, or field/builder count mismatches),
+/// or if the `DataType` is not supported.
+pub fn try_new_dyn_builder_with_capacity(
+    dt: &DataType,
+    capacity: usize,
+) -> Result<Box<dyn DynColumnBuilder>, DynError> {
+    let dt_cloned = dt.clone();
+    let inner = try_build_inner(&dt_cloned, capacity)?;
+    Ok(Box::new(Col {
+        dt: dt_cloned,
+        inner,
+    }))
 }
 
 /// Factory function that returns a dynamic builder for a given `DataType`.
 ///
 /// This is the only place intended to perform a `match DataType`.
+///
+/// # Errors
+/// Returns `DynError::Builder` if the schema contains invalid union definitions
+/// (e.g., duplicate type ids, empty unions, or field/builder count mismatches),
+/// or if the `DataType` is not supported.
+pub fn try_new_dyn_builder(dt: &DataType) -> Result<Box<dyn DynColumnBuilder>, DynError> {
+    try_new_dyn_builder_with_capacity(dt, 0)
+}
+
+/// Factory function that returns a dynamic builder for a given `DataType`.
+///
+/// This is the only place intended to perform a `match DataType`.
+///
+/// # Panics
+/// Panics if the schema contains invalid or unsupported definitions.
+/// Prefer [`try_new_dyn_builder`] for fallible construction.
 #[must_use]
 pub fn new_dyn_builder(dt: &DataType) -> Box<dyn DynColumnBuilder> {
-    let dt_cloned = dt.clone();
-    let inner = build_inner(&dt_cloned);
-    Box::new(Col {
-        dt: dt_cloned,
-        inner,
-    })
+    try_new_dyn_builder(dt).expect("valid DataType for builder construction")
 }

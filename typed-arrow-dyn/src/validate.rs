@@ -6,10 +6,34 @@ use arrow_array::{
     Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
     UnionArray,
 };
-use arrow_buffer::OffsetBuffer;
+use arrow_buffer::{ArrowNativeType, OffsetBuffer};
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
 
 use crate::{DynError, dyn_builder::array_key};
+
+/// Extract start and end offsets for a row from an offset buffer.
+fn offset_range<T: ArrowNativeType>(
+    offsets: &OffsetBuffer<T>,
+    row: usize,
+    col_name: &str,
+) -> Result<(usize, usize), DynError>
+where
+    usize: TryFrom<T>,
+{
+    let start_raw = offsets.get(row).ok_or_else(|| DynError::Builder {
+        message: format!("offset index {row} out of range for {col_name}"),
+    })?;
+    let end_raw = offsets.get(row + 1).ok_or_else(|| DynError::Builder {
+        message: format!("offset index {} out of range for {col_name}", row + 1),
+    })?;
+    let start = usize::try_from(*start_raw).map_err(|_| DynError::Builder {
+        message: format!("negative offset at index {row} for {col_name}"),
+    })?;
+    let end = usize::try_from(*end_raw).map_err(|_| DynError::Builder {
+        message: format!("negative offset at index {} for {col_name}", row + 1),
+    })?;
+    Ok((start, end))
+}
 
 /// Validate that arrays satisfy nullability constraints declared by `schema`.
 /// Returns the first violation encountered with a descriptive path.
@@ -126,7 +150,9 @@ fn validate_union(
     let union = array
         .as_any()
         .downcast_ref::<UnionArray>()
-        .expect("array/DataType mismatch");
+        .ok_or_else(|| DynError::Builder {
+            message: format!("expected UnionArray for {col_name}"),
+        })?;
 
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(union));
     let null_rows = union_null_rows
@@ -257,7 +283,9 @@ fn validate_struct(
     let s = array
         .as_any()
         .downcast_ref::<StructArray>()
-        .expect("array/DataType mismatch");
+        .ok_or_else(|| DynError::Builder {
+            message: format!("expected StructArray for {col_name}"),
+        })?;
 
     // Compute mask of valid parent rows: respect parent validity if provided, else
     // derive from the struct's own validity.
@@ -280,13 +308,28 @@ fn validate_struct(
             }
         }
 
-        // Recurse into nested children with the same row mask.
+        // Recurse into nested children. For struct children, combine the current mask
+        // with the child's validity to handle nested nullable structs correctly.
+        // e.g., if parent.child is None, child's fields should not be validated.
+        let child_mask = if matches!(child_field.data_type(), DataType::Struct(_)) {
+            let child_arr: &dyn Array = child_array.as_ref();
+            let child_valid = validity_mask(child_arr);
+            // Combine: row is valid only if both parent and child struct are valid
+            Some(
+                mask.iter()
+                    .zip(child_valid.iter())
+                    .map(|(&p, &c)| p && c)
+                    .collect(),
+            )
+        } else {
+            Some(mask.clone())
+        };
         validate_nested(
             &format!("{}.{}", col_name, child_field.name()),
             child_field.data_type(),
             child_array,
             col,
-            Some(mask.clone()),
+            child_mask,
             child_field.is_nullable(),
             union_null_rows,
         )?;
@@ -305,7 +348,9 @@ fn validate_list(
     let l = array
         .as_any()
         .downcast_ref::<ListArray>()
-        .expect("array/DataType mismatch");
+        .ok_or_else(|| DynError::Builder {
+            message: format!("expected ListArray for {col_name}"),
+        })?;
 
     let arr: &dyn Array = l;
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
@@ -317,10 +362,7 @@ fn validate_list(
             if !pvalid {
                 continue;
             }
-            let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-                .expect("non-negative offset");
-            let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-                .expect("non-negative offset");
+            let (start, end) = offset_range(offsets, row, col_name)?;
             for idx in start..end {
                 if child.is_null(idx) {
                     return Err(DynError::Nullability {
@@ -341,10 +383,7 @@ fn validate_list(
         if !pvalid {
             continue;
         }
-        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-            .expect("non-negative offset");
-        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-            .expect("non-negative offset");
+        let (start, end) = offset_range(offsets, row, col_name)?;
         for item in child_mask.iter_mut().take(end).skip(start) {
             *item = true;
         }
@@ -372,7 +411,9 @@ fn validate_large_list(
     let l = array
         .as_any()
         .downcast_ref::<LargeListArray>()
-        .expect("array/DataType mismatch");
+        .ok_or_else(|| DynError::Builder {
+            message: format!("expected LargeListArray for {col_name}"),
+        })?;
     let arr: &dyn Array = l;
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
     let offsets = l.offsets();
@@ -383,10 +424,7 @@ fn validate_large_list(
             if !pvalid {
                 continue;
             }
-            let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-                .expect("non-negative offset");
-            let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-                .expect("non-negative offset");
+            let (start, end) = offset_range(offsets, row, col_name)?;
             for idx in start..end {
                 if child.is_null(idx) {
                     return Err(DynError::Nullability {
@@ -405,10 +443,7 @@ fn validate_large_list(
         if !pvalid {
             continue;
         }
-        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-            .expect("non-negative offset");
-        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-            .expect("non-negative offset");
+        let (start, end) = offset_range(offsets, row, col_name)?;
         for item in child_mask.iter_mut().take(end).skip(start) {
             *item = true;
         }
@@ -436,11 +471,15 @@ fn validate_fixed_list(
     let l = array
         .as_any()
         .downcast_ref::<FixedSizeListArray>()
-        .expect("array/DataType mismatch");
+        .ok_or_else(|| DynError::Builder {
+            message: format!("expected FixedSizeListArray for {col_name}"),
+        })?;
     let arr: &dyn Array = l;
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
     let child = l.values().clone();
-    let width = usize::try_from(l.value_length()).expect("non-negative width");
+    let width = usize::try_from(l.value_length()).map_err(|_| DynError::Builder {
+        message: format!("negative fixed-size list width for {col_name}"),
+    })?;
 
     if !item.is_nullable() {
         for (row, &pvalid) in parent_valid.iter().enumerate() {
@@ -496,7 +535,9 @@ fn validate_map(
     let map = array
         .as_any()
         .downcast_ref::<MapArray>()
-        .expect("array/DataType mismatch");
+        .ok_or_else(|| DynError::Builder {
+            message: format!("expected MapArray for {col_name}"),
+        })?;
 
     let arr: &dyn Array = map;
     let parent_valid = parent_mask.unwrap_or_else(|| validity_mask(arr));
@@ -524,10 +565,7 @@ fn validate_map(
         if !pvalid {
             continue;
         }
-        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-            .expect("non-negative offset");
-        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-            .expect("non-negative offset");
+        let (start, end) = offset_range(offsets, row, col_name)?;
         for idx in start..end {
             if keys.as_ref().is_null(idx) {
                 return Err(DynError::Nullability {
@@ -554,10 +592,7 @@ fn validate_map(
         if !pvalid {
             continue;
         }
-        let start = usize::try_from(*offsets.get(row).expect("offset in range"))
-            .expect("non-negative offset");
-        let end = usize::try_from(*offsets.get(row + 1).expect("offset in range"))
-            .expect("non-negative offset");
+        let (start, end) = offset_range(offsets, row, col_name)?;
         for idx in start..end {
             key_mask[idx] = true;
             if values.as_ref().is_valid(idx) {

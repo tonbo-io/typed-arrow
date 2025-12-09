@@ -6,8 +6,8 @@ use arrow_array::RecordBatch;
 use arrow_schema::SchemaRef;
 
 use crate::{
-    DynError, dyn_builder::DynColumnBuilder, factory::new_dyn_builder, rows::DynRow,
-    validate_nullability,
+    DynError, dyn_builder::DynColumnBuilder, factory::try_new_dyn_builder_with_capacity,
+    rows::DynRow, validate_nullability,
 };
 
 /// Dynamic builders collection for a runtime schema.
@@ -18,20 +18,32 @@ pub struct DynBuilders {
 }
 
 impl DynBuilders {
-    /// Create builders for each field in `schema`.
-    #[must_use]
-    pub fn new(schema: SchemaRef, capacity: usize) -> Self {
-        let cols = schema
+    /// Create builders for each field in `schema` with the given capacity hint.
+    ///
+    /// # Errors
+    /// Returns `DynError::Builder` if the schema contains invalid union definitions
+    /// or unsupported data types.
+    pub fn try_new(schema: SchemaRef, capacity: usize) -> Result<Self, DynError> {
+        let cols: Result<Vec<_>, _> = schema
             .fields()
             .iter()
-            .map(|f| new_dyn_builder(f.data_type()))
+            .map(|f| try_new_dyn_builder_with_capacity(f.data_type(), capacity))
             .collect();
-        let _ = capacity; // reserve in concrete builders once implemented
-        Self {
+        Ok(Self {
             schema,
-            cols,
+            cols: cols?,
             len: 0,
-        }
+        })
+    }
+
+    /// Create builders for each field in `schema` with the given capacity hint.
+    ///
+    /// # Panics
+    /// Panics if the schema contains invalid union definitions or unsupported data types.
+    /// Prefer [`try_new`](Self::try_new) for fallible construction.
+    #[must_use]
+    pub fn new(schema: SchemaRef, capacity: usize) -> Self {
+        Self::try_new(schema, capacity).expect("valid schema for builder construction")
     }
 
     /// Append an optional dynamic row.
