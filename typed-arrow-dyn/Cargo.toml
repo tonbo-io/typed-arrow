@@ -3,10 +3,10 @@ description = "Dynamic Arrow facade for typed-arrow (runtime schema/builders)."
 edition = { workspace = true }
 license = { workspace = true }
 name = "typed-arrow-dyn"
-readme = { workspace = true }
+readme = "./README.md"
 repository = { workspace = true }
 resolver = "2"
-version = "0.0.4"
+version = "0.0.6"
 
 [lib]
 name = "typed_arrow_dyn"

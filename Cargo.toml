@@ -9,7 +9,7 @@ package.version = "0.5.1"
 [workspace.dependencies]
 typed-arrow = { path = ".", version = "0.5.1", package = "typed-arrow" }
 typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.1", package = "typed-arrow-derive" }
-typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.3", package = "typed-arrow-dyn" }
+typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.6g", package = "typed-arrow-dyn" }
 
 arrow-array = { version = "56" }
 arrow-buffer = { version = "56" }
