@@ -28,13 +28,23 @@ pub struct DenseUnionCol {
 
 impl DenseUnionCol {
     /// Create a dense union builder from `UnionFields` and child builders.
-    #[must_use]
-    pub fn new(fields: UnionFields, children: Vec<Box<dyn DynColumnBuilder>>) -> Self {
+    ///
+    /// # Errors
+    /// Returns `DynError::Builder` if fields and children counts differ,
+    /// if the union has no variants, or if duplicate type ids are present.
+    pub fn new(
+        fields: UnionFields,
+        children: Vec<Box<dyn DynColumnBuilder>>,
+    ) -> Result<Self, DynError> {
         if fields.len() != children.len() {
-            panic!("Union fields and builder count must match");
+            return Err(DynError::Builder {
+                message: "Union fields and builder count must match".to_string(),
+            });
         }
         if fields.is_empty() {
-            panic!("Union must contain at least one variant");
+            return Err(DynError::Builder {
+                message: "Union must contain at least one variant".to_string(),
+            });
         }
 
         let mut tags = Vec::with_capacity(fields.len());
@@ -44,7 +54,9 @@ impl DenseUnionCol {
         for (idx, (tag, field)) in fields.iter().enumerate() {
             let pos = tag_slot(tag);
             if tag_to_index[pos].is_some() {
-                panic!("Duplicate union type id {}", tag);
+                return Err(DynError::Builder {
+                    message: format!("Duplicate union type id {}", tag),
+                });
             }
             tag_to_index[pos] = Some(idx);
             tags.push(tag);
@@ -56,7 +68,7 @@ impl DenseUnionCol {
         let null_index = first_nullable.unwrap_or(0);
         let null_tag = tags[null_index];
 
-        Self {
+        Ok(Self {
             fields,
             children,
             type_ids: Vec::new(),
@@ -67,7 +79,7 @@ impl DenseUnionCol {
             null_index,
             null_tag,
             null_rows: Vec::new(),
-        }
+        })
     }
 
     /// Append a union value.
@@ -183,13 +195,23 @@ pub struct SparseUnionCol {
 
 impl SparseUnionCol {
     /// Create a sparse union builder from `UnionFields` and child builders.
-    #[must_use]
-    pub fn new(fields: UnionFields, children: Vec<Box<dyn DynColumnBuilder>>) -> Self {
+    ///
+    /// # Errors
+    /// Returns `DynError::Builder` if fields and children counts differ,
+    /// if the union has no variants, or if duplicate type ids are present.
+    pub fn new(
+        fields: UnionFields,
+        children: Vec<Box<dyn DynColumnBuilder>>,
+    ) -> Result<Self, DynError> {
         if fields.len() != children.len() {
-            panic!("Union fields and builder count must match");
+            return Err(DynError::Builder {
+                message: "Union fields and builder count must match".to_string(),
+            });
         }
         if fields.is_empty() {
-            panic!("Union must contain at least one variant");
+            return Err(DynError::Builder {
+                message: "Union must contain at least one variant".to_string(),
+            });
         }
 
         let mut tags = Vec::with_capacity(fields.len());
@@ -199,7 +221,9 @@ impl SparseUnionCol {
         for (idx, (tag, field)) in fields.iter().enumerate() {
             let pos = tag_slot(tag);
             if tag_to_index[pos].is_some() {
-                panic!("Duplicate union type id {}", tag);
+                return Err(DynError::Builder {
+                    message: format!("Duplicate union type id {}", tag),
+                });
             }
             tag_to_index[pos] = Some(idx);
             tags.push(tag);
@@ -211,7 +235,7 @@ impl SparseUnionCol {
         let null_index = first_nullable.unwrap_or(0);
         let null_tag = tags[null_index];
 
-        Self {
+        Ok(Self {
             fields,
             children,
             type_ids: Vec::new(),
@@ -219,7 +243,7 @@ impl SparseUnionCol {
             tag_to_index,
             null_tag,
             null_rows: Vec::new(),
-        }
+        })
     }
 
     /// Append a union value.
