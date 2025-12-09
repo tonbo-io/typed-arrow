@@ -45,6 +45,9 @@ half = { workspace = true }
 thiserror = { workspace = true }
 typed-arrow-derive = { workspace = true, optional = true }
 
+[dev-dependencies]
+trybuild = "1.0"
+
 [[example]]
 name = "12_ext_hooks"
 path = "examples/12_ext_hooks.rs"
@@ -89,3 +92,8 @@ required-features = ["views"]
 name = "record_batch_views_union"
 path = "tests/record_batch_views_union.rs"
 required-features = ["views"]
+
+[[test]]
+name = "trybuild"
+path = "tests/trybuild.rs"
+required-features = []

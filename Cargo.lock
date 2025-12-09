@@ -933,6 +933,7 @@ dependencies = [
  "arrow-schema",
  "half",
  "thiserror",
+ "trybuild",
  "typed-arrow-derive",
 ]
 
@@ -943,8 +944,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "trybuild",
- "typed-arrow",
 ]
 
 [[package]]
