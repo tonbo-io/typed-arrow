@@ -19,3 +19,11 @@ views = []
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full", "extra-traits"] }
+[dev-dependencies]
+trybuild = "1.0"
+typed-arrow = { workspace = true }
+
+[[test]]
+name = "trybuild"
+path = "tests/trybuild.rs"
+required-features = []
