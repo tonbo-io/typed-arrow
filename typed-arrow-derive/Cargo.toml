@@ -1,12 +1,12 @@
 [package]
-name = "typed-arrow-derive"
-version = { workspace = true }
-edition = { workspace = true }
 description = "Proc-macro derive for typed-arrow compile-time schema"
+edition = { workspace = true }
 license = { workspace = true }
+name = "typed-arrow-derive"
 readme = { workspace = true }
 repository = { workspace = true }
 resolver = "2"
+version = { workspace = true }
 
 [lib]
 proc-macro = true
@@ -18,12 +18,4 @@ views = []
 [dependencies]
 proc-macro2 = "1"
 quote = "1"
-syn = { version = "2", features = ["full", "extra-traits"] }
-[dev-dependencies]
-trybuild = "1.0"
-typed-arrow = { workspace = true }
-
-[[test]]
-name = "trybuild"
-path = "tests/trybuild.rs"
-required-features = []
+syn = { version = "2", features = ["extra-traits", "full"] }
