@@ -14,7 +14,7 @@ use crate::attrs::parse_record_field_macros;
 use crate::attrs::parse_record_fields_macros;
 #[cfg(feature = "ext-hooks")]
 use crate::attrs::parse_record_record_macros;
-use crate::attrs::{parse_field_metadata_pairs, parse_schema_metadata_pairs};
+use crate::attrs::{parse_field_metadata_pairs, parse_field_name_override, parse_schema_metadata_pairs};
 
 pub(crate) fn derive_record(input: &DeriveInput) -> TokenStream {
     match impl_record(input) {
@@ -109,6 +109,12 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // Nested structs are now the default behavior.
         check_no_legacy_nested_attr(&f.attrs)?;
 
+        // Check for field name override: #[record(name = "...")]
+        let field_name_override = parse_field_name_override(&f.attrs)?;
+        let arrow_field_name = field_name_override
+            .as_ref()
+            .map_or_else(|| fname.to_string(), |s| s.clone());
+
         let inner_ty_ts = inner_ty.to_token_stream();
         inner_tys_for_view.push(inner_ty_ts.clone());
         let nullable_lit = if nullable {
@@ -124,7 +130,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 type ColumnArray = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Array;
                 type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
                 const NULLABLE: bool = #nullable_lit;
-                const NAME: &'static str = stringify!(#fname);
+                const NAME: &'static str = #arrow_field_name;
                 fn data_type() -> ::typed_arrow::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
             }
         };
@@ -133,7 +139,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // V::visit::<I, Arrow, Rust>(FieldMeta::new(name, nullable))
         let visit = quote! {
             V::visit::<{ #idx }, #inner_ty_ts>(
-                ::typed_arrow::schema::FieldMeta::new(stringify!(#fname), #nullable_lit)
+                ::typed_arrow::schema::FieldMeta::new(#arrow_field_name, #nullable_lit)
             );
         };
         visit_calls.push(visit);
@@ -148,7 +154,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             });
             child_field_stmts.push(quote! {
                 let mut __f = ::typed_arrow::arrow_schema::Field::new(
-                    stringify!(#fname),
+                    #arrow_field_name,
                     <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
                 );
@@ -160,7 +166,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         } else {
             child_field_stmts.push(quote! {
                 fields.push(::typed_arrow::arrow_schema::Field::new(
-                    stringify!(#fname),
+                    #arrow_field_name,
                     <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
                 ));
