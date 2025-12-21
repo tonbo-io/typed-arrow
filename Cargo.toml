@@ -11,12 +11,12 @@ typed-arrow = { path = ".", version = "0.5.1", package = "typed-arrow" }
 typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.1", package = "typed-arrow-derive" }
 typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.6g", package = "typed-arrow-dyn" }
 
-arrow-array = { version = "56" }
-arrow-buffer = { version = "56" }
-arrow-data = { version = "56" }
-arrow-schema = { version = "56" }
+arrow-array = { version = "57" }
+arrow-buffer = { version = "57" }
+arrow-data = { version = "57" }
+arrow-schema = { version = "57" }
 half = "2"
-parquet = { version = "56" }
+parquet = { version = "57" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
