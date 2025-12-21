@@ -91,7 +91,7 @@ mod strings;
 mod temporal;
 
 // Public re-exports for convenience
-pub use binary::LargeBinary;
+pub use binary::{BinaryView, LargeBinary};
 pub use column::{ColumnBuilder, data_type_of};
 pub use decimals::{Decimal128, Decimal256};
 pub use dictionary::{DictKey, Dictionary};
@@ -99,7 +99,7 @@ pub use intervals::{IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth};
 pub use lists::{FixedSizeList, FixedSizeListNullable, LargeList, List};
 pub use map::{Map, OrderedMap};
 pub use null_type::Null;
-pub use strings::LargeUtf8;
+pub use strings::{LargeUtf8, Utf8View};
 pub use temporal::{
     Date32, Date64, Duration, Microsecond, Millisecond, Nanosecond, Second, Time32, Time64,
     TimeZoneSpec, Timestamp, TimestampTz, Utc,
