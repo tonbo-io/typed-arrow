@@ -23,6 +23,9 @@ use arrow_schema::DataType;
 ///
 /// Implementations of this trait provide a zero-cost, monomorphized mapping
 /// between a Rust value type and its Arrow representation.
+///
+/// All methods are marked `#[inline]` to enable cross-crate inlining for
+/// optimal performance in hot loops.
 pub trait ArrowBinding {
     /// Concrete Arrow builder type used for this Rust type.
     type Builder;
@@ -35,6 +38,13 @@ pub trait ArrowBinding {
 
     /// Create a new builder with an optional capacity hint.
     fn new_builder(capacity: usize) -> Self::Builder;
+
+    /// Estimated bytes per value for variable-length types (String, Binary, etc.).
+    /// Returns 0 for fixed-size types. Used to pre-allocate buffer space.
+    #[inline]
+    fn estimated_bytes_per_value() -> usize {
+        0
+    }
 
     /// Append a non-null value to the builder.
     fn append_value(b: &mut Self::Builder, v: &Self);

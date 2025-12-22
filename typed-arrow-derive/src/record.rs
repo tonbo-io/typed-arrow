@@ -54,6 +54,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let mut arrays_struct_fields = Vec::with_capacity(len);
     let mut builders_init_fields = Vec::with_capacity(len);
     let mut append_row_stmts = Vec::with_capacity(len);
+    let mut append_row_ref_stmts = Vec::with_capacity(len);
     let mut finish_fields = Vec::with_capacity(len);
     let mut field_idents: Vec<&Ident> = Vec::with_capacity(len);
     let mut append_struct_owned_stmts = Vec::with_capacity(len);
@@ -211,11 +212,17 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         builders_init_fields.push(quote! {
             #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity)
         });
-        // Append row logic per field
+        // Append row logic per field (owned)
         if nullable {
             append_row_stmts.push(quote! {
                 match #fname {
                     Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &v),
+                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
+                }
+            });
+            append_row_ref_stmts.push(quote! {
+                match &#fname {
+                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, v),
                     None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
                 }
             });
@@ -224,6 +231,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             });
         } else {
             append_row_stmts.push(quote! {
+                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
+            });
+            append_row_ref_stmts.push(quote! {
                 <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
             });
             append_null_row_stmts.push(quote! {
@@ -342,25 +352,51 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
 
         impl #builders_ident {
+            #[inline]
             pub fn append_row(&mut self, row: #name) {
                 let #name { #( #field_idents ),* } = row;
                 #(#append_row_stmts)*
             }
+            #[inline]
+            pub fn append_row_ref(&mut self, row: &#name) {
+                let #name { #( #field_idents ),* } = row;
+                #(#append_row_ref_stmts)*
+            }
+            #[inline]
             pub fn append_null_row(&mut self) {
                 #(#append_null_row_stmts)*
             }
+            #[inline]
             pub fn append_option_row(&mut self, row: ::core::option::Option<#name>) {
                 match row {
                     ::core::option::Option::Some(r) => self.append_row(r),
                     ::core::option::Option::None => self.append_null_row(),
                 }
             }
+            #[inline]
+            pub fn append_option_row_ref(&mut self, row: ::core::option::Option<&#name>) {
+                match row {
+                    ::core::option::Option::Some(r) => self.append_row_ref(r),
+                    ::core::option::Option::None => self.append_null_row(),
+                }
+            }
+            #[inline]
             pub fn append_rows<I: ::core::iter::IntoIterator<Item = #name>>(&mut self, rows: I) {
                 for r in rows { self.append_row(r); }
             }
+            #[inline]
+            pub fn append_rows_ref<'a, I: ::core::iter::IntoIterator<Item = &'a #name>>(&mut self, rows: I) {
+                for r in rows { self.append_row_ref(r); }
+            }
+            #[inline]
             pub fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<#name>>>(&mut self, rows: I) {
                 for r in rows { self.append_option_row(r); }
             }
+            #[inline]
+            pub fn append_option_rows_ref<'a, I: ::core::iter::IntoIterator<Item = ::core::option::Option<&'a #name>>>(&mut self, rows: I) {
+                for r in rows { self.append_option_row_ref(r); }
+            }
+            #[inline]
             pub fn finish(self) -> #arrays_ident {
                 #arrays_ident { #(#finish_fields,)* }
             }
@@ -472,9 +508,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             pub #fname: #view_ty
         });
 
-        // Views iterator: store arrays with lifetimes
+        // Views iterator: store arrays with lifetimes (public for direct column access)
         views_array_fields.push(quote! {
-            #fname: &'a <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
+            pub #fname: &'a <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
         });
 
         // Initialize views arrays from RecordBatch columns - downcast with error handling

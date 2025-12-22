@@ -21,18 +21,23 @@ macro_rules! impl_primitive_binding {
         impl ArrowBinding for $rust {
             type Builder = PrimitiveBuilder<$atype>;
             type Array = PrimitiveArray<$atype>;
+            #[inline]
             fn data_type() -> DataType {
                 $dt
             }
+            #[inline]
             fn new_builder(capacity: usize) -> Self::Builder {
                 PrimitiveBuilder::<$atype>::with_capacity(capacity)
             }
+            #[inline]
             fn append_value(b: &mut Self::Builder, v: &Self) {
                 b.append_value(*v);
             }
+            #[inline]
             fn append_null(b: &mut Self::Builder) {
                 b.append_null();
             }
+            #[inline]
             fn finish(mut b: Self::Builder) -> Self::Array {
                 b.finish()
             }
@@ -81,18 +86,23 @@ impl_primitive_binding!(f64, Float64Type, DataType::Float64);
 impl ArrowBinding for f16 {
     type Builder = PrimitiveBuilder<Float16Type>;
     type Array = PrimitiveArray<Float16Type>;
+    #[inline]
     fn data_type() -> DataType {
         DataType::Float16
     }
+    #[inline]
     fn new_builder(capacity: usize) -> Self::Builder {
         PrimitiveBuilder::<Float16Type>::with_capacity(capacity)
     }
+    #[inline]
     fn append_value(b: &mut Self::Builder, v: &Self) {
         b.append_value(*v);
     }
+    #[inline]
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
     }
+    #[inline]
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
     }
@@ -128,18 +138,23 @@ impl ArrowBindingView for f16 {
 impl ArrowBinding for bool {
     type Builder = arrow_array::builder::BooleanBuilder;
     type Array = arrow_array::BooleanArray;
+    #[inline]
     fn data_type() -> DataType {
         DataType::Boolean
     }
+    #[inline]
     fn new_builder(capacity: usize) -> Self::Builder {
         arrow_array::builder::BooleanBuilder::with_capacity(capacity)
     }
+    #[inline]
     fn append_value(b: &mut Self::Builder, v: &Self) {
         b.append_value(*v);
     }
+    #[inline]
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
     }
+    #[inline]
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
     }
