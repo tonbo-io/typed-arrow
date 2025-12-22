@@ -14,7 +14,9 @@ use crate::attrs::parse_record_field_macros;
 use crate::attrs::parse_record_fields_macros;
 #[cfg(feature = "ext-hooks")]
 use crate::attrs::parse_record_record_macros;
-use crate::attrs::{parse_field_metadata_pairs, parse_field_name_override, parse_schema_metadata_pairs};
+use crate::attrs::{
+    parse_field_metadata_pairs, parse_field_name_override, parse_schema_metadata_pairs,
+};
 
 pub(crate) fn derive_record(input: &DeriveInput) -> TokenStream {
     match impl_record(input) {
