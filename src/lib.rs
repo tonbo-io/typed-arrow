@@ -33,7 +33,7 @@ pub use crate::bridge::{
     BinaryView, Date32, Date64, Decimal128, Decimal256, Dictionary, Duration, FixedSizeList,
     FixedSizeListNullable, IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth, LargeBinary,
     LargeList, LargeUtf8, List, Map, Microsecond, Millisecond, Nanosecond, Null, OrderedMap,
-    Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utf8View, Utc,
+    Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utc, Utf8View,
 };
 
 /// Extension trait for creating typed view iterators from `RecordBatch`.
