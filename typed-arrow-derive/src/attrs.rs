@@ -136,6 +136,46 @@ pub(crate) fn parse_field_metadata_pairs(
     Ok(out)
 }
 
+/// Parse field-level name override: `#[record(name = "...")]`
+///
+/// Returns the overridden name if present, or None to use the default field name.
+pub(crate) fn parse_field_name_override(attrs: &[Attribute]) -> syn::Result<Option<String>> {
+    for attr in attrs {
+        if attr.path().is_ident("record") {
+            let mut name_override: Option<String> = None;
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("name") {
+                    let s: LitStr = meta.value()?.parse()?;
+                    name_override = Some(s.value());
+                } else {
+                    // Consume unknown nested entries
+                    if let Ok(v) = meta.value() {
+                        let _expr: syn::Expr = v.parse()?;
+                    } else if meta.input.is_empty() {
+                        // bare flag
+                    } else {
+                        meta.parse_nested_meta(|inner| {
+                            if let Ok(v2) = inner.value() {
+                                let _expr: syn::Expr = v2.parse()?;
+                            } else if inner.input.is_empty() {
+                                // bare flag inside list
+                            } else {
+                                let _ = inner.parse_nested_meta(|_| Ok(()));
+                            }
+                            Ok(())
+                        })?;
+                    }
+                }
+                Ok(())
+            })?;
+            if name_override.is_some() {
+                return Ok(name_override);
+            }
+        }
+    }
+    Ok(None)
+}
+
 // -------- extension hooks parsing (feature-gated) --------
 
 // Container-level: #[record(visit(path::ToVisitor, other::Visitor))]

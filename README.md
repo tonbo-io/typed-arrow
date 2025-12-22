@@ -182,6 +182,26 @@ for view in views.try_flatten()? {
 - Field-level: annotate with `#[metadata(k = "pii", v = "email")]`.
 - You can repeat attributes to add multiple pairs; later duplicates win.
 
+### Field Name Override
+
+Override the Arrow field name while keeping a different Rust field name:
+
+```rust
+#[derive(typed_arrow::Record)]
+struct Event {
+    #[record(name = "eventType")]
+    event_type: String,      // Arrow field name: "eventType"
+    #[record(name = "userID")]
+    user_id: i64,            // Arrow field name: "userID"
+    timestamp: i64,          // Arrow field name: "timestamp" (unchanged)
+}
+```
+
+This is useful for:
+- Matching external schema conventions (e.g., camelCase, PascalCase)
+- Interoperability with other systems that expect specific field names
+- Using Rust naming conventions internally while exposing different names in Arrow
+
 ### Nested Type Wrappers
 
 - Struct fields: struct-typed fields map to Arrow `Struct` columns by default. Make the parent field nullable with `Option<Nested>`; child nullability is independent.
