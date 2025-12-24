@@ -3,7 +3,7 @@ use typed_arrow::{bridge::Dictionary, prelude::*};
 
 #[test]
 fn test_dictionary_string_views() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         category: Dictionary<i32, String>,
@@ -43,7 +43,7 @@ fn test_dictionary_string_views() -> Result<(), SchemaError> {
 
 #[test]
 fn test_dictionary_primitive_views() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         code: Dictionary<i16, i64>,

@@ -2,7 +2,7 @@
 // Import List wrapper; use List<Option<T>> for item-nullability
 use typed_arrow::{List, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Row {
     pub tags: List<String>,                // List<Utf8>, items non-null
     pub scores: Option<List<Option<i32>>>, // Nullable list of nullable i32 items

@@ -46,7 +46,7 @@ impl ColumnVisitor for DebugVisitor {
     }
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 #[record(field_macro = "per_field", record_macro = "per_record")]
 struct Person {
     #[record(ext(key))]

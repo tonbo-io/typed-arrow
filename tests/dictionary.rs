@@ -2,7 +2,7 @@
 use arrow_array::types::Int32Type;
 use typed_arrow::{Dictionary, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Row {
     pub code: Dictionary<i32, i32>,               // dict<i32, Utf8>
     pub opt_code: Option<Dictionary<i8, String>>, // nullable dict<i8, Utf8>

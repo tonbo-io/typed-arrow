@@ -5,7 +5,7 @@ use arrow_array::Array;
 use typed_arrow::prelude::*;
 
 // Define a record using derive macro
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Person {
     pub id: i64,
     pub name: Option<String>,

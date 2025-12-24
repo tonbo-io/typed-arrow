@@ -1,7 +1,7 @@
 use arrow_array::{Array, Int32Array, StringArray, UnionArray};
-use typed_arrow::bridge::ArrowBinding;
+use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
-#[derive(typed_arrow::Union)]
+#[derive(Union)]
 #[union(mode = "sparse")] // default tags: I=0, S=1
 enum U {
     I(i32),
@@ -53,7 +53,7 @@ fn union_sparse_datatype_and_build() {
     assert!(strs.is_null(3));
 }
 
-#[derive(typed_arrow::Union)]
+#[derive(Union)]
 #[union(mode = "sparse", tags(I = 10, S = 7))]
 enum V {
     #[union(field = "int_value", null)]

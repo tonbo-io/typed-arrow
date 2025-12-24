@@ -3,7 +3,7 @@
 use arrow_array::{Array, cast};
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Person {
     id: i64,
     name: Option<String>,

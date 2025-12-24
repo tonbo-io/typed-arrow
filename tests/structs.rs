@@ -1,13 +1,13 @@
 use arrow_array::{Array, builder::StructBuilder, cast::as_string_array};
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Address {
     pub city: String,
     pub zip: Option<i32>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct PersonS {
     pub id: i64,
     pub address: Option<Address>,

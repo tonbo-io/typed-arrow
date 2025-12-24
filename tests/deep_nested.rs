@@ -10,26 +10,26 @@ use typed_arrow::prelude::*;
 // Deeply nested structs (3+ levels) with a mix of
 // required/optional fields to exercise derive and builders.
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Geo {
     pub lat: f64,
     pub lon: f64,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Address {
     pub city: String,
     pub zip: Option<i32>,
     pub geo: Option<Geo>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Company {
     pub name: String,
     pub hq: Option<Address>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct PersonDeep {
     pub id: i64,
     pub company: Option<Company>,

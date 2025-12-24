@@ -3,12 +3,12 @@ use std::sync::Arc;
 use arrow_schema::{DataType, Field};
 use typed_arrow::{arrow_array::Array, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Sub {
     x: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowListOfMapStruct {
     id: i32,
     groups: typed_arrow::List<typed_arrow::Map<String, Option<Sub>>>,
@@ -49,7 +49,7 @@ fn list_of_map_of_struct_schema_and_build() {
     assert_eq!(arrays.groups.len(), 2);
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowMapOfList {
     id: i32,
     buckets: typed_arrow::Map<String, typed_arrow::List<Option<i32>>>,
@@ -87,7 +87,7 @@ fn map_of_list_schema_and_build() {
     assert_eq!(arrays.buckets.len(), 2);
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowListOfList {
     id: i32,
     mats: typed_arrow::List<typed_arrow::List<Option<i32>>>,
@@ -118,7 +118,7 @@ fn list_of_list_schema_and_build() {
     assert_eq!(arrays.mats.len(), 2);
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowMapOfStruct {
     id: i32,
     attrs: typed_arrow::Map<String, Sub>,

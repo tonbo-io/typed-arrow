@@ -3,7 +3,7 @@
 use arrow_array::{Array, DictionaryArray};
 use typed_arrow::{Dictionary, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Row {
     code: Dictionary<i32, String>,
     opt_code: Option<Dictionary<i8, String>>,

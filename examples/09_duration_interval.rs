@@ -8,7 +8,7 @@ use typed_arrow::{
     prelude::*,
 };
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowDurInt {
     d_ms: Dur<Millisecond>,
     d_ns_opt: Option<Dur<Nanosecond>>,

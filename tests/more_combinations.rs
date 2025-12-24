@@ -4,13 +4,13 @@ use arrow_array::cast::as_list_array;
 use arrow_schema::{DataType, Field};
 use typed_arrow::{arrow_array::Array, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct PartA {
     a: i32,
     b: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowMapLargeListStruct {
     id: i32,
     buckets: typed_arrow::Map<String, typed_arrow::LargeList<PartA>>,
@@ -57,12 +57,12 @@ fn map_of_large_list_struct_schema_and_build() {
     assert_eq!(arrays.buckets.len(), 2);
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct PartB {
     x: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowMapFixedListStruct {
     id: i32,
     groups: typed_arrow::Map<String, typed_arrow::FixedSizeList<PartB, 2>>,
@@ -107,12 +107,12 @@ fn map_of_fixed_size_list_struct_schema_and_build() {
     assert_eq!(arrays.groups.len(), 2);
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct PartC {
     y: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowListMapListStruct {
     id: i32,
     mats: typed_arrow::List<typed_arrow::Map<String, typed_arrow::List<Option<PartC>>>>,

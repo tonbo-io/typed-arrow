@@ -1,7 +1,7 @@
 use arrow_array::RecordBatch;
 use typed_arrow::{FixedSizeList, LargeList, List, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct ListRecord {
     id: i64,
     values: List<i32>,
@@ -46,7 +46,7 @@ fn test_list_views() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct ListNullableRecord {
     id: i64,
     nullable_values: List<Option<i32>>,
@@ -91,7 +91,7 @@ fn test_list_nullable_views() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct FixedSizeListRecord {
     id: i64,
     coordinates: FixedSizeList<f64, 3>,
@@ -134,7 +134,7 @@ fn test_fixed_size_list_views() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct LargeListRecord {
     id: i64,
     large_values: LargeList<String>,
@@ -177,7 +177,7 @@ fn test_large_list_views() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct NestedListRecord {
     id: i64,
     nested: List<List<i32>>,

@@ -7,7 +7,7 @@
 use arrow_array::RecordBatch;
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Product {
     id: i64,
     name: String,
@@ -15,13 +15,13 @@ struct Product {
     in_stock: Option<bool>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Coordinates {
     lat: f64,
     lon: f64,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Location {
     city: String,
     coords: Option<Coordinates>,

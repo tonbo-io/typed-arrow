@@ -3,7 +3,7 @@
 use arrow_array::Array;
 use typed_arrow::{List, bridge::ArrowBinding, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Row {
     tags: List<String>,                // List<Utf8>, items non-null
     scores: Option<List<Option<i32>>>, // Nullable list whose items are nullable i32
