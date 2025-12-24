@@ -10,22 +10,40 @@ use super::ArrowBinding;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 
+/// Default estimated bytes per string value for buffer pre-allocation.
+const DEFAULT_STRING_BYTES: usize = 16;
+
 // Utf8/String
 impl ArrowBinding for String {
     type Builder = StringBuilder;
     type Array = StringArray;
+
+    #[inline]
     fn data_type() -> DataType {
         DataType::Utf8
     }
+
+    #[inline]
     fn new_builder(capacity: usize) -> Self::Builder {
-        StringBuilder::with_capacity(capacity, 0)
+        StringBuilder::with_capacity(capacity, capacity * Self::estimated_bytes_per_value())
     }
+
+    #[inline]
+    fn estimated_bytes_per_value() -> usize {
+        DEFAULT_STRING_BYTES
+    }
+
+    #[inline]
     fn append_value(b: &mut Self::Builder, v: &Self) {
         b.append_value(v.as_str());
     }
+
+    #[inline]
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
     }
+
+    #[inline]
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
     }
@@ -100,18 +118,33 @@ impl From<&str> for LargeUtf8 {
 impl ArrowBinding for LargeUtf8 {
     type Builder = LargeStringBuilder;
     type Array = LargeStringArray;
+
+    #[inline]
     fn data_type() -> DataType {
         DataType::LargeUtf8
     }
+
+    #[inline]
     fn new_builder(capacity: usize) -> Self::Builder {
-        LargeStringBuilder::with_capacity(capacity, 0)
+        LargeStringBuilder::with_capacity(capacity, capacity * Self::estimated_bytes_per_value())
     }
+
+    #[inline]
+    fn estimated_bytes_per_value() -> usize {
+        DEFAULT_STRING_BYTES
+    }
+
+    #[inline]
     fn append_value(b: &mut Self::Builder, v: &Self) {
         b.append_value(v.0.as_str());
     }
+
+    #[inline]
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
     }
+
+    #[inline]
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
     }

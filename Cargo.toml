@@ -46,7 +46,18 @@ thiserror = { workspace = true }
 typed-arrow-derive = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = "0.5"
+serde = { workspace = true }
+serde_arrow = { version = "0.13", features = ["arrow-56"] }
 trybuild = "1.0"
+typed-arrow-dyn = { workspace = true }
+
+[[bench]]
+name = "append_rows"
+harness = false
+
+[profile.bench]
+lto = true
 
 [[example]]
 name = "12_ext_hooks"
