@@ -22,10 +22,10 @@ typed-arrow provides a strongly typed, fully compile-time way to declare Arrow s
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 use typed_arrow::{Dictionary, TimestampTz, Millisecond, Utc, List};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Address { city: String, zip: Option<i32> }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Person {
     id: i64,
     address: Option<Address>,
@@ -131,7 +131,7 @@ When the `views` feature is enabled, typed-arrow automatically generates zero-co
 ```rust
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Product {
     id: i64,
     name: String,
@@ -187,7 +187,7 @@ for view in views.try_flatten()? {
 Override the Arrow field name while keeping a different Rust field name:
 
 ```rust
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Event {
     #[record(name = "eventType")]
     event_type: String,      // Arrow field name: "eventType"

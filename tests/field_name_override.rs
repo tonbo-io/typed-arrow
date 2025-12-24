@@ -1,6 +1,6 @@
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct FieldNameOverride {
     #[record(name = "custom_name")]
     rust_field: i32,
@@ -37,7 +37,7 @@ fn field_name_override_in_record_batch() {
     assert!(schema.field_with_name("normal_field").is_ok());
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct MultipleOverrides {
     #[record(name = "ID")]
     id: i64,
@@ -61,7 +61,7 @@ fn multiple_field_name_overrides() {
     assert!(schema.field_with_name("is_active").is_err());
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct OverrideWithMetadata {
     #[record(name = "renamed")]
     #[metadata(k = "description", v = "A renamed field")]

@@ -1,7 +1,7 @@
 use arrow_array::RecordBatch;
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct SimpleRecord {
     id: i64,
     name: String,
@@ -67,13 +67,13 @@ fn test_simple_record_batch_views() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Address {
     city: String,
     zip: Option<i32>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Person {
     id: i64,
     address: Option<Address>,
@@ -175,7 +175,7 @@ fn test_iterator_properties() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct BinaryRecord {
     id: i32,
     data: Vec<u8>,

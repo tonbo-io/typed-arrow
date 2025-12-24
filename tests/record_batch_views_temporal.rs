@@ -1,7 +1,7 @@
 use arrow_array::RecordBatch;
 use typed_arrow::{Date32, Duration, Millisecond, Second, Timestamp, prelude::*};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Event {
     id: i64,
     timestamp: Timestamp<Millisecond>,

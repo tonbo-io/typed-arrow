@@ -1,4 +1,6 @@
-#[derive(typed_arrow::Record)]
+use typed_arrow::prelude::*;
+
+#[derive(Record)]
 pub struct User {
     name: String,
     email: Option<String>,

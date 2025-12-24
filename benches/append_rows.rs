@@ -30,7 +30,7 @@ use typed_arrow_dyn::{DynBuilders, DynCell, DynRow, DynSchema};
 // Primitives-only records (isolates dispatch overhead)
 // ============================================================================
 
-#[derive(typed_arrow::Record, Clone, Copy, Serialize, Deserialize)]
+#[derive(Record, Clone, Copy, Serialize, Deserialize)]
 struct Primitive {
     a: i64,
     b: f64,
@@ -76,7 +76,7 @@ fn primitive_schema() -> Arc<Schema> {
 // Records with strings (real-world scenario)
 // ============================================================================
 
-#[derive(typed_arrow::Record, Clone, Serialize, Deserialize)]
+#[derive(Record, Clone, Serialize, Deserialize)]
 struct WithStrings {
     id: i64,
     value: f64,

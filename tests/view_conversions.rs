@@ -3,13 +3,13 @@
 use arrow_array::RecordBatch;
 use typed_arrow::{Dictionary, FixedSizeList, List, Map, OrderedMap, prelude::*};
 
-#[derive(typed_arrow::Record, Clone)]
+#[derive(Record, Clone)]
 struct Address {
     city: String,
     zip: Option<i32>,
 }
 
-#[derive(typed_arrow::Record, Clone)]
+#[derive(Record, Clone)]
 struct Person {
     id: i64,
     name: String,
@@ -157,7 +157,7 @@ fn test_view_references_are_borrowed() -> Result<(), SchemaError> {
 
 #[test]
 fn test_list_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         items: List<i32>,
     }
@@ -186,7 +186,7 @@ fn test_list_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_list_nullable_items_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         items: List<Option<String>>,
     }
@@ -213,7 +213,7 @@ fn test_list_nullable_items_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_fixed_size_list_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         coords: FixedSizeList<f64, 3>,
     }
@@ -242,7 +242,7 @@ fn test_fixed_size_list_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_map_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         metadata: Map<String, i32>,
     }
@@ -268,7 +268,7 @@ fn test_map_conversion() -> Result<(), SchemaError> {
 fn test_ordered_map_conversion() -> Result<(), SchemaError> {
     use std::collections::BTreeMap;
 
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         metadata: OrderedMap<String, Option<String>>,
     }
@@ -296,7 +296,7 @@ fn test_ordered_map_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_dictionary_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         category: Dictionary<i32, String>,
     }
@@ -328,7 +328,7 @@ fn test_dictionary_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_dictionary_primitive_value_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         code: Dictionary<i32, i64>,
     }
@@ -361,7 +361,7 @@ fn test_dictionary_primitive_value_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_fixed_size_binary_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         hash: [u8; 4],
     }
@@ -387,7 +387,7 @@ fn test_fixed_size_binary_conversion() -> Result<(), SchemaError> {
 
 #[test]
 fn test_union_conversion() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Union)]
+    #[derive(Union)]
     #[union(mode = "dense")]
     enum Value {
         #[union(tag = 0)]
@@ -396,7 +396,7 @@ fn test_union_conversion() -> Result<(), SchemaError> {
         Text(String),
     }
 
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         value: Value,
     }
@@ -430,7 +430,7 @@ fn test_union_conversion() -> Result<(), SchemaError> {
 fn test_conversion_error_out_of_bounds() {
     use typed_arrow::{bridge::ArrowBindingView, schema::ViewAccessError};
 
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Data {
         value: i64,
     }
@@ -457,12 +457,12 @@ fn test_conversion_error_out_of_bounds() {
 
 #[test]
 fn test_nested_conversion_with_nulls() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Inner {
         text: String,
     }
 
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct Outer {
         inner: Option<Inner>,
     }

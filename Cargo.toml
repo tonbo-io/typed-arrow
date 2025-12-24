@@ -4,11 +4,11 @@ package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
-package.version = "0.5.1"
+package.version = "0.5.2"
 
 [workspace.dependencies]
-typed-arrow = { path = ".", version = "0.5.1", package = "typed-arrow" }
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.1", package = "typed-arrow-derive" }
+typed-arrow = { path = ".", version = "0.5.2", package = "typed-arrow" }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.2", package = "typed-arrow-derive" }
 typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.6", package = "typed-arrow-dyn" }
 
 arrow-array = { version = "56" }
@@ -53,8 +53,8 @@ trybuild = "1.0"
 typed-arrow-dyn = { workspace = true }
 
 [[bench]]
-name = "append_rows"
 harness = false
+name = "append_rows"
 
 [profile.bench]
 lto = true

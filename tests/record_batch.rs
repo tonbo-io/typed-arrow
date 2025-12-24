@@ -1,13 +1,13 @@
 use arrow_array::{Array, RecordBatch, cast::as_string_array};
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct AddressRB {
     city: String,
     zip: Option<i32>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct PersonRB {
     id: i64,
     address: Option<AddressRB>,

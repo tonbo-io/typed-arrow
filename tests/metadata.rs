@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 #[schema_metadata(k = "owner", v = "team")]
 #[record(schema_metadata(k = "env", v = "dev"))]
 struct MetaDemo {

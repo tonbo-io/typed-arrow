@@ -3,7 +3,7 @@ use typed_arrow::{bridge::Map, prelude::*};
 
 #[test]
 fn test_map_views() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         tags: Map<String, i32>,
@@ -56,7 +56,7 @@ fn test_map_views() -> Result<(), SchemaError> {
 
 #[test]
 fn test_map_nullable_values_views() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         tags: Map<String, Option<i32>>,
@@ -110,7 +110,7 @@ fn test_ordered_map_views() -> Result<(), SchemaError> {
 
     use typed_arrow::bridge::OrderedMap;
 
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         metadata: OrderedMap<String, String>,
@@ -159,7 +159,7 @@ fn test_ordered_map_views() -> Result<(), SchemaError> {
 
 #[test]
 fn test_map_len_and_is_empty() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         tags: Map<String, i32>,
     }

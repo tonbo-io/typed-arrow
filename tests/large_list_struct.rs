@@ -5,13 +5,13 @@ use arrow_array::{
 };
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct PartLL {
     pub a: i32,
     pub b: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct RowLLS {
     pub id: i64,
     pub parts: typed_arrow::LargeList<PartLL>,

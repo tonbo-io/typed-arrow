@@ -1,12 +1,12 @@
 use arrow_array::{Array, cast::as_primitive_array, types::Int32Type};
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct Item {
     pub a: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct RowFSL {
     pub id: i64,
     pub pair: typed_arrow::FixedSizeList<Item, 2>,
@@ -44,7 +44,7 @@ fn fixed_size_list_of_struct_builds_and_values() {
     assert_eq!(a_field.value(3), 20);
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct RowFSLN {
     pub id: i64,
     pub pair: typed_arrow::FixedSizeListNullable<Item, 2>,

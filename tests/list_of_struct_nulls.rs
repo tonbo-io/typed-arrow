@@ -5,12 +5,12 @@ use arrow_array::{
 };
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct PartN {
     pub a: i32,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct RowLON {
     pub id: i64,
     pub parts: typed_arrow::List<Option<PartN>>, // item-nullable list of struct

@@ -1,7 +1,7 @@
 use arrow_array::Array;
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 pub struct PersonR {
     pub id: i64,
     pub name: Option<String>,

@@ -1,6 +1,6 @@
 use arrow_array::Array;
 use arrow_schema::DataType;
-use typed_arrow::bridge::ArrowBinding;
+use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 #[test]
 fn fixed_size_binary_datatype_and_build() {
@@ -18,7 +18,7 @@ fn fixed_size_binary_datatype_and_build() {
     assert_eq!(a.value_length(), i32::try_from(N).expect("N fits in i32"));
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Row {
     tag4: [u8; 4],
     opt_tag8: Option<[u8; 8]>,

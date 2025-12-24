@@ -1,7 +1,7 @@
 use arrow_array::RecordBatch;
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Union)]
+#[derive(Union)]
 enum Value {
     I(i32),
     S(String),
@@ -9,7 +9,7 @@ enum Value {
 
 #[test]
 fn test_union_dense_views() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         value: Value,
@@ -62,7 +62,7 @@ fn test_union_dense_views() -> Result<(), SchemaError> {
     Ok(())
 }
 
-#[derive(typed_arrow::Union)]
+#[derive(Union)]
 #[union(mode = "sparse")]
 enum SparseValue {
     A(i64),
@@ -71,7 +71,7 @@ enum SparseValue {
 
 #[test]
 fn test_union_sparse_views() -> Result<(), SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct TestRow {
         id: i32,
         value: SparseValue,

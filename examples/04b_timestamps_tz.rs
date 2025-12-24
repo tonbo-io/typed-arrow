@@ -9,7 +9,7 @@ impl typed_arrow::TimeZoneSpec for AsiaShanghai {
     const NAME: Option<&'static str> = Some("Asia/Shanghai");
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct RowTz {
     s_utc: TimestampTz<Second, Utc>,
     ms_utc: Option<TimestampTz<Millisecond, Utc>>,

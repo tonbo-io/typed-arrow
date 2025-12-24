@@ -230,7 +230,7 @@ pub trait ViewResultIteratorExt: Iterator + Sized {
     /// ```
     /// use typed_arrow::prelude::*;
     ///
-    /// #[derive(typed_arrow::Record)]
+    /// #[derive(Record)]
     /// struct Row {
     ///     id: i32,
     ///     name: String,

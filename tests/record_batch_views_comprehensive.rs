@@ -6,7 +6,7 @@ use typed_arrow::{
     prelude::*,
 };
 
-#[derive(typed_arrow::Union)]
+#[derive(Union)]
 enum Status {
     Active(i32),
     Inactive(String),
@@ -14,7 +14,7 @@ enum Status {
 
 #[test]
 fn test_all_view_types_together() -> Result<(), typed_arrow::schema::SchemaError> {
-    #[derive(typed_arrow::Record)]
+    #[derive(Record)]
     struct ComplexRow {
         // Primitives
         id: i64,

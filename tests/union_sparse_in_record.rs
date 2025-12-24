@@ -1,14 +1,14 @@
 use arrow_array::Array;
 use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
-#[derive(typed_arrow::Union)]
+#[derive(Union)]
 #[union(mode = "sparse")]
 enum Value {
     I(i32),
     S(String),
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Row {
     id: i32,
     value: Value,

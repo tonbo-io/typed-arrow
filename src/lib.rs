@@ -7,6 +7,10 @@ pub mod schema;
 
 /// Prelude exporting the most common traits and markers.
 pub mod prelude {
+    // Re-export derive macros when enabled
+    #[cfg(feature = "derive")]
+    pub use typed_arrow_derive::{Record, Union};
+
     #[cfg(feature = "views")]
     pub use crate::AsViewsIterator;
     #[cfg(feature = "views")]
@@ -50,7 +54,7 @@ pub trait AsViewsIterator {
     /// ```
     /// use typed_arrow::prelude::*;
     ///
-    /// #[derive(typed_arrow::Record)]
+    /// #[derive(Record)]
     /// struct Row {
     ///     id: i32,
     ///     name: String,

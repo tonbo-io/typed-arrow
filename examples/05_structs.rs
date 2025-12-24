@@ -3,13 +3,13 @@
 use arrow_array::{Array, cast::as_string_array};
 use typed_arrow::prelude::*;
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct Address {
     city: String,
     zip: Option<i32>,
 }
 
-#[derive(typed_arrow::Record)]
+#[derive(Record)]
 struct PersonS {
     id: i64,
     address: Option<Address>,
