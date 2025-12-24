@@ -257,10 +257,10 @@ pub use typed_arrow_derive::{Record, Union};
 
 // Public re-exports for convenience
 pub use crate::bridge::{
-    Date32, Date64, Decimal128, Decimal256, Dictionary, Duration, FixedSizeList,
+    BinaryView, Date32, Date64, Decimal128, Decimal256, Dictionary, Duration, FixedSizeList,
     FixedSizeListNullable, IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth, LargeBinary,
     LargeList, LargeUtf8, List, Map, Microsecond, Millisecond, Nanosecond, Null, OrderedMap,
-    Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utc,
+    Second, Time32, Time64, TimeZoneSpec, Timestamp, TimestampTz, Utc, Utf8View,
 };
 
 /// Extension trait for creating typed view iterators from `RecordBatch`.

@@ -1,8 +1,8 @@
-//! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`).
+//! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`, `BinaryView`).
 
 use arrow_array::{
-    Array, FixedSizeBinaryArray, LargeBinaryArray,
-    builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
+    Array, BinaryViewArray, FixedSizeBinaryArray, LargeBinaryArray,
+    builder::{BinaryBuilder, BinaryViewBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
 };
 use arrow_schema::DataType;
 
@@ -159,6 +159,85 @@ impl ArrowBinding for LargeBinary {
 #[cfg(feature = "views")]
 impl ArrowBindingView for LargeBinary {
     type Array = LargeBinaryArray;
+    type View<'a> = &'a [u8];
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        Ok(array.value(index))
+    }
+}
+
+/// Wrapper denoting Arrow `BinaryView` values. Use when you want to take advantage
+/// of the more efficient view-based binary representation which stores short values
+/// inline and provides better cache locality for comparisons.
+pub struct BinaryView(Vec<u8>);
+
+impl BinaryView {
+    /// Construct a new `BinaryView` from the given bytes.
+    #[inline]
+    #[must_use]
+    pub fn new(value: Vec<u8>) -> Self {
+        Self(value)
+    }
+    /// Return the underlying bytes as a slice.
+    #[inline]
+    #[must_use]
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+    /// Consume and return the underlying byte vector.
+    #[inline]
+    #[must_use]
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0
+    }
+}
+
+impl From<Vec<u8>> for BinaryView {
+    #[inline]
+    fn from(value: Vec<u8>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl ArrowBinding for BinaryView {
+    type Builder = BinaryViewBuilder;
+    type Array = BinaryViewArray;
+    fn data_type() -> DataType {
+        DataType::BinaryView
+    }
+    fn new_builder(capacity: usize) -> Self::Builder {
+        BinaryViewBuilder::with_capacity(capacity)
+    }
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.0.as_slice());
+    }
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for BinaryView {
+    type Array = BinaryViewArray;
     type View<'a> = &'a [u8];
 
     fn get_view(

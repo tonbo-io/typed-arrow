@@ -238,8 +238,6 @@ Supported (arrow-rs v56):
 
 Missing:
 
-- BinaryView, Utf8View
-- Utf8View
 - ListView, LargeListView
 - RunEndEncoded
 
