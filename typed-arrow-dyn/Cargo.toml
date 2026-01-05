@@ -6,7 +6,7 @@ name = "typed-arrow-dyn"
 readme = "./README.md"
 repository = { workspace = true }
 resolver = "2"
-version = "0.0.6"
+version = "0.0.7"
 
 [lib]
 name = "typed_arrow_dyn"
