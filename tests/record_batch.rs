@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::{Array, RecordBatch, cast::as_string_array};
+use arrow_array::{Array, RecordBatch, cast::as_string_array};
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
 #[derive(Record)]
@@ -60,12 +60,12 @@ fn schema_and_record_batch_from_rows() {
 
     // Validate id column
     let id =
-        typed_arrow::arrow_array::cast::as_primitive_array::<typed_arrow::arrow_array::types::Int64Type>(batch.column(0));
+        arrow_array::cast::as_primitive_array::<arrow_array::types::Int64Type>(batch.column(0));
     assert_eq!(id.value(0), 1);
     assert_eq!(id.value(2), 3);
 
     // Validate nested address struct
-    let address = typed_arrow::arrow_array::cast::as_struct_array(batch.column(1));
+    let address = arrow_array::cast::as_struct_array(batch.column(1));
     assert!(address.is_null(1));
     let city = as_string_array(address.column(0));
     assert_eq!(city.value(0), "NYC");

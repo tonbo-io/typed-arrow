@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::{
+use arrow_array::{
     Array,
     cast::{as_list_array, as_primitive_array, as_struct_array},
     types::Int32Type,

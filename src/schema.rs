@@ -93,11 +93,11 @@ use std::{
     collections::HashMap, iter::IntoIterator, marker::PhantomData, option::Option, sync::Arc,
 };
 
-use crate::arrow_array::{
+use arrow_array::{
     Array, RecordBatch,
     builder::{ArrayBuilder, StructBuilder},
 };
-use crate::arrow_schema::{DataType, Field, Schema};
+use arrow_schema::{DataType, Field, Schema};
 
 pub use crate::error::SchemaError;
 #[cfg(feature = "views")]
@@ -368,10 +368,10 @@ pub trait StructView: Record + Sized {
     /// Returns `ViewAccessError` if the index is out of bounds, the value is null when expected to
     /// be non-null, or if there's a type mismatch during field extraction.
     fn view_at(
-        array: &crate::arrow_array::StructArray,
+        array: &arrow_array::StructArray,
         index: usize,
     ) -> Result<Self::View<'_>, ViewAccessError>;
 
     /// Check if the struct value at the given index is null.
-    fn is_null_at(array: &crate::arrow_array::StructArray, index: usize) -> bool;
+    fn is_null_at(array: &arrow_array::StructArray, index: usize) -> bool;
 }

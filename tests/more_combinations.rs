@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use typed_arrow::arrow_array::cast::as_list_array;
-use typed_arrow::arrow_schema::{DataType, Field};
+use arrow_array::cast::as_list_array;
+use arrow_schema::{DataType, Field};
 use typed_arrow::{arrow_array::Array, prelude::*};
 
 #[derive(Record)]

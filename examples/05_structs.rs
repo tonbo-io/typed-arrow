@@ -1,6 +1,6 @@
 //! Showcase: Struct arrays from nested `Record` types.
 
-use typed_arrow::arrow_array::{Array, cast::as_string_array};
+use arrow_array::{Array, cast::as_string_array};
 use typed_arrow::prelude::*;
 
 #[derive(Record)]
@@ -16,7 +16,7 @@ struct PersonS {
 }
 
 fn main() {
-    use typed_arrow::arrow_array::{
+    use arrow_array::{
         builder::{PrimitiveBuilder, StringBuilder},
         types::Int32Type,
     };
@@ -48,7 +48,7 @@ fn main() {
         b.append(false);
     }
 
-    let arr: typed_arrow::arrow_array::StructArray = b.finish();
+    let arr: arrow_array::StructArray = b.finish();
     println!("struct_len={}, is_null[1]={}", arr.len(), arr.is_null(1));
     let city = as_string_array(arr.column(0));
     println!("first_city={}", city.value(0));

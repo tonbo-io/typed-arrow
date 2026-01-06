@@ -1,7 +1,7 @@
 //! `List`, `LargeList`, and `FixedSizeList` bindings.
 
-use crate::arrow_array::builder::{ArrayBuilder, FixedSizeListBuilder, LargeListBuilder, ListBuilder};
-use crate::arrow_schema::{DataType, Field};
+use arrow_array::builder::{ArrayBuilder, FixedSizeListBuilder, LargeListBuilder, ListBuilder};
+use arrow_schema::{DataType, Field};
 
 use super::ArrowBinding;
 #[cfg(feature = "views")]
@@ -69,7 +69,7 @@ where
     <T as ArrowBinding>::Builder: ArrayBuilder,
 {
     type Builder = ListBuilder<<T as ArrowBinding>::Builder>;
-    type Array = crate::arrow_array::ListArray;
+    type Array = arrow_array::ListArray;
     fn data_type() -> DataType {
         DataType::List(Field::new("item", <T as ArrowBinding>::data_type(), false).into())
     }
@@ -206,14 +206,14 @@ impl<T> ArrowBindingView for List<T>
 where
     T: ArrowBinding + ArrowBindingView + 'static,
 {
-    type Array = crate::arrow_array::ListArray;
+    type Array = arrow_array::ListArray;
     type View<'a> = ListView<'a, T>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -251,7 +251,7 @@ where
     <T as ArrowBinding>::Builder: ArrayBuilder,
 {
     type Builder = ListBuilder<<T as ArrowBinding>::Builder>;
-    type Array = crate::arrow_array::ListArray;
+    type Array = arrow_array::ListArray;
     fn data_type() -> DataType {
         DataType::List(Field::new("item", <T as ArrowBinding>::data_type(), true).into())
     }
@@ -398,14 +398,14 @@ impl<T> ArrowBindingView for List<Option<T>>
 where
     T: ArrowBinding + ArrowBindingView + 'static,
 {
-    type Array = crate::arrow_array::ListArray;
+    type Array = arrow_array::ListArray;
     type View<'a> = ListViewNullable<'a, T>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -476,8 +476,8 @@ where
     T: ArrowBinding,
     <T as ArrowBinding>::Builder: ArrayBuilder,
 {
-    type Builder = crate::arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
-    type Array = crate::arrow_array::FixedSizeListArray;
+    type Builder = arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
+    type Array = arrow_array::FixedSizeListArray;
     fn data_type() -> DataType {
         let n_i32 = i32::try_from(N).expect("FixedSizeList N fits in i32");
         DataType::FixedSizeList(
@@ -624,14 +624,14 @@ impl<T, const N: usize> ArrowBindingView for FixedSizeList<T, N>
 where
     T: ArrowBinding + ArrowBindingView + 'static,
 {
-    type Array = crate::arrow_array::FixedSizeListArray;
+    type Array = arrow_array::FixedSizeListArray;
     type View<'a> = FixedSizeListView<'a, T, N>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -702,8 +702,8 @@ where
     T: ArrowBinding,
     <T as ArrowBinding>::Builder: ArrayBuilder,
 {
-    type Builder = crate::arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
-    type Array = crate::arrow_array::FixedSizeListArray;
+    type Builder = arrow_array::builder::FixedSizeListBuilder<<T as ArrowBinding>::Builder>;
+    type Array = arrow_array::FixedSizeListArray;
     fn data_type() -> DataType {
         let n_i32 = i32::try_from(N).expect("FixedSizeList N fits in i32");
         DataType::FixedSizeList(
@@ -863,14 +863,14 @@ impl<T, const N: usize> ArrowBindingView for FixedSizeListNullable<T, N>
 where
     T: ArrowBinding + ArrowBindingView + 'static,
 {
-    type Array = crate::arrow_array::FixedSizeListArray;
+    type Array = arrow_array::FixedSizeListArray;
     type View<'a> = FixedSizeListViewNullable<'a, T, N>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -956,7 +956,7 @@ where
     <T as ArrowBinding>::Builder: ArrayBuilder,
 {
     type Builder = LargeListBuilder<<T as ArrowBinding>::Builder>;
-    type Array = crate::arrow_array::LargeListArray;
+    type Array = arrow_array::LargeListArray;
     fn data_type() -> DataType {
         DataType::LargeList(Field::new("item", <T as ArrowBinding>::data_type(), false).into())
     }
@@ -1093,14 +1093,14 @@ impl<T> ArrowBindingView for LargeList<T>
 where
     T: ArrowBinding + ArrowBindingView + 'static,
 {
-    type Array = crate::arrow_array::LargeListArray;
+    type Array = arrow_array::LargeListArray;
     type View<'a> = LargeListView<'a, T>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -1138,7 +1138,7 @@ where
     <T as ArrowBinding>::Builder: ArrayBuilder,
 {
     type Builder = LargeListBuilder<<T as ArrowBinding>::Builder>;
-    type Array = crate::arrow_array::LargeListArray;
+    type Array = arrow_array::LargeListArray;
     fn data_type() -> DataType {
         DataType::LargeList(Field::new("item", <T as ArrowBinding>::data_type(), true).into())
     }
@@ -1285,14 +1285,14 @@ impl<T> ArrowBindingView for LargeList<Option<T>>
 where
     T: ArrowBinding + ArrowBindingView + 'static,
 {
-    type Array = crate::arrow_array::LargeListArray;
+    type Array = arrow_array::LargeListArray;
     type View<'a> = LargeListViewNullable<'a, T>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,

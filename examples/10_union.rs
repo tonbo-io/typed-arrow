@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::{Array, Int32Array, StringArray, UnionArray};
+use arrow_array::{Array, Int32Array, StringArray, UnionArray};
 use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 // Dense Union with attributes: explicit tags, per-variant field names, and null carrier
@@ -99,7 +99,7 @@ fn main() {
         arr_s.len(),
         matches!(
             <ValueSparse as ArrowBinding>::data_type(),
-            typed_arrow::arrow_schema::DataType::Union(_, typed_arrow::arrow_schema::UnionMode::Sparse)
+            arrow_schema::DataType::Union(_, arrow_schema::UnionMode::Sparse)
         )
     );
     let ints_s = arr_s

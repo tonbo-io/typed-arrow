@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::Array;
+use arrow_array::Array;
 use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 #[derive(Union)]
@@ -19,7 +19,7 @@ fn union_as_record_field_builders() {
     let dt = <Test as ColAt<0>>::data_type();
     // Ensure it is a Union(DataType::Int32 | Utf8, Dense)
     match dt {
-        typed_arrow::arrow_schema::DataType::Union(_, typed_arrow::arrow_schema::UnionMode::Dense) => {}
+        arrow_schema::DataType::Union(_, arrow_schema::UnionMode::Dense) => {}
         _ => panic!("unexpected datatype: {dt:?}"),
     }
 

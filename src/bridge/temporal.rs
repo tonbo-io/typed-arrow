@@ -2,7 +2,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::arrow_array::{
+use arrow_array::{
     PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{
@@ -12,11 +12,11 @@ use crate::arrow_array::{
         TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType,
     },
 };
-use crate::arrow_schema::{DataType, TimeUnit};
+use arrow_schema::{DataType, TimeUnit};
 
 use super::ArrowBinding;
 #[cfg(feature = "views")]
-use crate::arrow_array::Array;
+use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 
@@ -25,7 +25,7 @@ use super::ArrowBindingView;
 /// Marker describing a timestamp unit.
 pub trait TimeUnitSpec {
     /// Typed Arrow timestamp marker for this unit.
-    type Arrow: crate::arrow_array::types::ArrowTimestampType;
+    type Arrow: arrow_array::types::ArrowTimestampType;
     /// The `arrow_schema::TimeUnit` of this marker.
     fn unit() -> TimeUnit;
 }
@@ -400,7 +400,7 @@ impl<U: Time32UnitSpec> Time32<U> {
 }
 impl<U: Time32UnitSpec> ArrowBinding for Time32<U>
 where
-    U::Arrow: crate::arrow_array::types::ArrowPrimitiveType<Native = i32>,
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i32>,
 {
     type Builder = PrimitiveBuilder<U::Arrow>;
     type Array = PrimitiveArray<U::Arrow>;
@@ -411,7 +411,7 @@ where
         PrimitiveBuilder::<U::Arrow>::with_capacity(capacity)
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        b.append_value(v.0 as <U::Arrow as crate::arrow_array::types::ArrowPrimitiveType>::Native);
+        b.append_value(v.0 as <U::Arrow as arrow_array::types::ArrowPrimitiveType>::Native);
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -424,7 +424,7 @@ where
 #[cfg(feature = "views")]
 impl<U: Time32UnitSpec + 'static> ArrowBindingView for Time32<U>
 where
-    U::Arrow: crate::arrow_array::types::ArrowPrimitiveType<Native = i32>,
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i32>,
 {
     type Array = PrimitiveArray<U::Arrow>;
     type View<'a> = Time32<U>;
@@ -492,7 +492,7 @@ impl<U: Time64UnitSpec> Time64<U> {
 }
 impl<U: Time64UnitSpec> ArrowBinding for Time64<U>
 where
-    U::Arrow: crate::arrow_array::types::ArrowPrimitiveType<Native = i64>,
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
 {
     type Builder = PrimitiveBuilder<U::Arrow>;
     type Array = PrimitiveArray<U::Arrow>;
@@ -503,7 +503,7 @@ where
         PrimitiveBuilder::<U::Arrow>::with_capacity(capacity)
     }
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        b.append_value(v.0 as <U::Arrow as crate::arrow_array::types::ArrowPrimitiveType>::Native);
+        b.append_value(v.0 as <U::Arrow as arrow_array::types::ArrowPrimitiveType>::Native);
     }
     fn append_null(b: &mut Self::Builder) {
         b.append_null();
@@ -516,7 +516,7 @@ where
 #[cfg(feature = "views")]
 impl<U: Time64UnitSpec + 'static> ArrowBindingView for Time64<U>
 where
-    U::Arrow: crate::arrow_array::types::ArrowPrimitiveType<Native = i64>,
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
 {
     type Array = PrimitiveArray<U::Arrow>;
     type View<'a> = Time64<U>;
@@ -599,7 +599,7 @@ impl<U: DurationUnitSpec> Duration<U> {
 }
 impl<U: DurationUnitSpec> ArrowBinding for Duration<U>
 where
-    U::Arrow: crate::arrow_array::types::ArrowPrimitiveType<Native = i64>,
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
 {
     type Builder = PrimitiveBuilder<U::Arrow>;
     type Array = PrimitiveArray<U::Arrow>;
@@ -623,7 +623,7 @@ where
 #[cfg(feature = "views")]
 impl<U: DurationUnitSpec + 'static> ArrowBindingView for Duration<U>
 where
-    U::Arrow: crate::arrow_array::types::ArrowPrimitiveType<Native = i64>,
+    U::Arrow: arrow_array::types::ArrowPrimitiveType<Native = i64>,
 {
     type Array = PrimitiveArray<U::Arrow>;
     type View<'a> = Duration<U>;

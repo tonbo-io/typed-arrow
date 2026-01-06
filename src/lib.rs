@@ -240,32 +240,32 @@ compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-5
 compile_error!("Enable one Arrow feature: arrow-55, arrow-56, or arrow-57.");
 
 #[cfg(feature = "arrow-55")]
-pub use arrow_array_55 as arrow_array;
+pub extern crate arrow_array_55 as arrow_array;
 #[cfg(feature = "arrow-56")]
-pub use arrow_array_56 as arrow_array;
+pub extern crate arrow_array_56 as arrow_array;
 #[cfg(feature = "arrow-57")]
-pub use arrow_array_57 as arrow_array;
+pub extern crate arrow_array_57 as arrow_array;
 
 #[cfg(feature = "arrow-55")]
-pub use arrow_buffer_55 as arrow_buffer;
+pub extern crate arrow_buffer_55 as arrow_buffer;
 #[cfg(feature = "arrow-56")]
-pub use arrow_buffer_56 as arrow_buffer;
+pub extern crate arrow_buffer_56 as arrow_buffer;
 #[cfg(feature = "arrow-57")]
-pub use arrow_buffer_57 as arrow_buffer;
+pub extern crate arrow_buffer_57 as arrow_buffer;
 
 #[cfg(feature = "arrow-55")]
-pub use arrow_data_55 as arrow_data;
+pub extern crate arrow_data_55 as arrow_data;
 #[cfg(feature = "arrow-56")]
-pub use arrow_data_56 as arrow_data;
+pub extern crate arrow_data_56 as arrow_data;
 #[cfg(feature = "arrow-57")]
-pub use arrow_data_57 as arrow_data;
+pub extern crate arrow_data_57 as arrow_data;
 
 #[cfg(feature = "arrow-55")]
-pub use arrow_schema_55 as arrow_schema;
+pub extern crate arrow_schema_55 as arrow_schema;
 #[cfg(feature = "arrow-56")]
-pub use arrow_schema_56 as arrow_schema;
+pub extern crate arrow_schema_56 as arrow_schema;
 #[cfg(feature = "arrow-57")]
-pub use arrow_schema_57 as arrow_schema;
+pub extern crate arrow_schema_57 as arrow_schema;
 
 pub mod bridge;
 pub mod error;
@@ -276,6 +276,9 @@ pub mod prelude {
     // Re-export derive macros when enabled
     #[cfg(feature = "derive")]
     pub use typed_arrow_derive::{Record, Union};
+
+    #[cfg(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57"))]
+    pub use crate::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
 
     #[cfg(feature = "views")]
     pub use crate::AsViewsIterator;
@@ -350,7 +353,7 @@ pub trait AsViewsIterator {
 }
 
 #[cfg(feature = "views")]
-impl AsViewsIterator for crate::arrow_array::RecordBatch {
+impl AsViewsIterator for arrow_array::RecordBatch {
     fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, error::SchemaError> {
         T::from_record_batch(self)
     }

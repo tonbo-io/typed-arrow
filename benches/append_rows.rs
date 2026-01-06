@@ -13,13 +13,13 @@
 
 use std::sync::Arc;
 
-use typed_arrow::arrow_array::{
+use arrow_array::{
     Array, RecordBatch,
     builder::{BooleanBuilder, Float64Builder, Int64Builder, StringBuilder},
     cast::AsArray,
     types::{Float64Type, Int32Type, Int64Type},
 };
-use typed_arrow::arrow_schema::{DataType, Field, Schema};
+use arrow_schema::{DataType, Field, Schema};
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use typed_arrow::prelude::*;
@@ -126,7 +126,7 @@ fn bench_primitives(c: &mut Criterion) {
                 b.iter(|| {
                     let mut a = Int64Builder::with_capacity(records.len());
                     let mut b_builder = Float64Builder::with_capacity(records.len());
-                    let mut c = typed_arrow::arrow_array::builder::Int32Builder::with_capacity(records.len());
+                    let mut c = arrow_array::builder::Int32Builder::with_capacity(records.len());
                     let mut d = BooleanBuilder::with_capacity(records.len());
 
                     for record in *records {
@@ -155,7 +155,7 @@ fn bench_primitives(c: &mut Criterion) {
         // serde_arrow: serde-based serialization
         use serde_arrow::schema::{SchemaLike, TracingOptions};
         let serde_fields =
-            Vec::<typed_arrow::arrow_schema::FieldRef>::from_type::<Primitive>(TracingOptions::default())
+            Vec::<arrow_schema::FieldRef>::from_type::<Primitive>(TracingOptions::default())
                 .unwrap();
         group.bench_with_input(
             BenchmarkId::new("serde_arrow", size),
@@ -233,7 +233,7 @@ fn bench_with_strings(c: &mut Criterion) {
         // serde_arrow: serde-based serialization
         use serde_arrow::schema::{SchemaLike, TracingOptions};
         let serde_fields =
-            Vec::<typed_arrow::arrow_schema::FieldRef>::from_type::<WithStrings>(TracingOptions::default())
+            Vec::<arrow_schema::FieldRef>::from_type::<WithStrings>(TracingOptions::default())
                 .unwrap();
         group.bench_with_input(
             BenchmarkId::new("serde_arrow", size),
@@ -320,7 +320,7 @@ fn bench_read_primitives(c: &mut Criterion) {
         // serde_arrow: deserialize to Vec<T>
         use serde_arrow::schema::{SchemaLike, TracingOptions};
         let serde_fields =
-            Vec::<typed_arrow::arrow_schema::FieldRef>::from_type::<Primitive>(TracingOptions::default())
+            Vec::<arrow_schema::FieldRef>::from_type::<Primitive>(TracingOptions::default())
                 .unwrap();
         // Prepare batch for serde_arrow (needs matching schema)
         let serde_batch = serde_arrow::to_record_batch(&serde_fields, &records).unwrap();
@@ -428,7 +428,7 @@ fn bench_read_with_strings(c: &mut Criterion) {
         // serde_arrow: deserialize to Vec<T>
         use serde_arrow::schema::{SchemaLike, TracingOptions};
         let serde_fields =
-            Vec::<typed_arrow::arrow_schema::FieldRef>::from_type::<WithStrings>(TracingOptions::default())
+            Vec::<arrow_schema::FieldRef>::from_type::<WithStrings>(TracingOptions::default())
                 .unwrap();
         // Prepare batch for serde_arrow (needs matching schema)
         let serde_batch = serde_arrow::to_record_batch(&serde_fields, &records).unwrap();

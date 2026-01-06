@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::RecordBatch;
+use arrow_array::RecordBatch;
 use typed_arrow::{FixedSizeList, LargeList, List, prelude::*};
 
 #[derive(Record)]

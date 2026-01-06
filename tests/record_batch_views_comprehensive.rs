@@ -1,6 +1,6 @@
 // Comprehensive test showing all view types working together
 
-use typed_arrow::arrow_array::RecordBatch;
+use arrow_array::RecordBatch;
 use typed_arrow::{
     bridge::{Dictionary, List, Map},
     prelude::*,

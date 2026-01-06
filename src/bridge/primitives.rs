@@ -1,6 +1,6 @@
 //! Primitive Arrow bindings (integers, floats, bool, f16).
 
-use crate::arrow_array::{
+use arrow_array::{
     PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{
@@ -8,12 +8,12 @@ use crate::arrow_array::{
         UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
 };
-use crate::arrow_schema::DataType;
+use arrow_schema::DataType;
 use half::f16;
 
 use super::ArrowBinding;
 #[cfg(feature = "views")]
-use crate::arrow_array::Array;
+use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 
@@ -138,15 +138,15 @@ impl ArrowBindingView for f16 {
 
 // Boolean
 impl ArrowBinding for bool {
-    type Builder = crate::arrow_array::builder::BooleanBuilder;
-    type Array = crate::arrow_array::BooleanArray;
+    type Builder = arrow_array::builder::BooleanBuilder;
+    type Array = arrow_array::BooleanArray;
     #[inline]
     fn data_type() -> DataType {
         DataType::Boolean
     }
     #[inline]
     fn new_builder(capacity: usize) -> Self::Builder {
-        crate::arrow_array::builder::BooleanBuilder::with_capacity(capacity)
+        arrow_array::builder::BooleanBuilder::with_capacity(capacity)
     }
     #[inline]
     fn append_value(b: &mut Self::Builder, v: &Self) {
@@ -164,7 +164,7 @@ impl ArrowBinding for bool {
 
 #[cfg(feature = "views")]
 impl ArrowBindingView for bool {
-    type Array = crate::arrow_array::BooleanArray;
+    type Array = arrow_array::BooleanArray;
     type View<'a> = bool;
 
     fn get_view(

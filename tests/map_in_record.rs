@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use typed_arrow::arrow_schema::{DataType, Field};
+use arrow_schema::{DataType, Field};
 use typed_arrow::{Map, Record, prelude::*};
 
 #[derive(Record)]

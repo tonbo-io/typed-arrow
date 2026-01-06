@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 
-use crate::arrow_schema::DataType;
+use arrow_schema::DataType;
 
 use super::ArrowBinding;
 use crate::schema::{ColAt, Record};

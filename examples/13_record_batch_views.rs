@@ -4,7 +4,7 @@
 //! `{Name}Views<'a>` iterators that provide borrowed access to RecordBatch
 //! data without copying.
 
-use typed_arrow::arrow_array::RecordBatch;
+use arrow_array::RecordBatch;
 use typed_arrow::prelude::*;
 
 #[derive(Record)]

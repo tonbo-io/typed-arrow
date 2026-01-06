@@ -1,5 +1,5 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
-use typed_arrow::arrow_array::types::Int32Type;
+use arrow_array::types::Int32Type;
 use typed_arrow::{Dictionary, prelude::*};
 
 #[derive(Record)]
@@ -12,7 +12,7 @@ pub struct Row {
 fn build_dictionary_arrays() {
     type B0 = <Row as ColAt<0>>::ColumnBuilder;
     type A0 = <Row as ColAt<0>>::ColumnArray;
-    let mut b: B0 = typed_arrow::arrow_array::builder::PrimitiveDictionaryBuilder::<Int32Type, Int32Type>::new();
+    let mut b: B0 = arrow_array::builder::PrimitiveDictionaryBuilder::<Int32Type, Int32Type>::new();
     let _ = b.append(0);
     let _ = b.append(1);
     let _ = b.append(0);
@@ -22,7 +22,7 @@ fn build_dictionary_arrays() {
 
 #[test]
 fn dictionary_schema_and_types() {
-    use typed_arrow::arrow_schema::DataType;
+    use arrow_schema::DataType;
 
     assert_eq!(<Row as Record>::LEN, 2);
     assert_eq!(<Row as ColAt<0>>::NAME, "code");
@@ -50,9 +50,9 @@ fn dictionary_schema_and_types() {
         trait Same<T> {}
         impl<T> Same<T> for T {}
         #[allow(clippy::used_underscore_items)]
-        fn _a0<T: Same<typed_arrow::arrow_array::DictionaryArray<typed_arrow::arrow_array::types::Int32Type>>>() {}
+        fn _a0<T: Same<arrow_array::DictionaryArray<arrow_array::types::Int32Type>>>() {}
         #[allow(clippy::used_underscore_items)]
-        fn _b0<T: Same<typed_arrow::arrow_array::builder::PrimitiveDictionaryBuilder<Int32Type, Int32Type>>>() {}
+        fn _b0<T: Same<arrow_array::builder::PrimitiveDictionaryBuilder<Int32Type, Int32Type>>>() {}
         #[allow(clippy::used_underscore_items)]
         {
             _a0::<A0>();

@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::{Array, builder::StructBuilder, cast::as_string_array};
+use arrow_array::{Array, builder::StructBuilder, cast::as_string_array};
 use typed_arrow::prelude::*;
 
 #[derive(Record)]
@@ -15,7 +15,7 @@ pub struct PersonS {
 
 #[test]
 fn struct_datatype_and_associated_types() {
-    use typed_arrow::arrow_schema::{DataType, Field};
+    use arrow_schema::{DataType, Field};
     // DataType for nested struct field
     let expected = DataType::Struct(
         vec![
@@ -36,7 +36,7 @@ fn struct_datatype_and_associated_types() {
         #[allow(clippy::used_underscore_items)]
         fn _b<T: Same<StructBuilder>>() {}
         #[allow(clippy::used_underscore_items)]
-        fn _a<T: Same<typed_arrow::arrow_array::StructArray>>() {}
+        fn _a<T: Same<arrow_array::StructArray>>() {}
         #[allow(clippy::used_underscore_items)]
         {
             _b::<AB>();
@@ -47,7 +47,7 @@ fn struct_datatype_and_associated_types() {
 
 #[test]
 fn build_struct_array_values() {
-    use typed_arrow::arrow_array::{
+    use arrow_array::{
         builder::{PrimitiveBuilder, StringBuilder},
         types::Int32Type,
     };
@@ -82,7 +82,7 @@ fn build_struct_array_values() {
         b.append(false);
     }
 
-    let arr: typed_arrow::arrow_array::StructArray = b.finish();
+    let arr: arrow_array::StructArray = b.finish();
     assert_eq!(arr.len(), 2);
     assert!(arr.is_null(1));
     let city = as_string_array(arr.column(0));

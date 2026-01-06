@@ -1,6 +1,6 @@
 //! Showcase: `TimestampTz`<U, Z> with timezone markers.
 
-use typed_arrow::arrow_array::Array;
+use arrow_array::Array;
 use typed_arrow::{Millisecond, Nanosecond, Second, TimestampTz, Utc, prelude::*};
 
 // Custom timezone marker example
@@ -17,8 +17,8 @@ struct RowTz {
 }
 
 fn main() {
-    use typed_arrow::arrow_array::{builder::PrimitiveBuilder, types as t};
-    use typed_arrow::arrow_schema::{DataType, TimeUnit};
+    use arrow_array::{builder::PrimitiveBuilder, types as t};
+    use arrow_schema::{DataType, TimeUnit};
 
     println!(
         "s_utc={:?}, ms_utc={:?}, ns_sh={:?}",

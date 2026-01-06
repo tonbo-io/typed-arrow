@@ -25,7 +25,7 @@ where
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use crate::arrow_array::Array;
+        use arrow_array::Array;
 
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {

@@ -1,4 +1,4 @@
-use typed_arrow::arrow_array::Array;
+use arrow_array::Array;
 use typed_arrow::prelude::*;
 
 #[derive(Record)]

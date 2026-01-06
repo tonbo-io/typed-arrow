@@ -1,6 +1,6 @@
 #![allow(clippy::float_cmp)]
 
-use typed_arrow::arrow_array::{
+use arrow_array::{
     Array,
     cast::{as_primitive_array, as_string_array, as_struct_array},
     types::{Float64Type, Int32Type},

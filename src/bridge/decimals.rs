@@ -1,15 +1,15 @@
 //! Decimal128/Decimal256 bindings.
 
-use crate::arrow_array::{
+use arrow_array::{
     Decimal128Array, Decimal256Array,
     builder::{Decimal128Builder, Decimal256Builder},
 };
-use crate::arrow_buffer::i256;
-use crate::arrow_schema::DataType;
+use arrow_buffer::i256;
+use arrow_schema::DataType;
 
 use super::ArrowBinding;
 #[cfg(feature = "views")]
-use crate::arrow_array::Array;
+use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 
