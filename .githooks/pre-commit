@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cargo test -q
+cargo test -q -p typed-arrow --no-default-features --features arrow-56,derive,views
+cargo test -q -p typed-arrow-dyn --no-default-features --features arrow-55

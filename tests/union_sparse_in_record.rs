@@ -1,4 +1,4 @@
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 #[derive(Union)]
@@ -20,7 +20,7 @@ fn union_sparse_as_record_field() {
     assert_eq!(<Row as Record>::LEN, 2);
     let dt = <Row as ColAt<1>>::data_type();
     match dt {
-        arrow_schema::DataType::Union(_, arrow_schema::UnionMode::Sparse) => {}
+        typed_arrow::arrow_schema::DataType::Union(_, typed_arrow::arrow_schema::UnionMode::Sparse) => {}
         _ => panic!("unexpected datatype: {dt:?}"),
     }
 

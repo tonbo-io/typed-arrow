@@ -1,6 +1,6 @@
 //! Showcase: Compile-time Schema + `RecordBatch` from typed arrays.
 
-use arrow_array::{RecordBatch, cast::as_string_array};
+use typed_arrow::arrow_array::{RecordBatch, cast::as_string_array};
 use typed_arrow::{prelude::*, schema::SchemaMeta};
 
 #[derive(Record)]
@@ -59,6 +59,6 @@ fn main() {
     );
 
     // A quick peek at nested values
-    let city = as_string_array(arrow_array::cast::as_struct_array(batch.column(1)).column(0));
+    let city = as_string_array(typed_arrow::arrow_array::cast::as_struct_array(batch.column(1)).column(0));
     println!("first_city={}, third_city={}", city.value(0), city.value(2));
 }

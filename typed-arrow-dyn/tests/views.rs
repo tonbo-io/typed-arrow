@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode};
-use parquet::arrow::ArrowSchemaConverter;
+use typed_arrow_dyn::arrow_array::RecordBatch;
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode};
+use typed_arrow_dyn::parquet::arrow::ArrowSchemaConverter;
 use typed_arrow_dyn::{DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError};
 
 fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> RecordBatch {

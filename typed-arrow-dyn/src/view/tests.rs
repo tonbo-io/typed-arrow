@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
-use arrow_buffer::OffsetBuffer;
-use arrow_schema::{DataType, Field, Fields, Schema};
+use crate::arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
+use crate::arrow_buffer::OffsetBuffer;
+use crate::arrow_schema::{DataType, Field, Fields, Schema};
 
 use super::{
     DynCellRaw, DynMapView, DynRowOwned, DynRowView, DynStructView, path::Path,

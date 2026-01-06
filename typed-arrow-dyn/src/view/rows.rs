@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, Fields, Schema};
+use crate::arrow_array::RecordBatch;
+use crate::arrow_schema::{DataType, Field, Fields, Schema};
 
 use super::{
     cell::{DynCellRaw, DynCellRef, view_cell_with_projector},

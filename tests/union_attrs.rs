@@ -1,4 +1,4 @@
-use arrow_array::{Array, Int32Array, StringArray, UnionArray};
+use typed_arrow::arrow_array::{Array, Int32Array, StringArray, UnionArray};
 use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 #[derive(Union)]
@@ -14,7 +14,7 @@ enum U {
 fn union_attrs_datatype_and_tags_fields() {
     use std::sync::Arc;
 
-    use arrow_schema::{DataType, Field, UnionFields, UnionMode};
+    use typed_arrow::arrow_schema::{DataType, Field, UnionFields, UnionMode};
 
     let fields: UnionFields = [
         (
@@ -75,7 +75,7 @@ fn union_variant_level_attrs_and_null_carrier() {
     assert_eq!(arr.value_offset(2), 1);
     // Check child arrays directly by looking up field order
     let (num_tid, str_tid) = match <V as ArrowBinding>::data_type() {
-        arrow_schema::DataType::Union(fields, _) => {
+        typed_arrow::arrow_schema::DataType::Union(fields, _) => {
             let pairs: Vec<(i8, String)> =
                 fields.iter().map(|(t, f)| (t, f.name().clone())).collect();
             let n = pairs

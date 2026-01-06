@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, DictionaryArray, cast};
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_array::{Array, DictionaryArray, cast};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 
 #[test]
@@ -29,7 +29,7 @@ fn dictionary_unsigned_key_utf8_values() {
     let arr = batch
         .column(0)
         .as_any()
-        .downcast_ref::<DictionaryArray<arrow_array::types::UInt8Type>>()
+        .downcast_ref::<DictionaryArray<typed_arrow_dyn::arrow_array::types::UInt8Type>>()
         .expect("dictionary array with UInt8 keys");
     assert!(arr.is_valid(0));
     assert!(arr.is_valid(1));
@@ -67,7 +67,7 @@ fn dictionary_primitive_values_roundtrip() {
     let arr = batch
         .column(0)
         .as_any()
-        .downcast_ref::<DictionaryArray<arrow_array::types::Int16Type>>()
+        .downcast_ref::<DictionaryArray<typed_arrow_dyn::arrow_array::types::Int16Type>>()
         .expect("dict array");
     assert_eq!(arr.len(), 5);
     // Verify keys resolve to expected values
@@ -75,7 +75,7 @@ fn dictionary_primitive_values_roundtrip() {
     let values = arr
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::UInt32Array>()
+        .downcast_ref::<typed_arrow_dyn::arrow_array::UInt32Array>()
         .unwrap();
     let expected = [Some(1u32), Some(2), Some(1), None, Some(3)];
     for (i, exp_opt) in expected.iter().copied().enumerate() {

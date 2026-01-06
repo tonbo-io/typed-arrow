@@ -1,5 +1,5 @@
-use arrow_array::Array;
-use arrow_schema::{DataType, Field};
+use typed_arrow::arrow_array::Array;
+use typed_arrow::arrow_schema::{DataType, Field};
 use typed_arrow::{LargeList, bridge::ArrowBinding};
 
 #[test]
@@ -39,7 +39,7 @@ fn large_list_nullable_items_build() {
 
 #[test]
 fn large_list_offsets_and_values() {
-    use arrow_array::{Array, cast};
+    use typed_arrow::arrow_array::{Array, cast};
     type L = LargeList<Option<i32>>;
     let mut b = <L as ArrowBinding>::new_builder(4);
     // row0: []
@@ -55,7 +55,7 @@ fn large_list_offsets_and_values() {
     assert_eq!(a.len(), 4);
     let offs = a.value_offsets();
     assert_eq!(offs, &[0, 0, 2, 3, 5]);
-    let child = cast::as_primitive_array::<arrow_array::types::Int32Type>(a.values());
+    let child = cast::as_primitive_array::<typed_arrow::arrow_array::types::Int32Type>(a.values());
     assert_eq!(child.len(), 5);
     assert_eq!(child.value(0), 1);
     assert!(child.is_null(1));

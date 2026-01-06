@@ -1,6 +1,6 @@
 //! Showcase: Row-based building for flat records.
 
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::prelude::*;
 
 #[derive(Record)]

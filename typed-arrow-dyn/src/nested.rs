@@ -1,8 +1,8 @@
 //! Nested dynamic builders used by the factory.
 
-use arrow_array::{FixedSizeListArray, LargeListArray, MapArray};
-use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
-use arrow_schema::{
+use crate::arrow_array::{FixedSizeListArray, LargeListArray, MapArray};
+use crate::arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
+use crate::arrow_schema::{
     ArrowError::{self, ComputeError},
     DataType, FieldRef, Fields,
 };
@@ -55,15 +55,15 @@ impl StructCol {
         self.validity.append(true);
         Ok(())
     }
-    pub(crate) fn finish(&mut self) -> arrow_array::StructArray {
+    pub(crate) fn finish(&mut self) -> crate::arrow_array::StructArray {
         let cols: Vec<_> = self.children.iter_mut().map(|c| c.finish()).collect();
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        arrow_array::StructArray::new(self.fields.clone(), cols, validity)
+        crate::arrow_array::StructArray::new(self.fields.clone(), cols, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> TryFinishResult<arrow_array::StructArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<crate::arrow_array::StructArray> {
         let finished_children: Vec<_> = self
             .children
             .iter_mut()
@@ -78,7 +78,7 @@ impl StructCol {
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        let array = arrow_array::StructArray::try_new(self.fields.clone(), cols, validity)?;
+        let array = crate::arrow_array::StructArray::try_new(self.fields.clone(), cols, validity)?;
         Ok((array, union_metadata))
     }
 }
@@ -119,17 +119,17 @@ impl ListCol {
         self.validity.append(true);
         Ok(())
     }
-    pub(crate) fn finish(&mut self) -> arrow_array::ListArray {
+    pub(crate) fn finish(&mut self) -> crate::arrow_array::ListArray {
         let values = self.child.finish();
         let offsets: OffsetBuffer<i32> =
             OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        arrow_array::ListArray::new(self.item_field.clone(), offsets, values, validity)
+        crate::arrow_array::ListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> TryFinishResult<arrow_array::ListArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<crate::arrow_array::ListArray> {
         let finished_child = self
             .child
             .try_finish()
@@ -141,7 +141,7 @@ impl ListCol {
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
         let array =
-            arrow_array::ListArray::try_new(self.item_field.clone(), offsets, values, validity)?;
+            crate::arrow_array::ListArray::try_new(self.item_field.clone(), offsets, values, validity)?;
         Ok((array, finished_child.union_metadata))
     }
 }
@@ -314,7 +314,7 @@ impl MapCol {
             DataType::Struct(children) => children.clone(),
             _ => unreachable!("map entry field is not struct"),
         };
-        let entries = arrow_array::StructArray::new(fields, vec![keys, values], None);
+        let entries = crate::arrow_array::StructArray::new(fields, vec![keys, values], None);
         MapArray::new(
             self.entry_field.clone(),
             offsets,
@@ -342,7 +342,7 @@ impl MapCol {
             DataType::Struct(children) => children.clone(),
             _ => unreachable!("map entry field is not struct"),
         };
-        let entries = arrow_array::StructArray::try_new(
+        let entries = crate::arrow_array::StructArray::try_new(
             fields,
             vec![finished_keys.array.clone(), finished_values.array.clone()],
             None,

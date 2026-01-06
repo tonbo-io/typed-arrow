@@ -18,10 +18,10 @@ Everything is designed to mirror the infallible typed path: builder allocation h
 ```rust
 use std::sync::Arc;
 
-use arrow_schema::{DataType, Field, Schema, TimeUnit};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema, TimeUnit};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow, DynSchema, DynError};
 
-fn build_batch() -> Result<arrow_array::RecordBatch, DynError> {
+fn build_batch() -> Result<typed_arrow_dyn::arrow_array::RecordBatch, DynError> {
     let schema = Arc::new(Schema::new(vec![
         Field::new("id", DataType::Int64, false),
         Field::new("name", DataType::Utf8, true),
@@ -62,6 +62,13 @@ fn build_batch() -> Result<arrow_array::RecordBatch, DynError> {
 }
 ```
 
+Select Arrow major version (default is `arrow-57`):
+
+```toml
+[dependencies]
+typed-arrow-dyn = { version = "0.x", default-features = false, features = ["arrow-56"] }
+```
+
 For ad hoc debugging you can still call `finish_into_batch()`, which will panic if Arrow rejects the arrays. Production code should stick with `try_finish_into_batch()` to get `DynError::Nullability` or `DynError::Builder` with context.
 
 ## Zero-Copy Views & Projection
@@ -71,10 +78,10 @@ Sometimes you just need to *read* a `RecordBatch` with a runtime schema. The `vi
 ```rust
 use std::sync::Arc;
 
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{iter_batch_views, DynProjection, DynSchema, DynViewError};
 
-fn inspect(batch: &arrow_array::RecordBatch) -> Result<(), DynViewError> {
+fn inspect(batch: &typed_arrow_dyn::arrow_array::RecordBatch) -> Result<(), DynViewError> {
     let dyn_schema = DynSchema::new(Arc::clone(batch.schema()));
     let projection = DynProjection::from_indices(batch.schema().as_ref(), [0, 2])?;
 
@@ -105,7 +112,7 @@ Views cover all Arrow logical types via the same wrappers the owned path underst
 - `DynProjection::from_indices(schema, indices)` is a quick column slice.
 - `DynRowView::project(&projection)` lazily remaps columns without copying buffers.
 - `DynProjection::project_row_view(&schema, batch, row)` and `iter_batch_views(...).project(projection)` give you the same projected iterator.
-- `DynProjection::to_parquet_mask()` returns the `parquet::arrow::ProjectionMask` so Parquet readers only decode the needed leaf columns.
+- `DynProjection::to_parquet_mask()` returns the `typed_arrow_dyn::parquet::arrow::ProjectionMask` so Parquet readers only decode the needed leaf columns.
 
 Borrowed values can be converted to owned `DynCell` instances via `DynCellRef::to_owned()` or `DynCellRef::into_owned()`, which makes it easy to bridge inspected data back into the dynamic builders if you need to rewrite batches.
 
@@ -122,7 +129,7 @@ Borrowed values can be converted to owned `DynCell` instances via `DynCellRef::t
 `DynRow::append_into_with_fields` performs a lightweight type check before mutating builders, so arity/type mistakes fail fast without leaving partially-written columns.
 
 ## Dynamic Builders
-`DynBuilders::new(schema, capacity)` constructs one concrete builder per field by calling [`new_dyn_builder`](src/factory.rs) with the logical type. The factory is the only place that matches on `arrow_schema::DataType`; every builder is stored behind the `DynColumnBuilder` trait object with methods:
+`DynBuilders::new(schema, capacity)` constructs one concrete builder per field by calling [`new_dyn_builder`](src/factory.rs) with the logical type. The factory is the only place that matches on `typed_arrow_dyn::arrow_schema::DataType`; every builder is stored behind the `DynColumnBuilder` trait object with methods:
 
 ```rust
 trait DynColumnBuilder {
@@ -160,7 +167,7 @@ Violations bubble up as `DynError::Nullability` with `col`, `path`, and `index` 
 
 ## Supported Data Types
 
-The factory builds the following Arrow logical types (Arrow RS v56):
+The factory builds the following Arrow logical types (Arrow RS v55/v56/v57 via `arrow-55`/`arrow-56`/`arrow-57`):
 
 - Null, Boolean
 - Int8/16/32/64, UInt8/16/32/64, Float32/64

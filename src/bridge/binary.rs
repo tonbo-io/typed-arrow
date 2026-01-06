@@ -1,19 +1,21 @@
 //! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`).
 
-use arrow_array::{
-    Array, FixedSizeBinaryArray, LargeBinaryArray,
+use crate::arrow_array::{
+    FixedSizeBinaryArray, LargeBinaryArray,
     builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
 };
-use arrow_schema::DataType;
+use crate::arrow_schema::DataType;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use crate::arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 
 // Binary / Vec<u8>
 impl ArrowBinding for Vec<u8> {
     type Builder = BinaryBuilder;
-    type Array = arrow_array::BinaryArray;
+    type Array = crate::arrow_array::BinaryArray;
     fn data_type() -> DataType {
         DataType::Binary
     }
@@ -33,7 +35,7 @@ impl ArrowBinding for Vec<u8> {
 
 #[cfg(feature = "views")]
 impl ArrowBindingView for Vec<u8> {
-    type Array = arrow_array::BinaryArray;
+    type Array = crate::arrow_array::BinaryArray;
     type View<'a> = &'a [u8];
 
     fn get_view(

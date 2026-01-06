@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::Array;
-use arrow_schema::{DataType, Field};
+use typed_arrow::arrow_array::Array;
+use typed_arrow::arrow_schema::{DataType, Field};
 use typed_arrow::{Map, bridge::ArrowBinding};
 
 #[test]
@@ -51,12 +51,12 @@ fn map_append_and_lengths() {
     let keys = entries
         .column(0)
         .as_any()
-        .downcast_ref::<arrow_array::StringArray>()
+        .downcast_ref::<typed_arrow::arrow_array::StringArray>()
         .unwrap();
     let vals = entries
         .column(1)
         .as_any()
-        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
+        .downcast_ref::<typed_arrow::arrow_array::PrimitiveArray<typed_arrow::arrow_array::types::Int32Type>>()
         .unwrap();
     assert_eq!(keys.value(0), "a");
     assert_eq!(keys.value(1), "b");
@@ -81,12 +81,12 @@ fn map_option_values_append() {
     let keys = entries
         .column(0)
         .as_any()
-        .downcast_ref::<arrow_array::StringArray>()
+        .downcast_ref::<typed_arrow::arrow_array::StringArray>()
         .unwrap();
     let vals = entries
         .column(1)
         .as_any()
-        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
+        .downcast_ref::<typed_arrow::arrow_array::PrimitiveArray<typed_arrow::arrow_array::types::Int32Type>>()
         .unwrap();
     assert_eq!(keys.value(0), "a");
     assert!(vals.is_valid(0));

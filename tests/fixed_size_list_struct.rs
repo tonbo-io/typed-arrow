@@ -1,4 +1,4 @@
-use arrow_array::{Array, cast::as_primitive_array, types::Int32Type};
+use typed_arrow::arrow_array::{Array, cast::as_primitive_array, types::Int32Type};
 use typed_arrow::prelude::*;
 
 #[derive(Record)]
@@ -34,7 +34,7 @@ fn fixed_size_list_of_struct_builds_and_values() {
         .pair
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::StructArray>()
+        .downcast_ref::<typed_arrow::arrow_array::StructArray>()
         .unwrap();
     let a_field = as_primitive_array::<Int32Type>(a.column(0));
     assert_eq!(a_field.len(), 4);
@@ -71,7 +71,7 @@ fn fixed_size_list_nullable_items_of_struct() {
         .pair
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::StructArray>()
+        .downcast_ref::<typed_arrow::arrow_array::StructArray>()
         .unwrap();
     let a_field = as_primitive_array::<Int32Type>(a.column(0));
     assert_eq!(a_field.len(), 4);

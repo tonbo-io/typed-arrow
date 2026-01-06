@@ -7,7 +7,7 @@
   <a href="https://discord.gg/j27XVFVmJM"><img src="https://img.shields.io/discord/1270294987355197460?logo=discord"></a>
 </p>
 
-typed-arrow provides a strongly typed, fully compile-time way to declare Arrow schemas in Rust. It maps Rust types directly to arrow-rs typed builders/arrays and `arrow_schema::DataType` — without any runtime `DataType` switching — enabling zero runtime cost, monomorphized column construction and ergonomic ORM-like APIs.
+typed-arrow provides a strongly typed, fully compile-time way to declare Arrow schemas in Rust. It maps Rust types directly to arrow-rs typed builders/arrays and `typed_arrow::arrow_schema::DataType` — without any runtime `DataType` switching — enabling zero runtime cost, monomorphized column construction and ergonomic ORM-like APIs.
 
 📖 **[Read the full documentation on docs.rs](https://docs.rs/typed-arrow)**
 
@@ -73,6 +73,9 @@ typed-arrow = { version = "0.x" }
 
 # Enable zero-copy views for reading RecordBatch data
 typed-arrow = { version = "0.x", features = ["views"] }
+
+# Choose Arrow major version (default is arrow-57)
+typed-arrow = { version = "0.x", default-features = false, features = ["arrow-56", "derive", "views"] }
 ```
 
 When working in this repository/workspace:
@@ -109,6 +112,14 @@ Run:
 ```bash
 cargo run --example 08_record_batch
 ```
+
+## Development
+
+- Enable the repo hook: `git config core.hooksPath .githooks`
+- Pre-commit runs the Arrow version test matrix:
+  - `cargo test -q`
+  - `cargo test -q -p typed-arrow --no-default-features --features arrow-56,derive,views`
+  - `cargo test -q -p typed-arrow-dyn --no-default-features --features arrow-55`
 
 ## Core Concepts
 
@@ -223,7 +234,7 @@ This is useful for:
 
 ## Arrow DataType Coverage
 
-Supported (arrow-rs v56):
+Supported (arrow-rs v55/v56/v57 via `arrow-55`/`arrow-56`/`arrow-57` features):
 
 - Primitives: Int8/16/32/64, UInt8/16/32/64, Float16/32/64, Boolean
 - Strings/Binary: Utf8, LargeUtf8, Binary, LargeBinary, FixedSizeBinary (via `[u8; N]`)

@@ -14,12 +14,12 @@ impl<T> Same<T> for T {}
 
 #[test]
 fn list_datatypes_and_associated_types() {
-    use arrow_array::{
+    use typed_arrow::arrow_array::{
         ListArray,
         builder::{ListBuilder, PrimitiveBuilder, StringBuilder},
         types::Int32Type,
     };
-    use arrow_schema::{DataType, Field};
+    use typed_arrow::arrow_schema::{DataType, Field};
 
     // Record basics
     assert_eq!(<Row as Record>::LEN, 2);
@@ -70,7 +70,7 @@ fn list_datatypes_and_associated_types() {
 
 #[test]
 fn list_build_and_values() {
-    use arrow_array::{Array, cast};
+    use typed_arrow::arrow_array::{Array, cast};
 
     // Non-null item list: List<String>
     type L = List<String>;
@@ -111,7 +111,7 @@ fn list_build_and_values() {
     let child = a
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
+        .downcast_ref::<typed_arrow::arrow_array::PrimitiveArray<typed_arrow::arrow_array::types::Int32Type>>()
         .unwrap();
     assert_eq!(child.len(), 2);
     assert_eq!(child.value(0), 1);

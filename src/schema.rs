@@ -44,7 +44,7 @@
 //!     name: String,
 //! }
 //!
-//! # fn example(batch: arrow_array::RecordBatch) -> Result<(), SchemaError> {
+//! # fn example(batch: typed_arrow::arrow_array::RecordBatch) -> Result<(), SchemaError> {
 //! // Get iterator of views
 //! for view in batch.iter_views::<Row>()?.try_flatten()? {
 //!     // view.id is i32 (copied), view.name is &str (zero-copy)
@@ -67,7 +67,7 @@
 //!     name: String,
 //! }
 //!
-//! # fn example(batch: arrow_array::RecordBatch) -> Result<(), SchemaError> {
+//! # fn example(batch: typed_arrow::arrow_array::RecordBatch) -> Result<(), SchemaError> {
 //! let mut owned_rows = Vec::new();
 //! for view in batch.iter_views::<Row>()?.try_flatten()? {
 //!     let owned: Row = view.try_into()?; // Clone strings, copy primitives
@@ -93,11 +93,11 @@ use std::{
     collections::HashMap, iter::IntoIterator, marker::PhantomData, option::Option, sync::Arc,
 };
 
-use arrow_array::{
+use crate::arrow_array::{
     Array, RecordBatch,
     builder::{ArrayBuilder, StructBuilder},
 };
-use arrow_schema::{DataType, Field, Schema};
+use crate::arrow_schema::{DataType, Field, Schema};
 
 pub use crate::error::SchemaError;
 #[cfg(feature = "views")]
@@ -368,10 +368,10 @@ pub trait StructView: Record + Sized {
     /// Returns `ViewAccessError` if the index is out of bounds, the value is null when expected to
     /// be non-null, or if there's a type mismatch during field extraction.
     fn view_at(
-        array: &arrow_array::StructArray,
+        array: &crate::arrow_array::StructArray,
         index: usize,
     ) -> Result<Self::View<'_>, ViewAccessError>;
 
     /// Check if the struct value at the given index is null.
-    fn is_null_at(array: &arrow_array::StructArray, index: usize) -> bool;
+    fn is_null_at(array: &crate::arrow_array::StructArray, index: usize) -> bool;
 }

@@ -1,7 +1,7 @@
 #![allow(clippy::assertions_on_constants, clippy::bool_assert_comparison)]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::prelude::*;
 
 // Define a record using derive macro
@@ -18,7 +18,7 @@ pub struct Person {
 #[test]
 fn arrow_types_exposed_via_colat() {
     // Assert DATA_TYPE mapping is available at type-level
-    use arrow_schema::DataType;
+    use typed_arrow::arrow_schema::DataType;
     assert_eq!(<Person as ColAt<0>>::data_type(), DataType::Int64);
     assert_eq!(<Person as ColAt<1>>::data_type(), DataType::Utf8);
     assert_eq!(<Person as ColAt<3>>::data_type(), DataType::Float32);
@@ -27,7 +27,7 @@ fn arrow_types_exposed_via_colat() {
 
     // Assert ColumnBuilder/Array associated items exist and are usable
     let mut b: <Person as ColAt<0>>::ColumnBuilder =
-        arrow_array::builder::PrimitiveBuilder::<arrow_array::types::Int64Type>::with_capacity(2);
+        typed_arrow::arrow_array::builder::PrimitiveBuilder::<typed_arrow::arrow_array::types::Int64Type>::with_capacity(2);
     b.append_value(1);
     b.append_value(2);
     let _: <Person as ColAt<0>>::ColumnArray = b.finish();
@@ -35,7 +35,7 @@ fn arrow_types_exposed_via_colat() {
 
 #[test]
 fn build_arrays_via_associated_types() {
-    use arrow_array::{
+    use typed_arrow::arrow_array::{
         builder::{BinaryBuilder, PrimitiveBuilder, StringBuilder},
         types::Int64Type,
     };

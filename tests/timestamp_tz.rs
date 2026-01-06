@@ -8,8 +8,8 @@ struct RowTz {
 
 #[test]
 fn timestamp_tz_schema_and_types() {
-    use arrow_array::{builder::PrimitiveBuilder, types as t};
-    use arrow_schema::{DataType, TimeUnit};
+    use typed_arrow::arrow_array::{builder::PrimitiveBuilder, types as t};
+    use typed_arrow::arrow_schema::{DataType, TimeUnit};
 
     assert_eq!(<RowTz as Record>::LEN, 2);
 
@@ -47,7 +47,7 @@ struct RowCustomTz {
 
 #[test]
 fn custom_tz_marker_datatype() {
-    use arrow_schema::{DataType, TimeUnit};
+    use typed_arrow::arrow_schema::{DataType, TimeUnit};
     assert_eq!(
         <RowCustomTz as ColAt<0>>::data_type(),
         DataType::Timestamp(

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynProjection, DynRow, DynSchema};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

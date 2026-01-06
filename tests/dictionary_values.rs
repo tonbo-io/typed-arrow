@@ -1,4 +1,4 @@
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::{Dictionary, LargeBinary, LargeUtf8, bridge::ArrowBinding};
 
 #[test]
@@ -13,7 +13,7 @@ fn dict_utf8_value() {
 
 #[test]
 fn dict_utf8_roundtrip_values() {
-    use arrow_array::cast;
+    use typed_arrow::arrow_array::cast;
     type D = Dictionary<i32, String>;
     let mut b = <D as ArrowBinding>::new_builder(0);
     // Build values: ["apple", "banana", "apple", null, "banana"]
@@ -84,7 +84,7 @@ fn dict_primitive_values() {
 
 #[test]
 fn dict_large_binary_value() {
-    use arrow_schema::DataType;
+    use typed_arrow::arrow_schema::DataType;
 
     type D = Dictionary<i32, LargeBinary>;
     let mut b = <D as ArrowBinding>::new_builder(0);
@@ -100,7 +100,7 @@ fn dict_large_binary_value() {
 
 #[test]
 fn dict_large_utf8_value() {
-    use arrow_schema::DataType;
+    use typed_arrow::arrow_schema::DataType;
 
     type D = Dictionary<i32, LargeUtf8>;
     let mut b = <D as ArrowBinding>::new_builder(0);
@@ -116,7 +116,7 @@ fn dict_large_utf8_value() {
 
 #[test]
 fn dict_fixed_size_binary_value() {
-    use arrow_schema::DataType;
+    use typed_arrow::arrow_schema::DataType;
 
     type D = Dictionary<i32, [u8; 4]>;
     assert_eq!(
@@ -147,7 +147,7 @@ fn dict_fixed_size_binary_roundtrip() {
     let values = arr
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
+        .downcast_ref::<typed_arrow::arrow_array::FixedSizeBinaryArray>()
         .unwrap();
     let keys = arr.keys();
     for &i in &[0usize, 2usize] {

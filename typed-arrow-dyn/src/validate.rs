@@ -2,12 +2,12 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use arrow_array::{
+use crate::arrow_array::{
     Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
     UnionArray,
 };
-use arrow_buffer::{ArrowNativeType, OffsetBuffer};
-use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
+use crate::arrow_buffer::{ArrowNativeType, OffsetBuffer};
+use crate::arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
 
 use crate::{DynError, dyn_builder::array_key};
 

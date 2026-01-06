@@ -1,6 +1,6 @@
 //! Error types for typed-arrow.
 
-use arrow_schema::DataType;
+use crate::arrow_schema::DataType;
 use thiserror::Error;
 
 /// Error type for schema validation failures.

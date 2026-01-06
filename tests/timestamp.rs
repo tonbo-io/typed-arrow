@@ -1,4 +1,4 @@
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::{Microsecond, Millisecond, Nanosecond, Second, Timestamp, prelude::*};
 
 #[derive(Record)]
@@ -11,8 +11,8 @@ pub struct RowTs {
 
 #[test]
 fn timestamp_schema_and_types() {
-    use arrow_array::{builder::PrimitiveBuilder, types as t};
-    use arrow_schema::{DataType, TimeUnit};
+    use typed_arrow::arrow_array::{builder::PrimitiveBuilder, types as t};
+    use typed_arrow::arrow_schema::{DataType, TimeUnit};
 
     assert_eq!(<RowTs as Record>::LEN, 4);
 
@@ -46,11 +46,11 @@ fn timestamp_schema_and_types() {
         #[allow(clippy::used_underscore_items)]
         fn _b0<T: Same<PrimitiveBuilder<t::TimestampSecondType>>>() {}
         #[allow(clippy::used_underscore_items)]
-        fn _a0<T: Same<arrow_array::PrimitiveArray<t::TimestampSecondType>>>() {}
+        fn _a0<T: Same<typed_arrow::arrow_array::PrimitiveArray<t::TimestampSecondType>>>() {}
         #[allow(clippy::used_underscore_items)]
         fn _b1<T: Same<PrimitiveBuilder<t::TimestampMillisecondType>>>() {}
         #[allow(clippy::used_underscore_items)]
-        fn _a1<T: Same<arrow_array::PrimitiveArray<t::TimestampMillisecondType>>>() {}
+        fn _a1<T: Same<typed_arrow::arrow_array::PrimitiveArray<t::TimestampMillisecondType>>>() {}
         #[allow(clippy::used_underscore_items)]
         {
             _b0::<B0>();
@@ -63,7 +63,7 @@ fn timestamp_schema_and_types() {
 
 #[test]
 fn build_timestamp_arrays() {
-    use arrow_array::{builder::PrimitiveBuilder, types as t};
+    use typed_arrow::arrow_array::{builder::PrimitiveBuilder, types as t};
     // Build seconds array
     let mut b0: <RowTs as ColAt<0>>::ColumnBuilder =
         PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(3);

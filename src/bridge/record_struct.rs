@@ -1,7 +1,7 @@
 //! Blanket binding for `T: Record + StructMeta` to Arrow `StructArray`.
 
-use arrow_array::builder::StructBuilder;
-use arrow_schema::DataType;
+use crate::arrow_array::builder::StructBuilder;
+use crate::arrow_schema::DataType;
 
 use super::ArrowBinding;
 #[cfg(feature = "views")]
@@ -18,7 +18,7 @@ where
     T: Record + StructMeta + AppendStruct + AppendStructRef,
 {
     type Builder = StructBuilder;
-    type Array = arrow_array::StructArray;
+    type Array = crate::arrow_array::StructArray;
     fn data_type() -> DataType {
         use std::sync::Arc;
         let fields = <T as StructMeta>::child_fields()
@@ -52,7 +52,7 @@ impl<T> ArrowBindingView for T
 where
     T: Record + StructView + 'static,
 {
-    type Array = arrow_array::StructArray;
+    type Array = crate::arrow_array::StructArray;
     type View<'a>
         = <T as StructView>::View<'a>
     where
@@ -62,7 +62,7 @@ where
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use arrow_array::Array;
+        use crate::arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,

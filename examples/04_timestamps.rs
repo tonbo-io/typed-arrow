@@ -1,6 +1,6 @@
 //! Showcase: Timestamp units (Second/Millisecond/Microsecond/Nanosecond).
 
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::{Microsecond, Millisecond, Nanosecond, Second, Timestamp, prelude::*};
 
 #[derive(Record)]
@@ -12,8 +12,8 @@ struct RowTs {
 }
 
 fn main() {
-    use arrow_array::{builder::PrimitiveBuilder, types as t};
-    use arrow_schema::{DataType, TimeUnit};
+    use typed_arrow::arrow_array::{builder::PrimitiveBuilder, types as t};
+    use typed_arrow::arrow_schema::{DataType, TimeUnit};
 
     println!(
         "s={:?}, ms={:?}, us={:?}, ns={:?}",

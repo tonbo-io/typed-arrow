@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, UnionArray};
-use arrow_buffer::ScalarBuffer;
-use arrow_schema::UnionFields;
+use crate::arrow_array::{ArrayRef, UnionArray};
+use crate::arrow_buffer::ScalarBuffer;
+use crate::arrow_schema::UnionFields;
 
 use crate::{
     DynError,

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_array::RecordBatch;
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 
 fn main() {

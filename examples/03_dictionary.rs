@@ -1,6 +1,6 @@
 //! Showcase: Dictionary<K, String> columns using typed builder.
 
-use arrow_array::{Array, DictionaryArray};
+use typed_arrow::arrow_array::{Array, DictionaryArray};
 use typed_arrow::{Dictionary, prelude::*};
 
 #[derive(Record)]
@@ -19,11 +19,11 @@ fn main() {
 
     // Build a dictionary<i32, Utf8> via StringDictionaryBuilder
     let mut b: <Row as ColAt<0>>::ColumnBuilder =
-        arrow_array::builder::StringDictionaryBuilder::new();
+        typed_arrow::arrow_array::builder::StringDictionaryBuilder::new();
     let _ = b.append("foo");
     let _ = b.append("bar");
     let _ = b.append("foo");
     let a: <Row as ColAt<0>>::ColumnArray = b.finish();
-    let dict: &DictionaryArray<arrow_array::types::Int32Type> = &a;
+    let dict: &DictionaryArray<typed_arrow::arrow_array::types::Int32Type> = &a;
     println!("dict_len={}, keys_type={:?}", dict.len(), dict.data_type());
 }

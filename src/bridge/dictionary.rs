@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 
-use arrow_array::{
+use crate::arrow_array::{
     builder::{
         BinaryDictionaryBuilder, FixedSizeBinaryDictionaryBuilder, LargeBinaryDictionaryBuilder,
         LargeStringDictionaryBuilder, PrimitiveDictionaryBuilder, StringDictionaryBuilder,
@@ -12,7 +12,7 @@ use arrow_array::{
         UInt32Type, UInt64Type,
     },
 };
-use arrow_schema::DataType;
+use crate::arrow_schema::DataType;
 
 use super::{ArrowBinding, binary::LargeBinary, strings::LargeUtf8};
 
@@ -86,10 +86,10 @@ impl_dict_key!(u64, UInt64Type, DataType::UInt64);
 impl<K> ArrowBinding for Dictionary<K, String>
 where
     K: DictKey,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
 {
     type Builder = StringDictionaryBuilder<<K as DictKey>::ArrowKey>;
-    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
     fn data_type() -> DataType {
         DataType::Dictionary(
             Box::new(<K as DictKey>::data_type()),
@@ -114,10 +114,10 @@ where
 impl<K> ArrowBinding for Dictionary<K, Vec<u8>>
 where
     K: DictKey,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
 {
     type Builder = BinaryDictionaryBuilder<<K as DictKey>::ArrowKey>;
-    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
     fn data_type() -> DataType {
         DataType::Dictionary(
             Box::new(<K as DictKey>::data_type()),
@@ -142,10 +142,10 @@ where
 impl<K, const N: usize> ArrowBinding for Dictionary<K, [u8; N]>
 where
     K: DictKey,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
 {
     type Builder = FixedSizeBinaryDictionaryBuilder<<K as DictKey>::ArrowKey>;
-    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
     fn data_type() -> DataType {
         DataType::Dictionary(
             Box::new(<K as DictKey>::data_type()),
@@ -173,10 +173,10 @@ where
 impl<K> ArrowBinding for Dictionary<K, LargeBinary>
 where
     K: DictKey,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
 {
     type Builder = LargeBinaryDictionaryBuilder<<K as DictKey>::ArrowKey>;
-    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
     fn data_type() -> DataType {
         DataType::Dictionary(
             Box::new(<K as DictKey>::data_type()),
@@ -201,10 +201,10 @@ where
 impl<K> ArrowBinding for Dictionary<K, LargeUtf8>
 where
     K: DictKey,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
 {
     type Builder = LargeStringDictionaryBuilder<<K as DictKey>::ArrowKey>;
-    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
     fn data_type() -> DataType {
         DataType::Dictionary(
             Box::new(<K as DictKey>::data_type()),
@@ -231,10 +231,10 @@ macro_rules! impl_dict_primitive_value {
         impl<K> ArrowBinding for Dictionary<K, $rust>
         where
             K: DictKey,
-            <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+            <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
         {
             type Builder = PrimitiveDictionaryBuilder<<K as DictKey>::ArrowKey, $atype>;
-            type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+            type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
             fn data_type() -> DataType {
                 DataType::Dictionary(Box::new(<K as DictKey>::data_type()), Box::new($dt))
             }
@@ -272,9 +272,9 @@ impl<K, V> super::ArrowBindingView for Dictionary<K, V>
 where
     K: DictKey + 'static,
     V: ArrowBinding + super::ArrowBindingView + 'static,
-    <K as DictKey>::ArrowKey: arrow_array::types::ArrowDictionaryKeyType,
+    <K as DictKey>::ArrowKey: crate::arrow_array::types::ArrowDictionaryKeyType,
 {
-    type Array = arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
+    type Array = crate::arrow_array::DictionaryArray<<K as DictKey>::ArrowKey>;
     type View<'a>
         = V::View<'a>
     where
@@ -284,8 +284,8 @@ where
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use arrow_array::Array;
-        use arrow_buffer::ArrowNativeType;
+        use crate::arrow_array::Array;
+        use crate::arrow_buffer::ArrowNativeType;
 
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
@@ -364,8 +364,8 @@ where
         let arr: [u8; N] =
             view.try_into()
                 .map_err(|_| crate::schema::ViewAccessError::TypeMismatch {
-                    expected: arrow_schema::DataType::FixedSizeBinary(N as i32),
-                    actual: arrow_schema::DataType::Binary,
+                    expected: crate::arrow_schema::DataType::FixedSizeBinary(N as i32),
+                    actual: crate::arrow_schema::DataType::Binary,
                     field_name: None,
                 })?;
         Ok(Dictionary::new(arr))

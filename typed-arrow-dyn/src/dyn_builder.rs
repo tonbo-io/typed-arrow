@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use arrow_array::ArrayRef;
-use arrow_schema::DataType;
+use crate::arrow_array::ArrayRef;
+use crate::arrow_schema::DataType;
 
 use crate::{DynError, cell::DynCell};
 

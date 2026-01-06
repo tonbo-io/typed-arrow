@@ -1,12 +1,14 @@
 //! `Utf8` and `LargeUtf8` string bindings.
 
-use arrow_array::{
-    Array, LargeStringArray, StringArray,
+use crate::arrow_array::{
+    LargeStringArray, StringArray,
     builder::{LargeStringBuilder, StringBuilder},
 };
-use arrow_schema::DataType;
+use crate::arrow_schema::DataType;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use crate::arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 

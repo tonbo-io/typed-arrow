@@ -1,13 +1,15 @@
 //! Interval types: `YearMonth`, `DayTime`, `MonthDayNano`.
 
-use arrow_array::{
-    Array, PrimitiveArray,
+use crate::arrow_array::{
+    PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{IntervalDayTimeType, IntervalMonthDayNanoType, IntervalYearMonthType},
 };
-use arrow_schema::{DataType, IntervalUnit};
+use crate::arrow_schema::{DataType, IntervalUnit};
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use crate::arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 
@@ -82,24 +84,24 @@ impl ArrowBindingView for IntervalYearMonth {
 
 /// Interval with unit `DayTime` (packed days and milliseconds).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct IntervalDayTime(arrow_array::types::IntervalDayTime);
+pub struct IntervalDayTime(crate::arrow_array::types::IntervalDayTime);
 impl IntervalDayTime {
     /// Construct a new `DayTime` interval from the native Arrow struct.
     #[inline]
     #[must_use]
-    pub fn new(value: arrow_array::types::IntervalDayTime) -> Self {
+    pub fn new(value: crate::arrow_array::types::IntervalDayTime) -> Self {
         Self(value)
     }
     /// Return the underlying Arrow `DayTime` interval value.
     #[inline]
     #[must_use]
-    pub fn value(&self) -> arrow_array::types::IntervalDayTime {
+    pub fn value(&self) -> crate::arrow_array::types::IntervalDayTime {
         self.0
     }
     /// Consume and return the underlying Arrow `DayTime` interval value.
     #[inline]
     #[must_use]
-    pub fn into_value(self) -> arrow_array::types::IntervalDayTime {
+    pub fn into_value(self) -> crate::arrow_array::types::IntervalDayTime {
         self.0
     }
 }
@@ -151,24 +153,24 @@ impl ArrowBindingView for IntervalDayTime {
 
 /// Interval with unit `MonthDayNano` (packed months, days, and nanoseconds).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct IntervalMonthDayNano(arrow_array::types::IntervalMonthDayNano);
+pub struct IntervalMonthDayNano(crate::arrow_array::types::IntervalMonthDayNano);
 impl IntervalMonthDayNano {
     /// Construct a new `MonthDayNano` interval from the native Arrow struct.
     #[inline]
     #[must_use]
-    pub fn new(value: arrow_array::types::IntervalMonthDayNano) -> Self {
+    pub fn new(value: crate::arrow_array::types::IntervalMonthDayNano) -> Self {
         Self(value)
     }
     /// Return the underlying Arrow `MonthDayNano` interval value.
     #[inline]
     #[must_use]
-    pub fn value(&self) -> arrow_array::types::IntervalMonthDayNano {
+    pub fn value(&self) -> crate::arrow_array::types::IntervalMonthDayNano {
         self.0
     }
     /// Consume and return the underlying Arrow `MonthDayNano` interval value.
     #[inline]
     #[must_use]
-    pub fn into_value(self) -> arrow_array::types::IntervalMonthDayNano {
+    pub fn into_value(self) -> crate::arrow_array::types::IntervalMonthDayNano {
         self.0
     }
 }

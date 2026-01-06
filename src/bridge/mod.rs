@@ -16,8 +16,8 @@
 //!
 //! See tests for end-to-end examples and usage patterns.
 
-use arrow_array::Array;
-use arrow_schema::DataType;
+use crate::arrow_array::Array;
+use crate::arrow_schema::DataType;
 
 /// Binding from a Rust type to Arrow typed builders/arrays and `DataType`.
 ///

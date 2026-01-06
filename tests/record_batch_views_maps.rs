@@ -1,4 +1,4 @@
-use arrow_array::RecordBatch;
+use typed_arrow::arrow_array::RecordBatch;
 use typed_arrow::{bridge::Map, prelude::*};
 
 #[test]

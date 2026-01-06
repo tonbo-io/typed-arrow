@@ -1,7 +1,7 @@
 //! Arrow `Null` type binding.
 
-use arrow_array::{NullArray, builder::NullBuilder};
-use arrow_schema::DataType;
+use crate::arrow_array::{NullArray, builder::NullBuilder};
+use crate::arrow_schema::DataType;
 
 use super::ArrowBinding;
 

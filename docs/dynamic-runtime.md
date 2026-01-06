@@ -1,11 +1,12 @@
 # Dynamic Runtime Design (typed-arrow-dyn)
 
 ## Overview
-- Purpose: Build Arrow arrays and RecordBatches from runtime schemas (`arrow_schema::Schema`) without compile-time type information.
+- Purpose: Build Arrow arrays and RecordBatches from runtime schemas (`typed_arrow_dyn::arrow_schema::Schema`) without compile-time type information.
 - Scope: Provide a small, focused dynamic facade that mirrors typed behavior where reasonable, keeping per-append overhead low. Nullability invariants (columns/fields/items) are validated at try-finish and returned as structured errors.
+  - Arrow versions are selected via `arrow-55`/`arrow-56`/`arrow-57` features (exactly one).
 
 ## Goals
-- Single `DataType` switch: map `arrow_schema::DataType` to a concrete builder once per column (factory).
+- Single `DataType` switch: map `typed_arrow_dyn::arrow_schema::DataType` to a concrete builder once per column (factory).
 - Minimal append-time checks: pre-validate row arity and value type compatibility only; avoid expensive checks per append.
 - Nullability: validate column/field/item constraints before finishing and return `DynError::Nullability { col, path, index, message }`; avoid panics from arrow-rs by catching issues earlier.
 
@@ -112,7 +113,7 @@
 Basic dynamic build
 ```rust
 use std::sync::Arc;
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 
 let schema = Arc::new(Schema::new(vec![
@@ -128,7 +129,7 @@ let batch = b.try_finish_into_batch()?; // returns error if nullability is viola
 Nested and nullability
 ```rust
 use std::sync::Arc;
-use arrow_schema::{DataType, Field, Fields, Schema};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Fields, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
 
 let person_fields = vec![

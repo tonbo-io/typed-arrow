@@ -1,5 +1,5 @@
-use arrow_array::{Array, Decimal128Array, Decimal256Array};
-use arrow_buffer::i256;
+use typed_arrow::arrow_array::{Array, Decimal128Array, Decimal256Array};
+use typed_arrow::arrow_buffer::i256;
 use typed_arrow::bridge::ArrowBinding;
 
 #[test]
@@ -7,7 +7,7 @@ fn decimal128_bindings() {
     type D = typed_arrow::Decimal128<38, 4>;
     assert_eq!(
         <D as ArrowBinding>::data_type(),
-        arrow_schema::DataType::Decimal128(38, 4)
+        typed_arrow::arrow_schema::DataType::Decimal128(38, 4)
     );
 
     let mut b = <D as ArrowBinding>::new_builder(3);
@@ -26,7 +26,7 @@ fn decimal256_bindings() {
     type D = typed_arrow::Decimal256<76, 10>;
     assert_eq!(
         <D as ArrowBinding>::data_type(),
-        arrow_schema::DataType::Decimal256(76, 10)
+        typed_arrow::arrow_schema::DataType::Decimal256(76, 10)
     );
 
     let mut b = <D as ArrowBinding>::new_builder(2);

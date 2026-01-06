@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, MapArray, cast};
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_array::{Array, MapArray, cast};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynError, DynRow};
 
 fn map_field(
@@ -58,7 +58,7 @@ fn append_map_rows() {
     assert_eq!(map.value_offsets(), &[0, 2, 3, 3]);
 
     let keys = cast::as_string_array(map.keys());
-    let values = cast::as_primitive_array::<arrow_array::types::Int64Type>(map.values());
+    let values = cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int64Type>(map.values());
 
     assert_eq!(keys.value(0), "a");
     assert_eq!(keys.value(1), "b");

@@ -1,6 +1,6 @@
 //! Dynamic row wrapper.
 
-use arrow_schema::{DataType, Field, UnionFields};
+use crate::arrow_schema::{DataType, Field, UnionFields};
 
 use crate::{DynError, cell::DynCell, dyn_builder::DynColumnBuilder};
 
@@ -64,7 +64,7 @@ impl DynRow {
     /// Returns a `DynError` for arity mismatches or type/builder errors while appending.
     pub fn append_into_with_fields(
         self,
-        fields: &arrow_schema::Fields,
+        fields: &crate::arrow_schema::Fields,
         cols: &mut [Box<dyn DynColumnBuilder>],
     ) -> Result<(), DynError> {
         // 1) Validate arity

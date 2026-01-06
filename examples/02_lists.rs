@@ -1,6 +1,6 @@
 //! Showcase: List and item-nullable lists via List<Option<T>> for Arrow `ListArray`.
 
-use arrow_array::Array;
+use typed_arrow::arrow_array::Array;
 use typed_arrow::{List, bridge::ArrowBinding, prelude::*};
 
 #[derive(Record)]
@@ -25,7 +25,7 @@ fn main() {
     println!(
         "List<Utf8> len={}, first_list_len={}",
         la.len(),
-        arrow_array::cast::as_list_array(&la).value_length(0)
+        typed_arrow::arrow_array::cast::as_list_array(&la).value_length(0)
     );
 
     // Build a nullable-list of nullable i32 items

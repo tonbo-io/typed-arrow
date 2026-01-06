@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, Int32Array, RecordBatch, StringArray, StructArray};
-use arrow_schema::{DataType, Field, Fields, Schema};
+use typed_arrow_dyn::arrow_array::{ArrayRef, Int32Array, RecordBatch, StringArray, StructArray};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Fields, Schema};
 use typed_arrow_dyn::{DynProjection, DynSchema, DynViewError};
 
 #[test]

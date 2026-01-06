@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, cast};
-use arrow_schema::{DataType, Field, Schema};
+use typed_arrow_dyn::arrow_array::{Array, cast};
+use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
 use typed_arrow_dyn::DynBuilders;
 
 #[test]
@@ -16,7 +16,7 @@ fn append_none_row_sets_all_nulls() {
     let batch = builders.finish_into_batch();
 
     assert_eq!(batch.num_rows(), 1);
-    let a = cast::as_primitive_array::<arrow_array::types::Int64Type>(batch.column(0));
+    let a = cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int64Type>(batch.column(0));
     let b = cast::as_string_array(batch.column(1));
     assert!(a.is_null(0));
     assert!(b.is_null(0));

@@ -1,4 +1,4 @@
-use arrow_array::{Array, Int32Array, StringArray, UnionArray};
+use typed_arrow::arrow_array::{Array, Int32Array, StringArray, UnionArray};
 use typed_arrow::{bridge::ArrowBinding, prelude::*};
 
 #[derive(Union)]
@@ -11,7 +11,7 @@ enum U {
 fn union_dense_datatype_and_build() {
     use std::sync::Arc;
 
-    use arrow_schema::{DataType, Field, UnionFields, UnionMode};
+    use typed_arrow::arrow_schema::{DataType, Field, UnionFields, UnionMode};
 
     // DataType check
     let fields: UnionFields = [

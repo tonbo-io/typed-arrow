@@ -2,8 +2,8 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use arrow_array::{MapArray, builder::MapBuilder};
-use arrow_schema::{DataType, Field};
+use crate::arrow_array::{MapArray, builder::MapBuilder};
+use crate::arrow_schema::{DataType, Field};
 
 use super::ArrowBinding;
 
@@ -69,8 +69,8 @@ impl<K, V, const SORTED: bool> ArrowBinding for Map<K, V, SORTED>
 where
     K: ArrowBinding,
     V: ArrowBinding,
-    <K as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
-    <V as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
+    <K as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
+    <V as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
 {
     type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
     type Array = MapArray;
@@ -106,8 +106,8 @@ impl<K, V, const SORTED: bool> ArrowBinding for Map<K, Option<V>, SORTED>
 where
     K: ArrowBinding,
     V: ArrowBinding,
-    <K as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
-    <V as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
+    <K as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
+    <V as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
 {
     type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
     type Array = MapArray;
@@ -182,8 +182,8 @@ impl<K, V> ArrowBinding for OrderedMap<K, V>
 where
     K: ArrowBinding + Ord,
     V: ArrowBinding,
-    <K as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
-    <V as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
+    <K as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
+    <V as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
 {
     type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
     type Array = MapArray;
@@ -209,8 +209,8 @@ where
         let _ = b.append(false);
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
-        use arrow_array::Array;
-        use arrow_data::ArrayData;
+        use crate::arrow_array::Array;
+        use crate::arrow_data::ArrayData;
 
         let map_array = b.finish();
 
@@ -241,8 +241,8 @@ impl<K, V> ArrowBinding for OrderedMap<K, Option<V>>
 where
     K: ArrowBinding + Ord,
     V: ArrowBinding,
-    <K as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
-    <V as ArrowBinding>::Builder: arrow_array::builder::ArrayBuilder,
+    <K as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
+    <V as ArrowBinding>::Builder: crate::arrow_array::builder::ArrayBuilder,
 {
     type Builder = MapBuilder<<K as ArrowBinding>::Builder, <V as ArrowBinding>::Builder>;
     type Array = MapArray;
@@ -271,8 +271,8 @@ where
         let _ = b.append(false);
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
-        use arrow_array::Array;
-        use arrow_data::ArrayData;
+        use crate::arrow_array::Array;
+        use crate::arrow_data::ArrayData;
 
         let map_array = b.finish();
 
@@ -413,14 +413,14 @@ where
     K: ArrowBinding + super::ArrowBindingView + 'static,
     V: ArrowBinding + super::ArrowBindingView + 'static,
 {
-    type Array = arrow_array::MapArray;
+    type Array = crate::arrow_array::MapArray;
     type View<'a> = MapView<'a, K, V, SORTED>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use arrow_array::Array;
+        use crate::arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -470,14 +470,14 @@ where
     K: ArrowBinding + Ord + super::ArrowBindingView + 'static,
     V: ArrowBinding + super::ArrowBindingView + 'static,
 {
-    type Array = arrow_array::MapArray;
+    type Array = crate::arrow_array::MapArray;
     type View<'a> = MapView<'a, K, V, true>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use arrow_array::Array;
+        use crate::arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -582,7 +582,7 @@ where
     fn try_from(view: MapViewNullable<'a, K, V, SORTED>) -> Result<Self, Self::Error> {
         let mut entries = Vec::with_capacity(view.len());
         for i in view.start..view.end {
-            use arrow_array::Array;
+            use crate::arrow_array::Array;
             let key_view = K::get_view(view.keys_array, i)?;
             let opt_value_view = if view.values_array.is_null(i) {
                 None
@@ -641,7 +641,7 @@ where
     fn try_from(view: MapViewNullable<'a, K, V, true>) -> Result<Self, Self::Error> {
         let mut entries = std::collections::BTreeMap::new();
         for i in view.start..view.end {
-            use arrow_array::Array;
+            use crate::arrow_array::Array;
             let key_view = K::get_view(view.keys_array, i)?;
             let opt_value_view = if view.values_array.is_null(i) {
                 None
@@ -669,7 +669,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             let result = K::get_view(self.keys_array, self.start).and_then(|key| {
-                use arrow_array::Array;
+                use crate::arrow_array::Array;
                 let value = if self.values_array.is_null(self.start) {
                     Ok(None)
                 } else {
@@ -707,14 +707,14 @@ where
     K: ArrowBinding + super::ArrowBindingView + 'static,
     V: ArrowBinding + super::ArrowBindingView + 'static,
 {
-    type Array = arrow_array::MapArray;
+    type Array = crate::arrow_array::MapArray;
     type View<'a> = MapViewNullable<'a, K, V, SORTED>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use arrow_array::Array;
+        use crate::arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,
@@ -763,14 +763,14 @@ where
     K: ArrowBinding + Ord + super::ArrowBindingView + 'static,
     V: ArrowBinding + super::ArrowBindingView + 'static,
 {
-    type Array = arrow_array::MapArray;
+    type Array = crate::arrow_array::MapArray;
     type View<'a> = MapViewNullable<'a, K, V, true>;
 
     fn get_view(
         array: &Self::Array,
         index: usize,
     ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
-        use arrow_array::Array;
+        use crate::arrow_array::Array;
         if index >= array.len() {
             return Err(crate::schema::ViewAccessError::OutOfBounds {
                 index,

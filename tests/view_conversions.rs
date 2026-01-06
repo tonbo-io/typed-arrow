@@ -1,6 +1,6 @@
 //! Test view-to-owned conversion functionality
 
-use arrow_array::RecordBatch;
+use typed_arrow::arrow_array::RecordBatch;
 use typed_arrow::{Dictionary, FixedSizeList, List, Map, OrderedMap, prelude::*};
 
 #[derive(Record, Clone)]

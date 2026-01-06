@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{Schema, SchemaRef};
+use crate::arrow_array::RecordBatch;
+use crate::arrow_schema::{Schema, SchemaRef};
 
 use crate::{DynRowView, DynRowViews, DynViewError};
 

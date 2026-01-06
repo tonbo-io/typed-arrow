@@ -1,6 +1,6 @@
 //! Test custom error types wrapped in ViewAccessError::Custom
 
-use arrow_array::{Array, StringArray};
+use typed_arrow::arrow_array::{Array, StringArray};
 use thiserror::Error;
 use typed_arrow::{bridge::ArrowBindingView, schema::ViewAccessError};
 
@@ -46,14 +46,14 @@ impl Email {
 // Implement ArrowBinding for building Email columns
 impl typed_arrow::bridge::ArrowBinding for Email {
     type Array = StringArray;
-    type Builder = arrow_array::builder::StringBuilder;
+    type Builder = typed_arrow::arrow_array::builder::StringBuilder;
 
-    fn data_type() -> arrow_schema::DataType {
-        arrow_schema::DataType::Utf8
+    fn data_type() -> typed_arrow::arrow_schema::DataType {
+        typed_arrow::arrow_schema::DataType::Utf8
     }
 
     fn new_builder(capacity: usize) -> Self::Builder {
-        arrow_array::builder::StringBuilder::with_capacity(capacity, 1024)
+        typed_arrow::arrow_array::builder::StringBuilder::with_capacity(capacity, 1024)
     }
 
     fn append_value(b: &mut Self::Builder, v: &Self) {
@@ -114,7 +114,7 @@ impl ArrowBindingView for Email {
 
 #[test]
 fn test_custom_error_wrapping_and_downcasting() {
-    let mut builder = arrow_array::builder::StringBuilder::new();
+    let mut builder = typed_arrow::arrow_array::builder::StringBuilder::new();
     builder.append_value("valid@example.com");
     builder.append_value("invalid-no-at"); // Missing @ - will trigger custom error
     let array = builder.finish();
