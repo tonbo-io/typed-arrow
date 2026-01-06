@@ -1,8 +1,12 @@
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+use crate::arrow_buffer as arrow_buffer;
+
 use std::sync::Arc;
 
-use crate::arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
-use crate::arrow_buffer::OffsetBuffer;
-use crate::arrow_schema::{DataType, Field, Fields, Schema};
+use arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
+use arrow_buffer::OffsetBuffer;
+use arrow_schema::{DataType, Field, Fields, Schema};
 
 use super::{
     DynCellRaw, DynMapView, DynRowOwned, DynRowView, DynStructView, path::Path,

@@ -1,9 +1,12 @@
 //! Factory for dynamic builders, mapping Arrow `DataType` to concrete builders.
 
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::sync::Arc;
 
-use crate::arrow_array::{ArrayRef, builder as b, types as t};
-use crate::arrow_schema::{DataType, UnionFields, UnionMode};
+use arrow_array::{ArrayRef, builder as b, types as t};
+use arrow_schema::{DataType, UnionFields, UnionMode};
 
 use crate::{
     DynError,
@@ -113,8 +116,8 @@ trait DictPrimBuilder: Send {
 
 struct DictPrimImpl<K, V>
 where
-    K: crate::arrow_array::types::ArrowDictionaryKeyType,
-    V: crate::arrow_array::types::ArrowPrimitiveType,
+    K: arrow_array::types::ArrowDictionaryKeyType,
+    V: arrow_array::types::ArrowPrimitiveType,
 {
     b: b::PrimitiveDictionaryBuilder<K, V>,
     _phantom: std::marker::PhantomData<(K, V)>,
@@ -122,8 +125,8 @@ where
 
 impl<K, V> DictPrimImpl<K, V>
 where
-    K: crate::arrow_array::types::ArrowDictionaryKeyType,
-    V: crate::arrow_array::types::ArrowPrimitiveType,
+    K: arrow_array::types::ArrowDictionaryKeyType,
+    V: arrow_array::types::ArrowPrimitiveType,
 {
     fn new() -> Self {
         Self {
@@ -137,7 +140,7 @@ macro_rules! impl_dict_prim_builder {
     ($name:ident, $cell_pat:pat, $val:expr) => {
         impl<K> DictPrimBuilder for DictPrimImpl<K, t::$name>
         where
-            K: crate::arrow_array::types::ArrowDictionaryKeyType + Send,
+            K: arrow_array::types::ArrowDictionaryKeyType + Send,
         {
             fn append_cell(&mut self, v: DynCell) -> Result<(), DynError> {
                 match v {
@@ -148,7 +151,7 @@ macro_rules! impl_dict_prim_builder {
                     _other => Err(DynError::Builder {
                         message: format!(
                             "type mismatch for primitive dict value: expected {:?}",
-                            <t::$name as crate::arrow_array::types::ArrowPrimitiveType>::DATA_TYPE
+                            <t::$name as arrow_array::types::ArrowPrimitiveType>::DATA_TYPE
                         ),
                     }),
                 }
@@ -987,44 +990,44 @@ fn inner_for_primitives(dt: &DataType, capacity: usize) -> Option<Inner> {
         DataType::Date64 => Inner::Date64(b::PrimitiveBuilder::<t::Date64Type>::with_capacity(
             capacity,
         )),
-        DataType::Time32(crate::arrow_schema::TimeUnit::Second) => Inner::Time32Second(
+        DataType::Time32(arrow_schema::TimeUnit::Second) => Inner::Time32Second(
             b::PrimitiveBuilder::<t::Time32SecondType>::with_capacity(capacity),
         ),
-        DataType::Time32(crate::arrow_schema::TimeUnit::Millisecond) => Inner::Time32Millisecond(
+        DataType::Time32(arrow_schema::TimeUnit::Millisecond) => Inner::Time32Millisecond(
             b::PrimitiveBuilder::<t::Time32MillisecondType>::with_capacity(capacity),
         ),
-        DataType::Time64(crate::arrow_schema::TimeUnit::Microsecond) => Inner::Time64Microsecond(
+        DataType::Time64(arrow_schema::TimeUnit::Microsecond) => Inner::Time64Microsecond(
             b::PrimitiveBuilder::<t::Time64MicrosecondType>::with_capacity(capacity),
         ),
-        DataType::Time64(crate::arrow_schema::TimeUnit::Nanosecond) => Inner::Time64Nanosecond(
+        DataType::Time64(arrow_schema::TimeUnit::Nanosecond) => Inner::Time64Nanosecond(
             b::PrimitiveBuilder::<t::Time64NanosecondType>::with_capacity(capacity),
         ),
-        DataType::Duration(crate::arrow_schema::TimeUnit::Second) => Inner::DurationSecond(
+        DataType::Duration(arrow_schema::TimeUnit::Second) => Inner::DurationSecond(
             b::PrimitiveBuilder::<t::DurationSecondType>::with_capacity(capacity),
         ),
-        DataType::Duration(crate::arrow_schema::TimeUnit::Millisecond) => Inner::DurationMillisecond(
+        DataType::Duration(arrow_schema::TimeUnit::Millisecond) => Inner::DurationMillisecond(
             b::PrimitiveBuilder::<t::DurationMillisecondType>::with_capacity(capacity),
         ),
-        DataType::Duration(crate::arrow_schema::TimeUnit::Microsecond) => Inner::DurationMicrosecond(
+        DataType::Duration(arrow_schema::TimeUnit::Microsecond) => Inner::DurationMicrosecond(
             b::PrimitiveBuilder::<t::DurationMicrosecondType>::with_capacity(capacity),
         ),
-        DataType::Duration(crate::arrow_schema::TimeUnit::Nanosecond) => Inner::DurationNanosecond(
+        DataType::Duration(arrow_schema::TimeUnit::Nanosecond) => Inner::DurationNanosecond(
             b::PrimitiveBuilder::<t::DurationNanosecondType>::with_capacity(capacity),
         ),
-        DataType::Timestamp(crate::arrow_schema::TimeUnit::Second, _tz) => Inner::TimestampSecond(
+        DataType::Timestamp(arrow_schema::TimeUnit::Second, _tz) => Inner::TimestampSecond(
             b::PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(capacity),
         ),
-        DataType::Timestamp(crate::arrow_schema::TimeUnit::Millisecond, _tz) => {
+        DataType::Timestamp(arrow_schema::TimeUnit::Millisecond, _tz) => {
             Inner::TimestampMillisecond(
                 b::PrimitiveBuilder::<t::TimestampMillisecondType>::with_capacity(capacity),
             )
         }
-        DataType::Timestamp(crate::arrow_schema::TimeUnit::Microsecond, _tz) => {
+        DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, _tz) => {
             Inner::TimestampMicrosecond(
                 b::PrimitiveBuilder::<t::TimestampMicrosecondType>::with_capacity(capacity),
             )
         }
-        DataType::Timestamp(crate::arrow_schema::TimeUnit::Nanosecond, _tz) => Inner::TimestampNanosecond(
+        DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _tz) => Inner::TimestampNanosecond(
             b::PrimitiveBuilder::<t::TimestampNanosecondType>::with_capacity(capacity),
         ),
         DataType::Utf8 => Inner::Utf8(b::StringBuilder::with_capacity(capacity, capacity * 32)),

@@ -1,9 +1,12 @@
 //! Runtime Arrow Schema wrapper.
 
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::sync::Arc;
 
-use crate::arrow_array::RecordBatch;
-use crate::arrow_schema::{Schema, SchemaRef};
+use arrow_array::RecordBatch;
+use arrow_schema::{Schema, SchemaRef};
 
 use crate::{DynRowView, DynRowViews, DynViewError};
 

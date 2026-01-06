@@ -1,6 +1,9 @@
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::{marker::PhantomData, ptr::NonNull, slice, str, sync::Arc};
 
-use crate::arrow_array::{
+use arrow_array::{
     Array, ArrayRef, BinaryArray, BooleanArray, DictionaryArray, FixedSizeBinaryArray,
     FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array,
     LargeBinaryArray, LargeListArray, LargeStringArray, ListArray, MapArray, PrimitiveArray,
@@ -13,7 +16,7 @@ use crate::arrow_array::{
         TimestampSecondType, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
 };
-use crate::arrow_schema::{DataType, Field};
+use arrow_schema::{DataType, Field};
 
 use super::{
     path::Path,
@@ -792,11 +795,11 @@ fn view_non_null<'a>(
             Ok(DynCellRef::i32(arr.value(index)))
         }
         DataType::Time32(unit) => match unit {
-            crate::arrow_schema::TimeUnit::Second => {
+            arrow_schema::TimeUnit::Second => {
                 let arr = as_primitive::<Time32SecondType>(array, path, dt)?;
                 Ok(DynCellRef::i32(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Millisecond => {
+            arrow_schema::TimeUnit::Millisecond => {
                 let arr = as_primitive::<Time32MillisecondType>(array, path, dt)?;
                 Ok(DynCellRef::i32(arr.value(index)))
             }
@@ -815,29 +818,29 @@ fn view_non_null<'a>(
             Ok(DynCellRef::i64(arr.value(index)))
         }
         DataType::Timestamp(unit, _) => match unit {
-            crate::arrow_schema::TimeUnit::Second => {
+            arrow_schema::TimeUnit::Second => {
                 let arr = as_primitive::<TimestampSecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Millisecond => {
+            arrow_schema::TimeUnit::Millisecond => {
                 let arr = as_primitive::<TimestampMillisecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Microsecond => {
+            arrow_schema::TimeUnit::Microsecond => {
                 let arr = as_primitive::<TimestampMicrosecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Nanosecond => {
+            arrow_schema::TimeUnit::Nanosecond => {
                 let arr = as_primitive::<TimestampNanosecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
         },
         DataType::Time64(unit) => match unit {
-            crate::arrow_schema::TimeUnit::Microsecond => {
+            arrow_schema::TimeUnit::Microsecond => {
                 let arr = as_primitive::<Time64MicrosecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Nanosecond => {
+            arrow_schema::TimeUnit::Nanosecond => {
                 let arr = as_primitive::<Time64NanosecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
@@ -848,19 +851,19 @@ fn view_non_null<'a>(
             }),
         },
         DataType::Duration(unit) => match unit {
-            crate::arrow_schema::TimeUnit::Second => {
+            arrow_schema::TimeUnit::Second => {
                 let arr = as_primitive::<DurationSecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Millisecond => {
+            arrow_schema::TimeUnit::Millisecond => {
                 let arr = as_primitive::<DurationMillisecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Microsecond => {
+            arrow_schema::TimeUnit::Microsecond => {
                 let arr = as_primitive::<DurationMicrosecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
-            crate::arrow_schema::TimeUnit::Nanosecond => {
+            arrow_schema::TimeUnit::Nanosecond => {
                 let arr = as_primitive::<DurationNanosecondType>(array, path, dt)?;
                 Ok(DynCellRef::i64(arr.value(index)))
             }
@@ -1206,7 +1209,7 @@ fn as_primitive<'a, T>(
     expected: &DataType,
 ) -> Result<&'a PrimitiveArray<T>, DynViewError>
 where
-    T: crate::arrow_array::types::ArrowPrimitiveType,
+    T: arrow_array::types::ArrowPrimitiveType,
 {
     array
         .as_any()

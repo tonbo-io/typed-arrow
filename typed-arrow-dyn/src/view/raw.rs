@@ -1,7 +1,10 @@
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::{marker::PhantomData, ptr::NonNull, sync::Arc};
 
-use crate::arrow_array::{ArrayRef, MapArray, StructArray, UnionArray};
-use crate::arrow_schema::{FieldRef, Fields, UnionFields, UnionMode};
+use arrow_array::{ArrayRef, MapArray, StructArray, UnionArray};
+use arrow_schema::{FieldRef, Fields, UnionFields, UnionMode};
 
 use super::{
     path::Path,

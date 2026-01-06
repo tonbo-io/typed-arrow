@@ -1,10 +1,13 @@
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::arrow_array::{
+use arrow_array::{
     Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
     UnionArray,
 };
-use crate::arrow_schema::{FieldRef, Fields, UnionFields, UnionMode};
+use arrow_schema::{FieldRef, Fields, UnionFields, UnionMode};
 
 use super::{
     cell::{DynCellRef, view_cell_with_projector},

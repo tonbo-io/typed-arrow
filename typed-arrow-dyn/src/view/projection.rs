@@ -1,7 +1,10 @@
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::sync::Arc;
 
-use crate::arrow_array::RecordBatch;
-use crate::arrow_schema::{DataType, Field, FieldRef, Fields, Schema};
+use arrow_array::RecordBatch;
+use arrow_schema::{DataType, Field, FieldRef, Fields, Schema};
 use crate::parquet::arrow::{ArrowSchemaConverter, ProjectionMask as ParquetProjectionMask};
 
 use super::{

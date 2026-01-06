@@ -1,9 +1,12 @@
 //! Builders collection for dynamic schema.
 
+use crate::arrow_array as arrow_array;
+use crate::arrow_schema as arrow_schema;
+
 use std::collections::HashMap;
 
-use crate::arrow_array::RecordBatch;
-use crate::arrow_schema::SchemaRef;
+use arrow_array::RecordBatch;
+use arrow_schema::SchemaRef;
 
 use crate::{
     DynError, dyn_builder::DynColumnBuilder, factory::try_new_dyn_builder_with_capacity,
