@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "typed-arrow-derive", "typed-arrow-dyn"]
+members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-benches"]
 package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
@@ -9,7 +9,7 @@ package.version = "0.6.0"
 [workspace.dependencies]
 typed-arrow = { path = ".", version = "0.6.0", package = "typed-arrow", default-features = false }
 typed-arrow-derive = { path = "typed-arrow-derive", version = "0.6.0", package = "typed-arrow-derive" }
-typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.7", package = "typed-arrow-dyn" }
+typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.7", package = "typed-arrow-dyn", default-features = false }
 half = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
@@ -66,14 +66,8 @@ thiserror = { workspace = true }
 typed-arrow-derive = { workspace = true, optional = true }
 
 [dev-dependencies]
-criterion = "0.5"
 serde = { workspace = true }
-serde_arrow = { version = "0.13", features = ["arrow-57"] }
 trybuild = "1.0"
-
-[[bench]]
-harness = false
-name = "append_rows"
 
 [profile.bench]
 lto = true

@@ -931,9 +931,17 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea734fcb7619dfcc47a396f7bf0c72571ccc8c18ae7236ae028d485b27424b74"
 dependencies = [
+ "arrow-array 55.2.0",
+ "arrow-array 56.2.0",
  "arrow-array 57.1.0",
+ "arrow-buffer 55.2.0",
+ "arrow-buffer 56.2.0",
  "arrow-buffer 57.1.0",
+ "arrow-data 55.2.0",
+ "arrow-data 56.2.0",
  "arrow-data 57.1.0",
+ "arrow-schema 55.2.0",
+ "arrow-schema 56.2.0",
  "arrow-schema 57.1.0",
  "bytemuck",
  "half",
@@ -1322,7 +1330,11 @@ version = "0.13.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "038967a6dda16f5c6ca5b6e1afec9cd2361d39f0db681ca338ac5f0ccece6469"
 dependencies = [
+ "arrow-array 55.2.0",
+ "arrow-array 56.2.0",
  "arrow-array 57.1.0",
+ "arrow-schema 55.2.0",
+ "arrow-schema 56.2.0",
  "arrow-schema 57.1.0",
  "bytemuck",
  "chrono",
@@ -1549,13 +1561,22 @@ dependencies = [
  "arrow-schema 55.2.0",
  "arrow-schema 56.2.0",
  "arrow-schema 57.1.0",
- "criterion",
  "half",
  "serde",
- "serde_arrow",
  "thiserror",
  "trybuild",
  "typed-arrow-derive",
+]
+
+[[package]]
+name = "typed-arrow-benches"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "serde",
+ "serde_arrow",
+ "typed-arrow",
+ "typed-arrow-dyn",
 ]
 
 [[package]]

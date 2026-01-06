@@ -1,8 +1,9 @@
-//! Benchmark: typed-arrow vs serde_arrow vs arrow-rs raw
+//! Benchmark: typed-arrow vs serde_arrow vs typed-arrow-dyn vs arrow-rs raw
 //!
 //! This benchmark demonstrates the performance characteristics of compile-time vs runtime schema:
 //! - typed-arrow: compile-time schema, monomorphized code
 //! - serde_arrow: serde-based runtime serialization
+//! - typed-arrow-dyn: runtime schema, dynamic dispatch via trait objects
 //! - arrow-rs raw: manual builder construction (baseline)
 //!
 //! Benchmark groups:
@@ -11,7 +12,20 @@
 //! - read_primitives: read benchmark iterating over rows
 //! - read_with_strings: read benchmark with string access
 
+#[cfg(all(
+    feature = "arrow-55",
+    any(feature = "arrow-56", feature = "arrow-57")
+))]
+compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+#[cfg(all(feature = "arrow-56", feature = "arrow-57"))]
+compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+#[cfg(not(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57")))]
+compile_error!("Enable one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+
 use std::sync::Arc;
+
+use typed_arrow::arrow_array as arrow_array;
+use typed_arrow::arrow_schema as arrow_schema;
 
 use arrow_array::{
     Array, RecordBatch,
@@ -23,6 +37,7 @@ use arrow_schema::{DataType, Field, Schema};
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use typed_arrow::prelude::*;
+use typed_arrow_dyn::{DynBuilders, DynCell, DynRow, DynSchema};
 
 // ============================================================================
 // Primitives-only records (isolates dispatch overhead)
@@ -47,6 +62,19 @@ fn generate_primitives(n: usize) -> Vec<Primitive> {
         .collect()
 }
 
+fn primitives_to_dyn_rows(records: &[Primitive]) -> Vec<DynRow> {
+    records
+        .iter()
+        .map(|r| {
+            DynRow(vec![
+                Some(DynCell::I64(r.a)),
+                Some(DynCell::F64(r.b)),
+                Some(DynCell::I32(r.c)),
+                Some(DynCell::Bool(r.d)),
+            ])
+        })
+        .collect()
+}
 
 fn primitive_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
@@ -84,6 +112,19 @@ fn generate_with_strings(n: usize) -> Vec<WithStrings> {
         .collect()
 }
 
+fn with_strings_to_dyn_rows(records: &[WithStrings]) -> Vec<DynRow> {
+    records
+        .iter()
+        .map(|r| {
+            DynRow(vec![
+                Some(DynCell::I64(r.id)),
+                Some(DynCell::F64(r.value)),
+                Some(DynCell::Bool(r.active)),
+                r.name.as_ref().map(|s| DynCell::Str(s.clone())),
+            ])
+        })
+        .collect()
+}
 
 fn with_strings_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
@@ -117,6 +158,25 @@ fn bench_primitives(c: &mut Criterion) {
                 black_box(builders.finish().into_record_batch())
             })
         });
+
+        // typed-arrow-dyn: dynamic dispatch
+        group.bench_with_input(
+            BenchmarkId::new("dynamic", size),
+            &(&records, &schema),
+            |b, (records, schema)| {
+                b.iter_batched(
+                    || primitives_to_dyn_rows(records),
+                    |rows| {
+                        let mut builders = DynBuilders::new(Arc::clone(schema), rows.len());
+                        for row in rows {
+                            builders.append_option_row(Some(row)).unwrap();
+                        }
+                        black_box(builders.finish_into_batch())
+                    },
+                    criterion::BatchSize::SmallInput,
+                )
+            },
+        );
 
         // arrow-rs raw: baseline
         group.bench_with_input(
@@ -192,6 +252,25 @@ fn bench_with_strings(c: &mut Criterion) {
                 black_box(builders.finish().into_record_batch())
             })
         });
+
+        // typed-arrow-dyn: dynamic dispatch + string handling
+        group.bench_with_input(
+            BenchmarkId::new("dynamic", size),
+            &(&records, &schema),
+            |b, (records, schema)| {
+                b.iter_batched(
+                    || with_strings_to_dyn_rows(records),
+                    |rows| {
+                        let mut builders = DynBuilders::new(Arc::clone(schema), rows.len());
+                        for row in rows {
+                            builders.append_option_row(Some(row)).unwrap();
+                        }
+                        black_box(builders.finish_into_batch())
+                    },
+                    criterion::BatchSize::SmallInput,
+                )
+            },
+        );
 
         // arrow-rs raw: baseline (references only)
         group.bench_with_input(
@@ -298,6 +377,34 @@ fn bench_read_primitives(c: &mut Criterion) {
             })
         });
 
+        // typed-arrow-dyn: dynamic views
+        let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+        group.bench_with_input(
+            BenchmarkId::new("dynamic", size),
+            &(&batch, &dyn_schema),
+            |b, (batch, dyn_schema)| {
+                b.iter(|| {
+                    let mut sum: i64 = 0;
+                    for row in dyn_schema.iter_views(batch).unwrap() {
+                        let row = row.unwrap();
+                        if let Some(cell) = row.get(0).unwrap() {
+                            sum = sum.wrapping_add(cell.into_i64().unwrap_or(0));
+                        }
+                        if let Some(cell) = row.get(1).unwrap() {
+                            sum = sum.wrapping_add(cell.into_f64().unwrap_or(0.0) as i64);
+                        }
+                        if let Some(cell) = row.get(2).unwrap() {
+                            sum = sum.wrapping_add(cell.into_i32().unwrap_or(0) as i64);
+                        }
+                        if let Some(cell) = row.get(3).unwrap() {
+                            sum = sum.wrapping_add(cell.into_bool().unwrap_or(false) as i64);
+                        }
+                    }
+                    black_box(sum)
+                })
+            },
+        );
+
         // arrow-rs raw: direct column access
         group.bench_with_input(BenchmarkId::new("arrow_raw", size), &batch, |b, batch| {
             b.iter(|| {
@@ -402,6 +509,37 @@ fn bench_read_with_strings(c: &mut Criterion) {
                 black_box((sum, name_len))
             })
         });
+
+        // typed-arrow-dyn: dynamic views
+        let dyn_schema = DynSchema::from_ref(Arc::clone(&schema));
+        group.bench_with_input(
+            BenchmarkId::new("dynamic", size),
+            &(&batch, &dyn_schema),
+            |b, (batch, dyn_schema)| {
+                b.iter(|| {
+                    let mut sum: i64 = 0;
+                    let mut name_len: usize = 0;
+                    for row in dyn_schema.iter_views(batch).unwrap() {
+                        let row = row.unwrap();
+                        if let Some(cell) = row.get(0).unwrap() {
+                            sum = sum.wrapping_add(cell.into_i64().unwrap_or(0));
+                        }
+                        if let Some(cell) = row.get(1).unwrap() {
+                            sum = sum.wrapping_add(cell.into_f64().unwrap_or(0.0) as i64);
+                        }
+                        if let Some(cell) = row.get(2).unwrap() {
+                            sum = sum.wrapping_add(cell.into_bool().unwrap_or(false) as i64);
+                        }
+                        if let Some(cell) = row.get(3).unwrap() {
+                            if let Some(s) = cell.into_str() {
+                                name_len += s.len();
+                            }
+                        }
+                    }
+                    black_box((sum, name_len))
+                })
+            },
+        );
 
         // arrow-rs raw: direct column access
         group.bench_with_input(BenchmarkId::new("arrow_raw", size), &batch, |b, batch| {
