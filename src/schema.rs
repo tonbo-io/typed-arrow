@@ -44,7 +44,7 @@
 //!     name: String,
 //! }
 //!
-//! # fn example(batch: typed_arrow::arrow_array::RecordBatch) -> Result<(), SchemaError> {
+//! # fn example(batch: arrow_array::RecordBatch) -> Result<(), SchemaError> {
 //! // Get iterator of views
 //! for view in batch.iter_views::<Row>()?.try_flatten()? {
 //!     // view.id is i32 (copied), view.name is &str (zero-copy)
@@ -67,7 +67,7 @@
 //!     name: String,
 //! }
 //!
-//! # fn example(batch: typed_arrow::arrow_array::RecordBatch) -> Result<(), SchemaError> {
+//! # fn example(batch: arrow_array::RecordBatch) -> Result<(), SchemaError> {
 //! let mut owned_rows = Vec::new();
 //! for view in batch.iter_views::<Row>()?.try_flatten()? {
 //!     let owned: Row = view.try_into()?; // Clone strings, copy primitives

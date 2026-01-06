@@ -7,7 +7,7 @@
   <a href="https://discord.gg/j27XVFVmJM"><img src="https://img.shields.io/discord/1270294987355197460?logo=discord"></a>
 </p>
 
-typed-arrow provides a strongly typed, fully compile-time way to declare Arrow schemas in Rust. It maps Rust types directly to arrow-rs typed builders/arrays and `typed_arrow::arrow_schema::DataType` — without any runtime `DataType` switching — enabling zero runtime cost, monomorphized column construction and ergonomic ORM-like APIs.
+typed-arrow provides a strongly typed, fully compile-time way to declare Arrow schemas in Rust. It maps Rust types directly to arrow-rs typed builders/arrays and `arrow_schema::DataType` — without any runtime `DataType` switching — enabling zero runtime cost, monomorphized column construction and ergonomic ORM-like APIs.
 
 📖 **[Read the full documentation on docs.rs](https://docs.rs/typed-arrow)**
 
