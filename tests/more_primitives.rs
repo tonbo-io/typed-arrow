@@ -1,4 +1,6 @@
-use typed_arrow::arrow_schema::{DataType, TimeUnit};
+use typed_arrow::arrow_schema as arrow_schema;
+
+use arrow_schema::{DataType, TimeUnit};
 use half::f16;
 use typed_arrow::{
     Date32, Date64, Duration, Microsecond, Millisecond, Nanosecond, Second, Time32, Time64,

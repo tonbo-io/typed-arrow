@@ -1,6 +1,8 @@
+use typed_arrow::arrow_array as arrow_array;
+
 use std::collections::BTreeMap;
 
-use typed_arrow::arrow_array::Array;
+use arrow_array::Array;
 use typed_arrow::{Map, OrderedMap, Record, bridge::ArrowBinding};
 
 #[derive(Record)]

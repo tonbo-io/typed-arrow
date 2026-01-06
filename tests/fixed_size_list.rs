@@ -1,5 +1,8 @@
-use typed_arrow::arrow_array::Array;
-use typed_arrow::arrow_schema::{DataType, Field};
+use typed_arrow::arrow_array as arrow_array;
+use typed_arrow::arrow_schema as arrow_schema;
+
+use arrow_array::Array;
+use arrow_schema::{DataType, Field};
 use typed_arrow::{FixedSizeList, FixedSizeListNullable, bridge::ArrowBinding};
 
 #[test]
@@ -43,7 +46,7 @@ fn fixed_size_list_nullable_items_build() {
 
 #[test]
 fn fixed_size_list_child_values() {
-    use typed_arrow::arrow_array::Array;
+    use arrow_array::Array;
     type L = FixedSizeList<i32, 3>;
     let mut b = <L as ArrowBinding>::new_builder(3);
     <L as ArrowBinding>::append_value(&mut b, &FixedSizeList::new([7, 8, 9]));
@@ -53,7 +56,7 @@ fn fixed_size_list_child_values() {
     let child = a
         .values()
         .as_any()
-        .downcast_ref::<typed_arrow::arrow_array::PrimitiveArray<typed_arrow::arrow_array::types::Int32Type>>()
+        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
         .unwrap();
     assert_eq!(child.len(), 9);
     assert_eq!(child.value(0), 7);

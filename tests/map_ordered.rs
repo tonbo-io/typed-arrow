@@ -1,7 +1,10 @@
+use typed_arrow::arrow_array as arrow_array;
+use typed_arrow::arrow_schema as arrow_schema;
+
 use std::{collections::BTreeMap, sync::Arc};
 
-use typed_arrow::arrow_array::Array;
-use typed_arrow::arrow_schema::{DataType, Field};
+use arrow_array::Array;
+use arrow_schema::{DataType, Field};
 use typed_arrow::{OrderedMap, bridge::ArrowBinding};
 
 #[test]
@@ -26,12 +29,12 @@ fn ordered_map_build() {
     let keys = entries
         .column(0)
         .as_any()
-        .downcast_ref::<typed_arrow::arrow_array::StringArray>()
+        .downcast_ref::<arrow_array::StringArray>()
         .unwrap();
     let vals = entries
         .column(1)
         .as_any()
-        .downcast_ref::<typed_arrow::arrow_array::PrimitiveArray<typed_arrow::arrow_array::types::Int32Type>>()
+        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
         .unwrap();
     // BTreeMap order: a, b
     assert_eq!(keys.value(0), "a");
@@ -52,12 +55,12 @@ fn ordered_map_nullable_build() {
     let keys = entries
         .column(0)
         .as_any()
-        .downcast_ref::<typed_arrow::arrow_array::StringArray>()
+        .downcast_ref::<arrow_array::StringArray>()
         .unwrap();
     let vals = entries
         .column(1)
         .as_any()
-        .downcast_ref::<typed_arrow::arrow_array::PrimitiveArray<typed_arrow::arrow_array::types::Int32Type>>()
+        .downcast_ref::<arrow_array::PrimitiveArray<arrow_array::types::Int32Type>>()
         .unwrap();
     assert_eq!(keys.value(0), "x");
     assert!(vals.is_valid(0));
