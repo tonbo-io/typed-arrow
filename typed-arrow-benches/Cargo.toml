@@ -18,3 +18,7 @@ serde = { workspace = true }
 serde_arrow = { version = "0.13", default-features = false }
 typed-arrow = { workspace = true, default-features = false, features = ["derive", "views"] }
 typed-arrow-dyn = { workspace = true, default-features = false }
+
+[[bench]]
+name = "append_rows"
+harness = false
