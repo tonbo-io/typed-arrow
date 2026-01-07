@@ -1,15 +1,12 @@
 //! Factory for dynamic builders, mapping Arrow `DataType` to concrete builders.
 
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::sync::Arc;
 
 use arrow_array::{ArrayRef, builder as b, types as t};
 use arrow_schema::{DataType, UnionFields, UnionMode};
 
 use crate::{
-    DynError,
+    DynError, arrow_array, arrow_schema,
     cell::DynCell,
     dyn_builder::{DynColumnBuilder, FinishedColumn},
     nested::{FixedSizeListCol, LargeListCol, ListCol, MapCol, StructCol},

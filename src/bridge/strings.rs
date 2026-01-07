@@ -1,5 +1,7 @@
 //! `Utf8` and `LargeUtf8` string bindings.
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
     LargeStringArray, StringArray,
     builder::{LargeStringBuilder, StringBuilder},
@@ -7,8 +9,6 @@ use arrow_array::{
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
-#[cfg(feature = "views")]
-use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 

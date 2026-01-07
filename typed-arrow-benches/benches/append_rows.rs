@@ -12,10 +12,7 @@
 //! - read_primitives: read benchmark iterating over rows
 //! - read_with_strings: read benchmark with string access
 
-#[cfg(all(
-    feature = "arrow-55",
-    any(feature = "arrow-56", feature = "arrow-57")
-))]
+#[cfg(all(feature = "arrow-55", any(feature = "arrow-56", feature = "arrow-57")))]
 compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
 #[cfg(all(feature = "arrow-56", feature = "arrow-57"))]
 compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
@@ -23,9 +20,6 @@ compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-5
 compile_error!("Enable one Arrow feature: arrow-55, arrow-56, or arrow-57.");
 
 use std::sync::Arc;
-
-use typed_arrow::arrow_array as arrow_array;
-use typed_arrow::arrow_schema as arrow_schema;
 
 use arrow_array::{
     Array, RecordBatch,
@@ -36,7 +30,7 @@ use arrow_array::{
 use arrow_schema::{DataType, Field, Schema};
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
-use typed_arrow::prelude::*;
+use typed_arrow::{arrow_array, arrow_schema, prelude::*};
 use typed_arrow_dyn::{DynBuilders, DynCell, DynRow, DynSchema};
 
 // ============================================================================

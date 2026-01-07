@@ -1,9 +1,7 @@
-use typed_arrow::arrow_array as arrow_array;
-
 use std::collections::BTreeMap;
 
 use arrow_array::Array;
-use typed_arrow::{Map, OrderedMap, Record, bridge::ArrowBinding};
+use typed_arrow::{Map, OrderedMap, Record, arrow_array, bridge::ArrowBinding};
 
 #[derive(Record)]
 struct Row {

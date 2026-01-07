@@ -229,10 +229,7 @@
 //!
 //! See `examples/12_ext_hooks.rs` for usage.
 
-#[cfg(all(
-    feature = "arrow-55",
-    any(feature = "arrow-56", feature = "arrow-57")
-))]
+#[cfg(all(feature = "arrow-55", any(feature = "arrow-56", feature = "arrow-57")))]
 compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
 #[cfg(all(feature = "arrow-56", feature = "arrow-57"))]
 compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
@@ -277,15 +274,14 @@ pub mod prelude {
     #[cfg(feature = "derive")]
     pub use typed_arrow_derive::{Record, Union};
 
-    #[cfg(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57"))]
-    pub use crate::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
-
     #[cfg(feature = "views")]
     pub use crate::AsViewsIterator;
     #[cfg(feature = "views")]
     pub use crate::error::ViewAccessError;
     #[cfg(feature = "views")]
     pub use crate::schema::{FromRecordBatch, ViewResultIteratorExt};
+    #[cfg(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57"))]
+    pub use crate::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
     pub use crate::{
         error::SchemaError,
         schema::{BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record},

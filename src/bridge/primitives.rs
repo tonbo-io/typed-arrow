@@ -1,5 +1,7 @@
 //! Primitive Arrow bindings (integers, floats, bool, f16).
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
     PrimitiveArray,
     builder::PrimitiveBuilder,
@@ -12,8 +14,6 @@ use arrow_schema::DataType;
 use half::f16;
 
 use super::ArrowBinding;
-#[cfg(feature = "views")]
-use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 

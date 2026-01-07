@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use typed_arrow_dyn::arrow_array::RecordBatch;
-use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynRow,
+    arrow_array::RecordBatch,
+    arrow_schema::{DataType, Field, Schema},
+};
 
 fn main() {
     // schema: { person: Struct{name: Utf8 (req), age: Int32 (opt)}, tags: List<Utf8>, nums3:

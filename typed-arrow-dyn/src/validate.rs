@@ -1,9 +1,5 @@
 //! Validate nullability invariants in nested Arrow arrays using the schema.
 
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-use crate::arrow_buffer as arrow_buffer;
-
 use std::{collections::HashMap, sync::Arc};
 
 use arrow_array::{
@@ -13,7 +9,7 @@ use arrow_array::{
 use arrow_buffer::{ArrowNativeType, OffsetBuffer};
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
 
-use crate::{DynError, dyn_builder::array_key};
+use crate::{DynError, arrow_array, arrow_buffer, arrow_schema, dyn_builder::array_key};
 
 /// Extract start and end offsets for a row from an offset buffer.
 fn offset_range<T: ArrowNativeType>(

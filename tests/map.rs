@@ -1,11 +1,8 @@
-use typed_arrow::arrow_array as arrow_array;
-use typed_arrow::arrow_schema as arrow_schema;
-
 use std::sync::Arc;
 
 use arrow_array::Array;
 use arrow_schema::{DataType, Field};
-use typed_arrow::{Map, bridge::ArrowBinding};
+use typed_arrow::{Map, arrow_array, arrow_schema, bridge::ArrowBinding};
 
 #[test]
 fn map_datatype_shapes_and_sorted_flag() {

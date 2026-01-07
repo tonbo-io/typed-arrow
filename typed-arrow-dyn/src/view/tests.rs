@@ -1,7 +1,3 @@
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-use crate::arrow_buffer as arrow_buffer;
-
 use std::sync::Arc;
 
 use arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
@@ -12,7 +8,7 @@ use super::{
     DynCellRaw, DynMapView, DynRowOwned, DynRowView, DynStructView, path::Path,
     projection::StructProjection,
 };
-use crate::{DynViewError, cell::DynCell};
+use crate::{DynViewError, arrow_array, arrow_buffer, arrow_schema, cell::DynCell};
 
 #[test]
 fn dyn_row_owned_round_trip_utf8() {

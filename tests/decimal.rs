@@ -1,10 +1,6 @@
-use typed_arrow::arrow_array as arrow_array;
-use typed_arrow::arrow_schema as arrow_schema;
-use typed_arrow::arrow_buffer as arrow_buffer;
-
 use arrow_array::{Array, Decimal128Array, Decimal256Array};
 use arrow_buffer::i256;
-use typed_arrow::bridge::ArrowBinding;
+use typed_arrow::{arrow_array, arrow_buffer, arrow_schema, bridge::ArrowBinding};
 
 #[test]
 fn decimal128_bindings() {

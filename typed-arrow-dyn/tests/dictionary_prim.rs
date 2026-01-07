@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use typed_arrow_dyn::arrow_array::{Array, DictionaryArray, cast};
-use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynRow,
+    arrow_array::{Array, DictionaryArray, cast},
+    arrow_schema::{DataType, Field, Schema},
+};
 
 #[test]
 fn dictionary_unsigned_key_utf8_values() {

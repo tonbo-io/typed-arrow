@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use typed_arrow_dyn::arrow_array::RecordBatch;
-use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode};
-use typed_arrow_dyn::parquet::arrow::ArrowSchemaConverter;
-use typed_arrow_dyn::{DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynProjection, DynRow, DynSchema, DynViewError,
+    arrow_array::RecordBatch,
+    arrow_schema::{DataType, Field, Schema, TimeUnit, UnionFields, UnionMode},
+    parquet::arrow::ArrowSchemaConverter,
+};
 
 fn build_batch(schema: &Arc<Schema>, rows: Vec<Option<DynRow>>) -> RecordBatch {
     let mut builders = DynBuilders::new(Arc::clone(schema), rows.len());

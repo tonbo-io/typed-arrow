@@ -1,6 +1,3 @@
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::{marker::PhantomData, ptr::NonNull, slice, str, sync::Arc};
 
 use arrow_array::{
@@ -26,7 +23,7 @@ use super::{
     },
     views::{DynFixedSizeListView, DynListView, DynMapView, DynStructView, DynUnionView},
 };
-use crate::{DynViewError, cell::DynCell};
+use crate::{DynViewError, arrow_array, arrow_schema, cell::DynCell};
 
 impl DynCell {
     /// Borrow this owned cell as a [`DynCellRef`] without cloning underlying buffers.

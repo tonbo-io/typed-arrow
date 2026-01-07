@@ -1,10 +1,8 @@
 //! Dynamic row wrapper.
 
-use crate::arrow_schema as arrow_schema;
-
 use arrow_schema::{DataType, Field, UnionFields};
 
-use crate::{DynError, cell::DynCell, dyn_builder::DynColumnBuilder};
+use crate::{DynError, arrow_schema, cell::DynCell, dyn_builder::DynColumnBuilder};
 
 /// A thin row wrapper used to append into a set of dynamic column builders.
 pub struct DynRow(pub Vec<Option<DynCell>>);

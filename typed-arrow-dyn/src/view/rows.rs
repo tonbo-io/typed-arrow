@@ -1,6 +1,3 @@
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::sync::Arc;
 
 use arrow_array::RecordBatch;
@@ -11,7 +8,9 @@ use super::{
     path::Path,
     projection::{DynProjection, FieldProjector},
 };
-use crate::{DynViewError, cell::DynCell, rows::DynRow, schema::DynSchema};
+use crate::{
+    DynViewError, arrow_array, arrow_schema, cell::DynCell, rows::DynRow, schema::DynSchema,
+};
 
 /// Iterator over borrowed dynamic rows.
 #[derive(Debug)]

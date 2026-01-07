@@ -1,11 +1,11 @@
-use typed_arrow::arrow_array as arrow_array;
-use typed_arrow::arrow_schema as arrow_schema;
-
 use arrow_array::types::{
     IntervalDayTime as IntervalDayTimeNative, IntervalMonthDayNano as IntervalMonthDayNanoNative,
 };
 use arrow_schema::{DataType, IntervalUnit};
-use typed_arrow::{IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth, bridge::ArrowBinding};
+use typed_arrow::{
+    IntervalDayTime, IntervalMonthDayNano, IntervalYearMonth, arrow_array, arrow_schema,
+    bridge::ArrowBinding,
+};
 
 #[test]
 fn interval_year_month() {

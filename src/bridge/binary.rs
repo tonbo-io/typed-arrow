@@ -1,5 +1,7 @@
 //! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`).
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
     FixedSizeBinaryArray, LargeBinaryArray,
     builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
@@ -7,8 +9,6 @@ use arrow_array::{
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
-#[cfg(feature = "views")]
-use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 

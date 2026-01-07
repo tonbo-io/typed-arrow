@@ -2,6 +2,8 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
     PrimitiveArray,
     builder::PrimitiveBuilder,
@@ -15,8 +17,6 @@ use arrow_array::{
 use arrow_schema::{DataType, TimeUnit};
 
 use super::ArrowBinding;
-#[cfg(feature = "views")]
-use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 

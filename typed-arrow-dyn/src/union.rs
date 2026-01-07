@@ -1,9 +1,5 @@
 //! Dynamic dense and sparse union builders.
 
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-use crate::arrow_buffer as arrow_buffer;
-
 use std::sync::Arc;
 
 use arrow_array::{ArrayRef, UnionArray};
@@ -11,7 +7,7 @@ use arrow_buffer::ScalarBuffer;
 use arrow_schema::UnionFields;
 
 use crate::{
-    DynError,
+    DynError, arrow_array, arrow_buffer, arrow_schema,
     cell::DynCell,
     dyn_builder::{DynColumnBuilder, FinishedColumn, array_key},
 };

@@ -1,9 +1,9 @@
 //! Error types for dynamic builders and rows.
 
-use crate::arrow_schema as arrow_schema;
-
 use arrow_schema::DataType;
 use thiserror::Error;
+
+use crate::arrow_schema;
 
 /// Errors that can occur when appending dynamic rows/cells.
 #[derive(Debug, Error)]

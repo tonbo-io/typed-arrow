@@ -1,14 +1,11 @@
 //! Trait for dynamic column builders.
 
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::sync::Arc;
 
 use arrow_array::ArrayRef;
 use arrow_schema::DataType;
 
-use crate::{DynError, cell::DynCell};
+use crate::{DynError, arrow_array, arrow_schema, cell::DynCell};
 
 /// Result of finishing a dynamic column builder.
 #[derive(Debug)]

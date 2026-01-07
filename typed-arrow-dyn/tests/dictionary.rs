@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use typed_arrow_dyn::arrow_array::{Array, DictionaryArray, RecordBatch, cast};
-use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynRow,
+    arrow_array::{Array, DictionaryArray, RecordBatch, cast},
+    arrow_schema::{DataType, Field, Schema},
+};
 
 fn build_dict_batch() -> RecordBatch {
     // Schema: { d: Dictionary(Int32, Utf8) }

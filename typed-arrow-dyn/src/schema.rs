@@ -1,14 +1,11 @@
 //! Runtime Arrow Schema wrapper.
 
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::sync::Arc;
 
 use arrow_array::RecordBatch;
 use arrow_schema::{Schema, SchemaRef};
 
-use crate::{DynRowView, DynRowViews, DynViewError};
+use crate::{DynRowView, DynRowViews, DynViewError, arrow_array, arrow_schema};
 
 /// A runtime Arrow schema wrapper used by the unified facade.
 #[derive(Debug, Clone)]

@@ -1,5 +1,7 @@
 //! Decimal128/Decimal256 bindings.
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
     Decimal128Array, Decimal256Array,
     builder::{Decimal128Builder, Decimal256Builder},
@@ -8,8 +10,6 @@ use arrow_buffer::i256;
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
-#[cfg(feature = "views")]
-use arrow_array::Array;
 #[cfg(feature = "views")]
 use super::ArrowBindingView;
 

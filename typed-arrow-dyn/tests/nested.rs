@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use typed_arrow_dyn::arrow_array::{Array, Int32Array, LargeListArray, ListArray, RecordBatch, cast};
-use typed_arrow_dyn::arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynRow,
+    arrow_array::{Array, Int32Array, LargeListArray, ListArray, RecordBatch, cast},
+    arrow_schema::{DataType, Field, Schema},
+};
 
 fn build_nested_batch() -> RecordBatch {
     // schema: { person: Struct{name: Utf8 (req), age: Int32 (opt)}, tags: List<Utf8>, nums3:
@@ -61,7 +63,9 @@ fn struct_and_lists_build() {
     assert!(name.is_null(0));
     assert_eq!(name.value(1), "a");
     // child 1: age
-    let age = cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int32Type>(person.column(1));
+    let age = cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int32Type>(
+        person.column(1),
+    );
     assert!(age.is_null(0));
     assert!(age.is_null(1));
 

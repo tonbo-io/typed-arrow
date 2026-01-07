@@ -1,6 +1,3 @@
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::{marker::PhantomData, sync::Arc};
 
 use arrow_array::{
@@ -14,7 +11,7 @@ use super::{
     path::Path,
     projection::{FieldProjector, StructProjection},
 };
-use crate::DynViewError;
+use crate::{DynViewError, arrow_array, arrow_schema};
 
 /// View over a struct column.
 pub struct DynStructView<'a> {

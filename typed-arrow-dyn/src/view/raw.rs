@@ -1,6 +1,3 @@
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-
 use std::{marker::PhantomData, ptr::NonNull, sync::Arc};
 
 use arrow_array::{ArrayRef, MapArray, StructArray, UnionArray};
@@ -11,6 +8,7 @@ use super::{
     projection::{FieldProjector, StructProjection},
     views::{DynFixedSizeListView, DynListView, DynMapView, DynStructView, DynUnionView},
 };
+use crate::{arrow_array, arrow_schema};
 
 /// Lifetime-erased struct view backing a [`DynCellRaw::Struct`] cell.
 #[derive(Debug, Clone)]

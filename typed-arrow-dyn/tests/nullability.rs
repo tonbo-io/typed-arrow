@@ -1,10 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
-use typed_arrow_dyn::arrow_array::{Array, ArrayRef, Int64Array, MapArray, StringArray, StructArray};
-use typed_arrow_dyn::arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
-use typed_arrow_dyn::arrow_data::ArrayData;
-use typed_arrow_dyn::arrow_schema::{DataType, Field, Fields, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynError, DynRow, validate_nullability};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynError, DynRow,
+    arrow_array::{Array, ArrayRef, Int64Array, MapArray, StringArray, StructArray},
+    arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer},
+    arrow_data::ArrayData,
+    arrow_schema::{DataType, Field, Fields, Schema},
+    validate_nullability,
+};
 
 #[test]
 fn rejects_none_for_non_nullable_primitive() {

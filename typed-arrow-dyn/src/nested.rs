@@ -1,9 +1,5 @@
 //! Nested dynamic builders used by the factory.
 
-use crate::arrow_array as arrow_array;
-use crate::arrow_schema as arrow_schema;
-use crate::arrow_buffer as arrow_buffer;
-
 use arrow_array::{FixedSizeListArray, LargeListArray, MapArray};
 use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
 use arrow_schema::{
@@ -11,7 +7,9 @@ use arrow_schema::{
     DataType, FieldRef, Fields,
 };
 
-use crate::{DynError, cell::DynCell, dyn_builder::DynColumnBuilder};
+use crate::{
+    DynError, arrow_array, arrow_buffer, arrow_schema, cell::DynCell, dyn_builder::DynColumnBuilder,
+};
 
 type UnionMetadata = Vec<(usize, Vec<usize>)>;
 type TryFinishResult<T> = Result<(T, UnionMetadata), ArrowError>;
