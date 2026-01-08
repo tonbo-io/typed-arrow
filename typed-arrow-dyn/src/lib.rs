@@ -4,6 +4,21 @@
 //! This crate provides minimal runtime schema and builders abstractions that
 //! complement the compile-time APIs in `typed-arrow`.
 
+#[cfg(all(feature = "arrow-55", any(feature = "arrow-56", feature = "arrow-57")))]
+compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+#[cfg(all(feature = "arrow-56", feature = "arrow-57"))]
+compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+#[cfg(not(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57")))]
+compile_error!("Enable one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+
+#[cfg(feature = "arrow-55")]
+pub use parquet_55 as parquet;
+#[cfg(feature = "arrow-56")]
+pub use parquet_56 as parquet;
+#[cfg(feature = "arrow-57")]
+pub use parquet_57 as parquet;
+pub use typed_arrow::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
+
 mod builders;
 mod cell;
 mod dyn_builder;

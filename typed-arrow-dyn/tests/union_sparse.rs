@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, UnionArray, cast};
-use arrow_schema::{DataType, Field, Schema, UnionFields, UnionMode};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynError, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynError, DynRow,
+    arrow_array::{Array, UnionArray, cast},
+    arrow_schema::{DataType, Field, Schema, UnionFields, UnionMode},
+};
 
 #[test]
 fn build_sparse_union_arrays() {
@@ -54,7 +56,8 @@ fn build_sparse_union_arrays() {
     assert_eq!(&union.type_ids()[..], &[0, 1, 1, 0, 1]);
     assert!(union.offsets().is_none());
 
-    let int_child = cast::as_primitive_array::<arrow_array::types::Int32Type>(union.child(0));
+    let int_child =
+        cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int32Type>(union.child(0));
     assert_eq!(int_child.len(), 5);
     assert_eq!(int_child.value(0), 7);
     assert!(int_child.is_null(1));

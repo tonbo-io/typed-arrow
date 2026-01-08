@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, DictionaryArray, RecordBatch, cast};
-use arrow_schema::{DataType, Field, Schema};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynRow,
+    arrow_array::{Array, DictionaryArray, RecordBatch, cast},
+    arrow_schema::{DataType, Field, Schema},
+};
 
 fn build_dict_batch() -> RecordBatch {
     // Schema: { d: Dictionary(Int32, Utf8) }
@@ -37,7 +39,7 @@ fn dictionary_utf8_roundtrip() {
     let arr = batch
         .column(0)
         .as_any()
-        .downcast_ref::<DictionaryArray<arrow_array::types::Int32Type>>()
+        .downcast_ref::<DictionaryArray<typed_arrow_dyn::arrow_array::types::Int32Type>>()
         .expect("dictionary array");
 
     // Decode each row to its string value and compare to expected sequence
@@ -103,7 +105,7 @@ fn dictionary_binary_and_fixed_size() {
     let bin = batch
         .column(0)
         .as_any()
-        .downcast_ref::<DictionaryArray<arrow_array::types::Int8Type>>()
+        .downcast_ref::<DictionaryArray<typed_arrow_dyn::arrow_array::types::Int8Type>>()
         .unwrap();
     assert_eq!(bin.len(), 3);
     assert!(bin.is_valid(0));
@@ -113,7 +115,7 @@ fn dictionary_binary_and_fixed_size() {
     let bin_values = bin
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::BinaryArray>()
+        .downcast_ref::<typed_arrow_dyn::arrow_array::BinaryArray>()
         .unwrap();
     // Decode row0 and row2 back to the byte sequences
     for &i in &[0usize, 2usize] {
@@ -125,7 +127,7 @@ fn dictionary_binary_and_fixed_size() {
     let f4 = batch
         .column(1)
         .as_any()
-        .downcast_ref::<DictionaryArray<arrow_array::types::Int16Type>>()
+        .downcast_ref::<DictionaryArray<typed_arrow_dyn::arrow_array::types::Int16Type>>()
         .unwrap();
     assert_eq!(f4.len(), 3);
     assert!(f4.is_valid(0));
@@ -135,7 +137,7 @@ fn dictionary_binary_and_fixed_size() {
     let f4_values = f4
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
+        .downcast_ref::<typed_arrow_dyn::arrow_array::FixedSizeBinaryArray>()
         .unwrap();
     for &i in &[0usize, 2usize] {
         let k = usize::try_from(f4_keys.value(i)).expect("non-negative dictionary key");

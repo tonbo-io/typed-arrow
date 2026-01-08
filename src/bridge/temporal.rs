@@ -2,8 +2,10 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
-    Array, PrimitiveArray,
+    PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{
         Date32Type, Date64Type, DurationMicrosecondType, DurationMillisecondType,

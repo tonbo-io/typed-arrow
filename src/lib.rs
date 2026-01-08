@@ -46,6 +46,11 @@
 //! | `derive` | ✓ | Enables [`#[derive(Record)]`](Record) and [`#[derive(Union)]`](Union) macros |
 //! | `views` | ✓ | Zero-copy views for reading [`RecordBatch`](arrow_array::RecordBatch) data |
 //! | `ext-hooks` | | Extensibility hooks for custom derive behavior |
+//! | `arrow-55` | | Use Arrow 55.x crates |
+//! | `arrow-56` | | Use Arrow 56.x crates |
+//! | `arrow-57` | ✓ | Use Arrow 57.x crates |
+//!
+//! Exactly one Arrow feature must be enabled.
 //!
 //! # Derive Macros
 //!
@@ -224,6 +229,41 @@
 //!
 //! See `examples/12_ext_hooks.rs` for usage.
 
+#[cfg(all(feature = "arrow-55", any(feature = "arrow-56", feature = "arrow-57")))]
+compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+#[cfg(all(feature = "arrow-56", feature = "arrow-57"))]
+compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+#[cfg(not(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57")))]
+compile_error!("Enable one Arrow feature: arrow-55, arrow-56, or arrow-57.");
+
+#[cfg(feature = "arrow-55")]
+pub extern crate arrow_array_55 as arrow_array;
+#[cfg(feature = "arrow-56")]
+pub extern crate arrow_array_56 as arrow_array;
+#[cfg(feature = "arrow-57")]
+pub extern crate arrow_array_57 as arrow_array;
+
+#[cfg(feature = "arrow-55")]
+pub extern crate arrow_buffer_55 as arrow_buffer;
+#[cfg(feature = "arrow-56")]
+pub extern crate arrow_buffer_56 as arrow_buffer;
+#[cfg(feature = "arrow-57")]
+pub extern crate arrow_buffer_57 as arrow_buffer;
+
+#[cfg(feature = "arrow-55")]
+pub extern crate arrow_data_55 as arrow_data;
+#[cfg(feature = "arrow-56")]
+pub extern crate arrow_data_56 as arrow_data;
+#[cfg(feature = "arrow-57")]
+pub extern crate arrow_data_57 as arrow_data;
+
+#[cfg(feature = "arrow-55")]
+pub extern crate arrow_schema_55 as arrow_schema;
+#[cfg(feature = "arrow-56")]
+pub extern crate arrow_schema_56 as arrow_schema;
+#[cfg(feature = "arrow-57")]
+pub extern crate arrow_schema_57 as arrow_schema;
+
 pub mod bridge;
 pub mod error;
 pub mod schema;
@@ -240,6 +280,8 @@ pub mod prelude {
     pub use crate::error::ViewAccessError;
     #[cfg(feature = "views")]
     pub use crate::schema::{FromRecordBatch, ViewResultIteratorExt};
+    #[cfg(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57"))]
+    pub use crate::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
     pub use crate::{
         error::SchemaError,
         schema::{BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record},
@@ -249,9 +291,6 @@ pub mod prelude {
 // Re-export the derive macro when enabled
 // Re-export Arrow crates so derives can reference a stable path
 // and downstream users don't need to depend on Arrow directly.
-pub use arrow_array;
-pub use arrow_buffer;
-pub use arrow_schema;
 #[cfg(feature = "derive")]
 pub use typed_arrow_derive::{Record, Union};
 

@@ -1,22 +1,16 @@
 [workspace]
-members = [".", "typed-arrow-derive", "typed-arrow-dyn"]
+members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-benches"]
 package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
-package.version = "0.5.2"
+package.version = "0.6.0"
 
 [workspace.dependencies]
-typed-arrow = { path = ".", version = "0.5.2", package = "typed-arrow" }
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.5.2", package = "typed-arrow-derive" }
-typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.6", package = "typed-arrow-dyn" }
-
-arrow-array = { version = "56" }
-arrow-buffer = { version = "56" }
-arrow-data = { version = "56" }
-arrow-schema = { version = "56" }
+typed-arrow = { path = ".", version = "0.6.0", package = "typed-arrow", default-features = false }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.6.0", package = "typed-arrow-derive" }
+typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.7", package = "typed-arrow-dyn", default-features = false }
 half = "2"
-parquet = { version = "56" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
@@ -31,30 +25,49 @@ resolver = "2"
 version = { workspace = true }
 
 [features]
-default = ["derive", "views"]
+default = ["derive", "views", "arrow-57"]
+arrow-55 = [
+    "dep:arrow-array-55",
+    "dep:arrow-buffer-55",
+    "dep:arrow-data-55",
+    "dep:arrow-schema-55",
+]
+arrow-56 = [
+    "dep:arrow-array-56",
+    "dep:arrow-buffer-56",
+    "dep:arrow-data-56",
+    "dep:arrow-schema-56",
+]
+arrow-57 = [
+    "dep:arrow-array-57",
+    "dep:arrow-buffer-57",
+    "dep:arrow-data-57",
+    "dep:arrow-schema-57",
+]
 derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
 views = ["derive", "typed-arrow-derive/views"]
 
 [dependencies]
-arrow-array = { workspace = true }
-arrow-buffer = { workspace = true }
-arrow-data = { workspace = true }
-arrow-schema = { workspace = true }
+arrow-array-55 = { package = "arrow-array", version = "55", optional = true }
+arrow-array-56 = { package = "arrow-array", version = "56", optional = true }
+arrow-array-57 = { package = "arrow-array", version = "57", optional = true }
+arrow-buffer-55 = { package = "arrow-buffer", version = "55", optional = true }
+arrow-buffer-56 = { package = "arrow-buffer", version = "56", optional = true }
+arrow-buffer-57 = { package = "arrow-buffer", version = "57", optional = true }
+arrow-data-55 = { package = "arrow-data", version = "55", optional = true }
+arrow-data-56 = { package = "arrow-data", version = "56", optional = true }
+arrow-data-57 = { package = "arrow-data", version = "57", optional = true }
+arrow-schema-55 = { package = "arrow-schema", version = "55", optional = true }
+arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true }
+arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true }
 half = { workspace = true }
 thiserror = { workspace = true }
 typed-arrow-derive = { workspace = true, optional = true }
 
 [dev-dependencies]
-criterion = "0.5"
 serde = { workspace = true }
-serde_arrow = { version = "0.13", features = ["arrow-56"] }
 trybuild = "1.0"
-typed-arrow-dyn = { workspace = true }
-
-[[bench]]
-harness = false
-name = "append_rows"
 
 [profile.bench]
 lto = true

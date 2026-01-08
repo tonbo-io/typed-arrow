@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, Int32Array, RecordBatch, StringArray, StructArray};
-use arrow_schema::{DataType, Field, Fields, Schema};
-use typed_arrow_dyn::{DynProjection, DynSchema, DynViewError};
+use typed_arrow_dyn::{
+    DynProjection, DynSchema, DynViewError,
+    arrow_array::{ArrayRef, Int32Array, RecordBatch, StringArray, StructArray},
+    arrow_schema::{DataType, Field, Fields, Schema},
+};
 
 #[test]
 fn map_projection_rejects_reordered_entry_fields() {

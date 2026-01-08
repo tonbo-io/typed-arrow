@@ -1,13 +1,16 @@
 //! Nested dynamic builders used by the factory.
 
-use arrow_array::{FixedSizeListArray, LargeListArray, MapArray};
-use arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer};
-use arrow_schema::{
-    ArrowError::{self, ComputeError},
-    DataType, FieldRef, Fields,
+use crate::{
+    DynError,
+    arrow_array::{FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray},
+    arrow_buffer::{BooleanBufferBuilder, NullBuffer, OffsetBuffer, ScalarBuffer},
+    arrow_schema::{
+        ArrowError::{self, ComputeError},
+        DataType, FieldRef, Fields,
+    },
+    cell::DynCell,
+    dyn_builder::DynColumnBuilder,
 };
-
-use crate::{DynError, cell::DynCell, dyn_builder::DynColumnBuilder};
 
 type UnionMetadata = Vec<(usize, Vec<usize>)>;
 type TryFinishResult<T> = Result<(T, UnionMetadata), ArrowError>;
@@ -55,15 +58,15 @@ impl StructCol {
         self.validity.append(true);
         Ok(())
     }
-    pub(crate) fn finish(&mut self) -> arrow_array::StructArray {
+    pub(crate) fn finish(&mut self) -> StructArray {
         let cols: Vec<_> = self.children.iter_mut().map(|c| c.finish()).collect();
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        arrow_array::StructArray::new(self.fields.clone(), cols, validity)
+        StructArray::new(self.fields.clone(), cols, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> TryFinishResult<arrow_array::StructArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<StructArray> {
         let finished_children: Vec<_> = self
             .children
             .iter_mut()
@@ -78,7 +81,7 @@ impl StructCol {
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        let array = arrow_array::StructArray::try_new(self.fields.clone(), cols, validity)?;
+        let array = StructArray::try_new(self.fields.clone(), cols, validity)?;
         Ok((array, union_metadata))
     }
 }
@@ -119,17 +122,17 @@ impl ListCol {
         self.validity.append(true);
         Ok(())
     }
-    pub(crate) fn finish(&mut self) -> arrow_array::ListArray {
+    pub(crate) fn finish(&mut self) -> ListArray {
         let values = self.child.finish();
         let offsets: OffsetBuffer<i32> =
             OffsetBuffer::new(self.offsets.iter().copied().collect::<ScalarBuffer<_>>());
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        arrow_array::ListArray::new(self.item_field.clone(), offsets, values, validity)
+        ListArray::new(self.item_field.clone(), offsets, values, validity)
     }
 
-    pub(crate) fn try_finish(&mut self) -> TryFinishResult<arrow_array::ListArray> {
+    pub(crate) fn try_finish(&mut self) -> TryFinishResult<ListArray> {
         let finished_child = self
             .child
             .try_finish()
@@ -140,8 +143,7 @@ impl ListCol {
         let mut v = BooleanBufferBuilder::new(0);
         std::mem::swap(&mut self.validity, &mut v);
         let validity = Some(NullBuffer::new(v.finish()));
-        let array =
-            arrow_array::ListArray::try_new(self.item_field.clone(), offsets, values, validity)?;
+        let array = ListArray::try_new(self.item_field.clone(), offsets, values, validity)?;
         Ok((array, finished_child.union_metadata))
     }
 }
@@ -314,7 +316,7 @@ impl MapCol {
             DataType::Struct(children) => children.clone(),
             _ => unreachable!("map entry field is not struct"),
         };
-        let entries = arrow_array::StructArray::new(fields, vec![keys, values], None);
+        let entries = StructArray::new(fields, vec![keys, values], None);
         MapArray::new(
             self.entry_field.clone(),
             offsets,
@@ -342,7 +344,7 @@ impl MapCol {
             DataType::Struct(children) => children.clone(),
             _ => unreachable!("map entry field is not struct"),
         };
-        let entries = arrow_array::StructArray::try_new(
+        let entries = StructArray::try_new(
             fields,
             vec![finished_keys.array.clone(), finished_values.array.clone()],
             None,

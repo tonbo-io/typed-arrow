@@ -1,7 +1,9 @@
 //! Interval types: `YearMonth`, `DayTime`, `MonthDayNano`.
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
-    Array, PrimitiveArray,
+    PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{IntervalDayTimeType, IntervalMonthDayNanoType, IntervalYearMonthType},
 };

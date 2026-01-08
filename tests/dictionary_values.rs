@@ -1,5 +1,7 @@
 use arrow_array::Array;
-use typed_arrow::{Dictionary, LargeBinary, LargeUtf8, bridge::ArrowBinding};
+use typed_arrow::{
+    Dictionary, LargeBinary, LargeUtf8, arrow_array, arrow_schema, bridge::ArrowBinding,
+};
 
 #[test]
 fn dict_utf8_value() {

@@ -2,10 +2,7 @@
 
 use std::sync::Arc;
 
-use arrow_array::ArrayRef;
-use arrow_schema::DataType;
-
-use crate::{DynError, cell::DynCell};
+use crate::{DynError, arrow_array::ArrayRef, arrow_schema::DataType, cell::DynCell};
 
 /// Result of finishing a dynamic column builder.
 #[derive(Debug)]

@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray};
-use arrow_buffer::OffsetBuffer;
-use arrow_schema::{DataType, Field, Fields, Schema};
-
 use super::{
     DynCellRaw, DynMapView, DynRowOwned, DynRowView, DynStructView, path::Path,
     projection::StructProjection,
 };
-use crate::{DynViewError, cell::DynCell};
+use crate::{
+    DynViewError,
+    arrow_array::{ArrayRef, Int32Array, MapArray, RecordBatch, StringArray, StructArray},
+    arrow_buffer::OffsetBuffer,
+    arrow_schema::{DataType, Field, Fields, Schema},
+    cell::DynCell,
+};
 
 #[test]
 fn dyn_row_owned_round_trip_utf8() {

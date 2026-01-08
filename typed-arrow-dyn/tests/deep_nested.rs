@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, RecordBatch, cast};
-use arrow_schema::{DataType, Field, Schema, TimeUnit};
-use typed_arrow_dyn::{DynBuilders, DynCell, DynRow};
+use typed_arrow_dyn::{
+    DynBuilders, DynCell, DynRow,
+    arrow_array::{Array, RecordBatch, cast},
+    arrow_schema::{DataType, Field, Schema, TimeUnit},
+};
 
 fn build_deep_nested_batch() -> RecordBatch {
     // root: Struct{
@@ -120,16 +122,18 @@ fn deep_nested_struct_and_lists_build() {
     let devices = user
         .column(1)
         .as_any()
-        .downcast_ref::<arrow_array::ListArray>()
+        .downcast_ref::<typed_arrow_dyn::arrow_array::ListArray>()
         .unwrap();
     // Offsets across 3 rows: [0, 0, 2, 2] (row0 null, row1 two items, row2 empty)
     assert_eq!(devices.value_offsets(), &[0, 0, 2, 2]);
     // Device values form a StructArray of length 2
     let dev_values = cast::as_struct_array(devices.values());
-    let ids = cast::as_primitive_array::<arrow_array::types::Int64Type>(dev_values.column(0));
-    let last_seen = cast::as_primitive_array::<arrow_array::types::TimestampMillisecondType>(
-        dev_values.column(1),
+    let ids = cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int64Type>(
+        dev_values.column(0),
     );
+    let last_seen = cast::as_primitive_array::<
+        typed_arrow_dyn::arrow_array::types::TimestampMillisecondType,
+    >(dev_values.column(1));
     assert_eq!(ids.len(), 2);
     assert_eq!(ids.value(0), 1);
     assert_eq!(ids.value(1), 2);
@@ -140,17 +144,18 @@ fn deep_nested_struct_and_lists_build() {
     let metrics = batch
         .column(1)
         .as_any()
-        .downcast_ref::<arrow_array::LargeListArray>()
+        .downcast_ref::<typed_arrow_dyn::arrow_array::LargeListArray>()
         .unwrap();
     // Offsets across 3 rows: [0,2,2,3]
     assert_eq!(metrics.value_offsets(), &[0, 2, 2, 3]);
     let fl = metrics
         .values()
         .as_any()
-        .downcast_ref::<arrow_array::FixedSizeListArray>()
+        .downcast_ref::<typed_arrow_dyn::arrow_array::FixedSizeListArray>()
         .unwrap();
     assert_eq!(fl.len(), 3);
-    let vals = cast::as_primitive_array::<arrow_array::types::Int32Type>(fl.values());
+    let vals =
+        cast::as_primitive_array::<typed_arrow_dyn::arrow_array::types::Int32Type>(fl.values());
     assert_eq!(vals.len(), 9);
     assert_eq!(vals.value(0), 1);
     assert_eq!(vals.value(1), 2);

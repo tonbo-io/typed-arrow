@@ -1,7 +1,9 @@
 //! Decimal128/Decimal256 bindings.
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
-    Array, Decimal128Array, Decimal256Array,
+    Decimal128Array, Decimal256Array,
     builder::{Decimal128Builder, Decimal256Builder},
 };
 use arrow_buffer::i256;

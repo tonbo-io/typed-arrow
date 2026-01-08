@@ -2,14 +2,16 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use arrow_array::{
-    Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
-    UnionArray,
+use crate::{
+    DynError,
+    arrow_array::{
+        Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
+        UnionArray,
+    },
+    arrow_buffer::{ArrowNativeType, OffsetBuffer},
+    arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields},
+    dyn_builder::array_key,
 };
-use arrow_buffer::{ArrowNativeType, OffsetBuffer};
-use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, UnionFields};
-
-use crate::{DynError, dyn_builder::array_key};
 
 /// Extract start and end offsets for a row from an offset buffer.
 fn offset_range<T: ArrowNativeType>(

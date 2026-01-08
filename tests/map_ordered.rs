@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use arrow_array::Array;
 use arrow_schema::{DataType, Field};
-use typed_arrow::{OrderedMap, bridge::ArrowBinding};
+use typed_arrow::{OrderedMap, arrow_array, arrow_schema, bridge::ArrowBinding};
 
 #[test]
 fn ordered_map_datatype() {

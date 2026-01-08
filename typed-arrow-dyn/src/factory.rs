@@ -2,11 +2,10 @@
 
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, builder as b, types as t};
-use arrow_schema::{DataType, UnionFields, UnionMode};
-
 use crate::{
     DynError,
+    arrow_array::{ArrayRef, builder, types},
+    arrow_schema::{DataType, TimeUnit, UnionFields, UnionMode},
     cell::DynCell,
     dyn_builder::{DynColumnBuilder, FinishedColumn},
     nested::{FixedSizeListCol, LargeListCol, ListCol, MapCol, StructCol},
@@ -15,83 +14,83 @@ use crate::{
 
 // All concrete builder variants wrapped under a single enum used by the factory.
 enum Inner {
-    Null(b::NullBuilder),
-    Bool(b::BooleanBuilder),
-    I8(b::PrimitiveBuilder<t::Int8Type>),
-    I16(b::PrimitiveBuilder<t::Int16Type>),
-    I32(b::PrimitiveBuilder<t::Int32Type>),
-    I64(b::PrimitiveBuilder<t::Int64Type>),
-    U8(b::PrimitiveBuilder<t::UInt8Type>),
-    U16(b::PrimitiveBuilder<t::UInt16Type>),
-    U32(b::PrimitiveBuilder<t::UInt32Type>),
-    U64(b::PrimitiveBuilder<t::UInt64Type>),
-    F32(b::PrimitiveBuilder<t::Float32Type>),
-    F64(b::PrimitiveBuilder<t::Float64Type>),
+    Null(builder::NullBuilder),
+    Bool(builder::BooleanBuilder),
+    I8(builder::PrimitiveBuilder<types::Int8Type>),
+    I16(builder::PrimitiveBuilder<types::Int16Type>),
+    I32(builder::PrimitiveBuilder<types::Int32Type>),
+    I64(builder::PrimitiveBuilder<types::Int64Type>),
+    U8(builder::PrimitiveBuilder<types::UInt8Type>),
+    U16(builder::PrimitiveBuilder<types::UInt16Type>),
+    U32(builder::PrimitiveBuilder<types::UInt32Type>),
+    U64(builder::PrimitiveBuilder<types::UInt64Type>),
+    F32(builder::PrimitiveBuilder<types::Float32Type>),
+    F64(builder::PrimitiveBuilder<types::Float64Type>),
     // Fixed-size binary
-    FixedSizeBinary(b::FixedSizeBinaryBuilder),
+    FixedSizeBinary(builder::FixedSizeBinaryBuilder),
     // Dates
-    Date32(b::PrimitiveBuilder<t::Date32Type>),
-    Date64(b::PrimitiveBuilder<t::Date64Type>),
+    Date32(builder::PrimitiveBuilder<types::Date32Type>),
+    Date64(builder::PrimitiveBuilder<types::Date64Type>),
     // Time32/Time64
-    Time32Second(b::PrimitiveBuilder<t::Time32SecondType>),
-    Time32Millisecond(b::PrimitiveBuilder<t::Time32MillisecondType>),
-    Time64Microsecond(b::PrimitiveBuilder<t::Time64MicrosecondType>),
-    Time64Nanosecond(b::PrimitiveBuilder<t::Time64NanosecondType>),
+    Time32Second(builder::PrimitiveBuilder<types::Time32SecondType>),
+    Time32Millisecond(builder::PrimitiveBuilder<types::Time32MillisecondType>),
+    Time64Microsecond(builder::PrimitiveBuilder<types::Time64MicrosecondType>),
+    Time64Nanosecond(builder::PrimitiveBuilder<types::Time64NanosecondType>),
     // Duration
-    DurationSecond(b::PrimitiveBuilder<t::DurationSecondType>),
-    DurationMillisecond(b::PrimitiveBuilder<t::DurationMillisecondType>),
-    DurationMicrosecond(b::PrimitiveBuilder<t::DurationMicrosecondType>),
-    DurationNanosecond(b::PrimitiveBuilder<t::DurationNanosecondType>),
+    DurationSecond(builder::PrimitiveBuilder<types::DurationSecondType>),
+    DurationMillisecond(builder::PrimitiveBuilder<types::DurationMillisecondType>),
+    DurationMicrosecond(builder::PrimitiveBuilder<types::DurationMicrosecondType>),
+    DurationNanosecond(builder::PrimitiveBuilder<types::DurationNanosecondType>),
     // Timestamps (tz captured in DataType only)
-    TimestampSecond(b::PrimitiveBuilder<t::TimestampSecondType>),
-    TimestampMillisecond(b::PrimitiveBuilder<t::TimestampMillisecondType>),
-    TimestampMicrosecond(b::PrimitiveBuilder<t::TimestampMicrosecondType>),
-    TimestampNanosecond(b::PrimitiveBuilder<t::TimestampNanosecondType>),
-    Utf8(b::StringBuilder),
-    LargeUtf8(b::LargeStringBuilder),
-    Binary(b::BinaryBuilder),
-    LargeBinary(b::LargeBinaryBuilder),
+    TimestampSecond(builder::PrimitiveBuilder<types::TimestampSecondType>),
+    TimestampMillisecond(builder::PrimitiveBuilder<types::TimestampMillisecondType>),
+    TimestampMicrosecond(builder::PrimitiveBuilder<types::TimestampMicrosecondType>),
+    TimestampNanosecond(builder::PrimitiveBuilder<types::TimestampNanosecondType>),
+    Utf8(builder::StringBuilder),
+    LargeUtf8(builder::LargeStringBuilder),
+    Binary(builder::BinaryBuilder),
+    LargeBinary(builder::LargeBinaryBuilder),
     // Dictionary (Utf8/LargeUtf8 and Binary/LargeBinary/FixedSizeBinary)
-    DictUtf8I8(b::StringDictionaryBuilder<t::Int8Type>),
-    DictUtf8I16(b::StringDictionaryBuilder<t::Int16Type>),
-    DictUtf8I32(b::StringDictionaryBuilder<t::Int32Type>),
-    DictUtf8I64(b::StringDictionaryBuilder<t::Int64Type>),
-    DictUtf8U8(b::StringDictionaryBuilder<t::UInt8Type>),
-    DictUtf8U16(b::StringDictionaryBuilder<t::UInt16Type>),
-    DictUtf8U32(b::StringDictionaryBuilder<t::UInt32Type>),
-    DictUtf8U64(b::StringDictionaryBuilder<t::UInt64Type>),
-    DictLargeUtf8I8(b::LargeStringDictionaryBuilder<t::Int8Type>),
-    DictLargeUtf8I16(b::LargeStringDictionaryBuilder<t::Int16Type>),
-    DictLargeUtf8I32(b::LargeStringDictionaryBuilder<t::Int32Type>),
-    DictLargeUtf8I64(b::LargeStringDictionaryBuilder<t::Int64Type>),
-    DictLargeUtf8U8(b::LargeStringDictionaryBuilder<t::UInt8Type>),
-    DictLargeUtf8U16(b::LargeStringDictionaryBuilder<t::UInt16Type>),
-    DictLargeUtf8U32(b::LargeStringDictionaryBuilder<t::UInt32Type>),
-    DictLargeUtf8U64(b::LargeStringDictionaryBuilder<t::UInt64Type>),
-    DictBinaryI8(b::BinaryDictionaryBuilder<t::Int8Type>),
-    DictBinaryI16(b::BinaryDictionaryBuilder<t::Int16Type>),
-    DictBinaryI32(b::BinaryDictionaryBuilder<t::Int32Type>),
-    DictBinaryI64(b::BinaryDictionaryBuilder<t::Int64Type>),
-    DictBinaryU8(b::BinaryDictionaryBuilder<t::UInt8Type>),
-    DictBinaryU16(b::BinaryDictionaryBuilder<t::UInt16Type>),
-    DictBinaryU32(b::BinaryDictionaryBuilder<t::UInt32Type>),
-    DictBinaryU64(b::BinaryDictionaryBuilder<t::UInt64Type>),
-    DictLargeBinaryI8(b::LargeBinaryDictionaryBuilder<t::Int8Type>),
-    DictLargeBinaryI16(b::LargeBinaryDictionaryBuilder<t::Int16Type>),
-    DictLargeBinaryI32(b::LargeBinaryDictionaryBuilder<t::Int32Type>),
-    DictLargeBinaryI64(b::LargeBinaryDictionaryBuilder<t::Int64Type>),
-    DictLargeBinaryU8(b::LargeBinaryDictionaryBuilder<t::UInt8Type>),
-    DictLargeBinaryU16(b::LargeBinaryDictionaryBuilder<t::UInt16Type>),
-    DictLargeBinaryU32(b::LargeBinaryDictionaryBuilder<t::UInt32Type>),
-    DictLargeBinaryU64(b::LargeBinaryDictionaryBuilder<t::UInt64Type>),
-    DictFixedSizeBinaryI8(b::FixedSizeBinaryDictionaryBuilder<t::Int8Type>),
-    DictFixedSizeBinaryI16(b::FixedSizeBinaryDictionaryBuilder<t::Int16Type>),
-    DictFixedSizeBinaryI32(b::FixedSizeBinaryDictionaryBuilder<t::Int32Type>),
-    DictFixedSizeBinaryI64(b::FixedSizeBinaryDictionaryBuilder<t::Int64Type>),
-    DictFixedSizeBinaryU8(b::FixedSizeBinaryDictionaryBuilder<t::UInt8Type>),
-    DictFixedSizeBinaryU16(b::FixedSizeBinaryDictionaryBuilder<t::UInt16Type>),
-    DictFixedSizeBinaryU32(b::FixedSizeBinaryDictionaryBuilder<t::UInt32Type>),
-    DictFixedSizeBinaryU64(b::FixedSizeBinaryDictionaryBuilder<t::UInt64Type>),
+    DictUtf8I8(builder::StringDictionaryBuilder<types::Int8Type>),
+    DictUtf8I16(builder::StringDictionaryBuilder<types::Int16Type>),
+    DictUtf8I32(builder::StringDictionaryBuilder<types::Int32Type>),
+    DictUtf8I64(builder::StringDictionaryBuilder<types::Int64Type>),
+    DictUtf8U8(builder::StringDictionaryBuilder<types::UInt8Type>),
+    DictUtf8U16(builder::StringDictionaryBuilder<types::UInt16Type>),
+    DictUtf8U32(builder::StringDictionaryBuilder<types::UInt32Type>),
+    DictUtf8U64(builder::StringDictionaryBuilder<types::UInt64Type>),
+    DictLargeUtf8I8(builder::LargeStringDictionaryBuilder<types::Int8Type>),
+    DictLargeUtf8I16(builder::LargeStringDictionaryBuilder<types::Int16Type>),
+    DictLargeUtf8I32(builder::LargeStringDictionaryBuilder<types::Int32Type>),
+    DictLargeUtf8I64(builder::LargeStringDictionaryBuilder<types::Int64Type>),
+    DictLargeUtf8U8(builder::LargeStringDictionaryBuilder<types::UInt8Type>),
+    DictLargeUtf8U16(builder::LargeStringDictionaryBuilder<types::UInt16Type>),
+    DictLargeUtf8U32(builder::LargeStringDictionaryBuilder<types::UInt32Type>),
+    DictLargeUtf8U64(builder::LargeStringDictionaryBuilder<types::UInt64Type>),
+    DictBinaryI8(builder::BinaryDictionaryBuilder<types::Int8Type>),
+    DictBinaryI16(builder::BinaryDictionaryBuilder<types::Int16Type>),
+    DictBinaryI32(builder::BinaryDictionaryBuilder<types::Int32Type>),
+    DictBinaryI64(builder::BinaryDictionaryBuilder<types::Int64Type>),
+    DictBinaryU8(builder::BinaryDictionaryBuilder<types::UInt8Type>),
+    DictBinaryU16(builder::BinaryDictionaryBuilder<types::UInt16Type>),
+    DictBinaryU32(builder::BinaryDictionaryBuilder<types::UInt32Type>),
+    DictBinaryU64(builder::BinaryDictionaryBuilder<types::UInt64Type>),
+    DictLargeBinaryI8(builder::LargeBinaryDictionaryBuilder<types::Int8Type>),
+    DictLargeBinaryI16(builder::LargeBinaryDictionaryBuilder<types::Int16Type>),
+    DictLargeBinaryI32(builder::LargeBinaryDictionaryBuilder<types::Int32Type>),
+    DictLargeBinaryI64(builder::LargeBinaryDictionaryBuilder<types::Int64Type>),
+    DictLargeBinaryU8(builder::LargeBinaryDictionaryBuilder<types::UInt8Type>),
+    DictLargeBinaryU16(builder::LargeBinaryDictionaryBuilder<types::UInt16Type>),
+    DictLargeBinaryU32(builder::LargeBinaryDictionaryBuilder<types::UInt32Type>),
+    DictLargeBinaryU64(builder::LargeBinaryDictionaryBuilder<types::UInt64Type>),
+    DictFixedSizeBinaryI8(builder::FixedSizeBinaryDictionaryBuilder<types::Int8Type>),
+    DictFixedSizeBinaryI16(builder::FixedSizeBinaryDictionaryBuilder<types::Int16Type>),
+    DictFixedSizeBinaryI32(builder::FixedSizeBinaryDictionaryBuilder<types::Int32Type>),
+    DictFixedSizeBinaryI64(builder::FixedSizeBinaryDictionaryBuilder<types::Int64Type>),
+    DictFixedSizeBinaryU8(builder::FixedSizeBinaryDictionaryBuilder<types::UInt8Type>),
+    DictFixedSizeBinaryU16(builder::FixedSizeBinaryDictionaryBuilder<types::UInt16Type>),
+    DictFixedSizeBinaryU32(builder::FixedSizeBinaryDictionaryBuilder<types::UInt32Type>),
+    DictFixedSizeBinaryU64(builder::FixedSizeBinaryDictionaryBuilder<types::UInt64Type>),
     // Nested
     Struct(StructCol),
     List(ListCol),
@@ -113,21 +112,21 @@ trait DictPrimBuilder: Send {
 
 struct DictPrimImpl<K, V>
 where
-    K: arrow_array::types::ArrowDictionaryKeyType,
-    V: arrow_array::types::ArrowPrimitiveType,
+    K: types::ArrowDictionaryKeyType,
+    V: types::ArrowPrimitiveType,
 {
-    b: b::PrimitiveDictionaryBuilder<K, V>,
+    b: builder::PrimitiveDictionaryBuilder<K, V>,
     _phantom: std::marker::PhantomData<(K, V)>,
 }
 
 impl<K, V> DictPrimImpl<K, V>
 where
-    K: arrow_array::types::ArrowDictionaryKeyType,
-    V: arrow_array::types::ArrowPrimitiveType,
+    K: types::ArrowDictionaryKeyType,
+    V: types::ArrowPrimitiveType,
 {
     fn new() -> Self {
         Self {
-            b: b::PrimitiveDictionaryBuilder::<K, V>::new(),
+            b: builder::PrimitiveDictionaryBuilder::<K, V>::new(),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -135,9 +134,9 @@ where
 
 macro_rules! impl_dict_prim_builder {
     ($name:ident, $cell_pat:pat, $val:expr) => {
-        impl<K> DictPrimBuilder for DictPrimImpl<K, t::$name>
+        impl<K> DictPrimBuilder for DictPrimImpl<K, types::$name>
         where
-            K: arrow_array::types::ArrowDictionaryKeyType + Send,
+            K: types::ArrowDictionaryKeyType + Send,
         {
             fn append_cell(&mut self, v: DynCell) -> Result<(), DynError> {
                 match v {
@@ -148,7 +147,7 @@ macro_rules! impl_dict_prim_builder {
                     _other => Err(DynError::Builder {
                         message: format!(
                             "type mismatch for primitive dict value: expected {:?}",
-                            <t::$name as arrow_array::types::ArrowPrimitiveType>::DATA_TYPE
+                            <types::$name as types::ArrowPrimitiveType>::DATA_TYPE
                         ),
                     }),
                 }
@@ -900,140 +899,156 @@ fn new_prim_dict_inner(key: &DataType, value: &DataType) -> Option<Inner> {
             match value {
                 DataType::Int8 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::Int8Type,
+                    types::Int8Type,
                 >::new()))),
                 DataType::Int16 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::Int16Type,
+                    types::Int16Type,
                 >::new()))),
                 DataType::Int32 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::Int32Type,
+                    types::Int32Type,
                 >::new()))),
                 DataType::Int64 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::Int64Type,
+                    types::Int64Type,
                 >::new()))),
                 DataType::UInt8 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::UInt8Type,
+                    types::UInt8Type,
                 >::new()))),
                 DataType::UInt16 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::UInt16Type,
+                    types::UInt16Type,
                 >::new()))),
                 DataType::UInt32 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::UInt32Type,
+                    types::UInt32Type,
                 >::new()))),
                 DataType::UInt64 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::UInt64Type,
+                    types::UInt64Type,
                 >::new()))),
                 DataType::Float32 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::Float32Type,
+                    types::Float32Type,
                 >::new()))),
                 DataType::Float64 => Some(Inner::DictPrimitive(Box::new(DictPrimImpl::<
                     $K,
-                    t::Float64Type,
+                    types::Float64Type,
                 >::new()))),
                 _ => None,
             }
         };
     }
     match key {
-        DataType::Int8 => value_switch_for_key!(t::Int8Type),
-        DataType::Int16 => value_switch_for_key!(t::Int16Type),
-        DataType::Int32 => value_switch_for_key!(t::Int32Type),
-        DataType::Int64 => value_switch_for_key!(t::Int64Type),
-        DataType::UInt8 => value_switch_for_key!(t::UInt8Type),
-        DataType::UInt16 => value_switch_for_key!(t::UInt16Type),
-        DataType::UInt32 => value_switch_for_key!(t::UInt32Type),
-        DataType::UInt64 => value_switch_for_key!(t::UInt64Type),
+        DataType::Int8 => value_switch_for_key!(types::Int8Type),
+        DataType::Int16 => value_switch_for_key!(types::Int16Type),
+        DataType::Int32 => value_switch_for_key!(types::Int32Type),
+        DataType::Int64 => value_switch_for_key!(types::Int64Type),
+        DataType::UInt8 => value_switch_for_key!(types::UInt8Type),
+        DataType::UInt16 => value_switch_for_key!(types::UInt16Type),
+        DataType::UInt32 => value_switch_for_key!(types::UInt32Type),
+        DataType::UInt64 => value_switch_for_key!(types::UInt64Type),
         _ => None,
     }
 }
 
 fn inner_for_primitives(dt: &DataType, capacity: usize) -> Option<Inner> {
     Some(match dt {
-        DataType::Boolean => Inner::Bool(b::BooleanBuilder::with_capacity(capacity)),
-        DataType::Int8 => Inner::I8(b::PrimitiveBuilder::<t::Int8Type>::with_capacity(capacity)),
-        DataType::Int16 => Inner::I16(b::PrimitiveBuilder::<t::Int16Type>::with_capacity(capacity)),
-        DataType::Int32 => Inner::I32(b::PrimitiveBuilder::<t::Int32Type>::with_capacity(capacity)),
-        DataType::Int64 => Inner::I64(b::PrimitiveBuilder::<t::Int64Type>::with_capacity(capacity)),
-        DataType::UInt8 => Inner::U8(b::PrimitiveBuilder::<t::UInt8Type>::with_capacity(capacity)),
-        DataType::UInt16 => Inner::U16(b::PrimitiveBuilder::<t::UInt16Type>::with_capacity(
+        DataType::Boolean => Inner::Bool(builder::BooleanBuilder::with_capacity(capacity)),
+        DataType::Int8 => Inner::I8(builder::PrimitiveBuilder::<types::Int8Type>::with_capacity(
             capacity,
         )),
-        DataType::UInt32 => Inner::U32(b::PrimitiveBuilder::<t::UInt32Type>::with_capacity(
-            capacity,
-        )),
-        DataType::UInt64 => Inner::U64(b::PrimitiveBuilder::<t::UInt64Type>::with_capacity(
-            capacity,
-        )),
-        DataType::Float32 => Inner::F32(b::PrimitiveBuilder::<t::Float32Type>::with_capacity(
-            capacity,
-        )),
-        DataType::Float64 => Inner::F64(b::PrimitiveBuilder::<t::Float64Type>::with_capacity(
-            capacity,
-        )),
+        DataType::Int16 => {
+            Inner::I16(builder::PrimitiveBuilder::<types::Int16Type>::with_capacity(capacity))
+        }
+        DataType::Int32 => {
+            Inner::I32(builder::PrimitiveBuilder::<types::Int32Type>::with_capacity(capacity))
+        }
+        DataType::Int64 => {
+            Inner::I64(builder::PrimitiveBuilder::<types::Int64Type>::with_capacity(capacity))
+        }
+        DataType::UInt8 => {
+            Inner::U8(builder::PrimitiveBuilder::<types::UInt8Type>::with_capacity(capacity))
+        }
+        DataType::UInt16 => {
+            Inner::U16(builder::PrimitiveBuilder::<types::UInt16Type>::with_capacity(capacity))
+        }
+        DataType::UInt32 => {
+            Inner::U32(builder::PrimitiveBuilder::<types::UInt32Type>::with_capacity(capacity))
+        }
+        DataType::UInt64 => {
+            Inner::U64(builder::PrimitiveBuilder::<types::UInt64Type>::with_capacity(capacity))
+        }
+        DataType::Float32 => {
+            Inner::F32(builder::PrimitiveBuilder::<types::Float32Type>::with_capacity(capacity))
+        }
+        DataType::Float64 => {
+            Inner::F64(builder::PrimitiveBuilder::<types::Float64Type>::with_capacity(capacity))
+        }
         DataType::FixedSizeBinary(w) => {
-            Inner::FixedSizeBinary(b::FixedSizeBinaryBuilder::with_capacity(capacity, *w))
+            Inner::FixedSizeBinary(builder::FixedSizeBinaryBuilder::with_capacity(capacity, *w))
         }
-        DataType::Date32 => Inner::Date32(b::PrimitiveBuilder::<t::Date32Type>::with_capacity(
-            capacity,
-        )),
-        DataType::Date64 => Inner::Date64(b::PrimitiveBuilder::<t::Date64Type>::with_capacity(
-            capacity,
-        )),
-        DataType::Time32(arrow_schema::TimeUnit::Second) => Inner::Time32Second(
-            b::PrimitiveBuilder::<t::Time32SecondType>::with_capacity(capacity),
-        ),
-        DataType::Time32(arrow_schema::TimeUnit::Millisecond) => Inner::Time32Millisecond(
-            b::PrimitiveBuilder::<t::Time32MillisecondType>::with_capacity(capacity),
-        ),
-        DataType::Time64(arrow_schema::TimeUnit::Microsecond) => Inner::Time64Microsecond(
-            b::PrimitiveBuilder::<t::Time64MicrosecondType>::with_capacity(capacity),
-        ),
-        DataType::Time64(arrow_schema::TimeUnit::Nanosecond) => Inner::Time64Nanosecond(
-            b::PrimitiveBuilder::<t::Time64NanosecondType>::with_capacity(capacity),
-        ),
-        DataType::Duration(arrow_schema::TimeUnit::Second) => Inner::DurationSecond(
-            b::PrimitiveBuilder::<t::DurationSecondType>::with_capacity(capacity),
-        ),
-        DataType::Duration(arrow_schema::TimeUnit::Millisecond) => Inner::DurationMillisecond(
-            b::PrimitiveBuilder::<t::DurationMillisecondType>::with_capacity(capacity),
-        ),
-        DataType::Duration(arrow_schema::TimeUnit::Microsecond) => Inner::DurationMicrosecond(
-            b::PrimitiveBuilder::<t::DurationMicrosecondType>::with_capacity(capacity),
-        ),
-        DataType::Duration(arrow_schema::TimeUnit::Nanosecond) => Inner::DurationNanosecond(
-            b::PrimitiveBuilder::<t::DurationNanosecondType>::with_capacity(capacity),
-        ),
-        DataType::Timestamp(arrow_schema::TimeUnit::Second, _tz) => Inner::TimestampSecond(
-            b::PrimitiveBuilder::<t::TimestampSecondType>::with_capacity(capacity),
-        ),
-        DataType::Timestamp(arrow_schema::TimeUnit::Millisecond, _tz) => {
-            Inner::TimestampMillisecond(
-                b::PrimitiveBuilder::<t::TimestampMillisecondType>::with_capacity(capacity),
+        DataType::Date32 => {
+            Inner::Date32(builder::PrimitiveBuilder::<types::Date32Type>::with_capacity(capacity))
+        }
+        DataType::Date64 => {
+            Inner::Date64(builder::PrimitiveBuilder::<types::Date64Type>::with_capacity(capacity))
+        }
+        DataType::Time32(TimeUnit::Second) => {
+            Inner::Time32Second(
+                builder::PrimitiveBuilder::<types::Time32SecondType>::with_capacity(capacity),
             )
         }
-        DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, _tz) => {
-            Inner::TimestampMicrosecond(
-                b::PrimitiveBuilder::<t::TimestampMicrosecondType>::with_capacity(capacity),
+        DataType::Time32(TimeUnit::Millisecond) => Inner::Time32Millisecond(
+            builder::PrimitiveBuilder::<types::Time32MillisecondType>::with_capacity(capacity),
+        ),
+        DataType::Time64(TimeUnit::Microsecond) => Inner::Time64Microsecond(
+            builder::PrimitiveBuilder::<types::Time64MicrosecondType>::with_capacity(capacity),
+        ),
+        DataType::Time64(TimeUnit::Nanosecond) => Inner::Time64Nanosecond(
+            builder::PrimitiveBuilder::<types::Time64NanosecondType>::with_capacity(capacity),
+        ),
+        DataType::Duration(TimeUnit::Second) => {
+            Inner::DurationSecond(
+                builder::PrimitiveBuilder::<types::DurationSecondType>::with_capacity(capacity),
             )
         }
-        DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _tz) => Inner::TimestampNanosecond(
-            b::PrimitiveBuilder::<t::TimestampNanosecondType>::with_capacity(capacity),
+        DataType::Duration(TimeUnit::Millisecond) => Inner::DurationMillisecond(
+            builder::PrimitiveBuilder::<types::DurationMillisecondType>::with_capacity(capacity),
         ),
-        DataType::Utf8 => Inner::Utf8(b::StringBuilder::with_capacity(capacity, capacity * 32)),
-        DataType::LargeUtf8 => Inner::LargeUtf8(b::LargeStringBuilder::with_capacity(
+        DataType::Duration(TimeUnit::Microsecond) => Inner::DurationMicrosecond(
+            builder::PrimitiveBuilder::<types::DurationMicrosecondType>::with_capacity(capacity),
+        ),
+        DataType::Duration(TimeUnit::Nanosecond) => Inner::DurationNanosecond(
+            builder::PrimitiveBuilder::<types::DurationNanosecondType>::with_capacity(capacity),
+        ),
+        DataType::Timestamp(TimeUnit::Second, _tz) => Inner::TimestampSecond(
+            builder::PrimitiveBuilder::<types::TimestampSecondType>::with_capacity(capacity),
+        ),
+        DataType::Timestamp(TimeUnit::Millisecond, _tz) => Inner::TimestampMillisecond(
+            builder::PrimitiveBuilder::<types::TimestampMillisecondType>::with_capacity(capacity),
+        ),
+        DataType::Timestamp(TimeUnit::Microsecond, _tz) => Inner::TimestampMicrosecond(
+            builder::PrimitiveBuilder::<types::TimestampMicrosecondType>::with_capacity(capacity),
+        ),
+        DataType::Timestamp(TimeUnit::Nanosecond, _tz) => Inner::TimestampNanosecond(
+            builder::PrimitiveBuilder::<types::TimestampNanosecondType>::with_capacity(capacity),
+        ),
+        DataType::Utf8 => Inner::Utf8(builder::StringBuilder::with_capacity(
             capacity,
             capacity * 32,
         )),
-        DataType::Binary => Inner::Binary(b::BinaryBuilder::with_capacity(capacity, capacity * 32)),
-        DataType::LargeBinary => Inner::LargeBinary(b::LargeBinaryBuilder::with_capacity(
+        DataType::LargeUtf8 => Inner::LargeUtf8(builder::LargeStringBuilder::with_capacity(
+            capacity,
+            capacity * 32,
+        )),
+        DataType::Binary => Inner::Binary(builder::BinaryBuilder::with_capacity(
+            capacity,
+            capacity * 32,
+        )),
+        DataType::LargeBinary => Inner::LargeBinary(builder::LargeBinaryBuilder::with_capacity(
             capacity,
             capacity * 32,
         )),
@@ -1046,128 +1061,142 @@ fn inner_for_dictionary(key: &DataType, value: &DataType) -> Option<Inner> {
     Some(match (key, value) {
         // Utf8 dictionaries with signed/unsigned integer keys
         (DataType::Int8, DataType::Utf8) => {
-            Inner::DictUtf8I8(b::StringDictionaryBuilder::<t::Int8Type>::new())
+            Inner::DictUtf8I8(builder::StringDictionaryBuilder::<types::Int8Type>::new())
         }
         (DataType::Int16, DataType::Utf8) => {
-            Inner::DictUtf8I16(b::StringDictionaryBuilder::<t::Int16Type>::new())
+            Inner::DictUtf8I16(builder::StringDictionaryBuilder::<types::Int16Type>::new())
         }
         (DataType::Int32, DataType::Utf8) => {
-            Inner::DictUtf8I32(b::StringDictionaryBuilder::<t::Int32Type>::new())
+            Inner::DictUtf8I32(builder::StringDictionaryBuilder::<types::Int32Type>::new())
         }
         (DataType::Int64, DataType::Utf8) => {
-            Inner::DictUtf8I64(b::StringDictionaryBuilder::<t::Int64Type>::new())
+            Inner::DictUtf8I64(builder::StringDictionaryBuilder::<types::Int64Type>::new())
         }
         (DataType::UInt8, DataType::Utf8) => {
-            Inner::DictUtf8U8(b::StringDictionaryBuilder::<t::UInt8Type>::new())
+            Inner::DictUtf8U8(builder::StringDictionaryBuilder::<types::UInt8Type>::new())
         }
         (DataType::UInt16, DataType::Utf8) => {
-            Inner::DictUtf8U16(b::StringDictionaryBuilder::<t::UInt16Type>::new())
+            Inner::DictUtf8U16(builder::StringDictionaryBuilder::<types::UInt16Type>::new())
         }
         (DataType::UInt32, DataType::Utf8) => {
-            Inner::DictUtf8U32(b::StringDictionaryBuilder::<t::UInt32Type>::new())
+            Inner::DictUtf8U32(builder::StringDictionaryBuilder::<types::UInt32Type>::new())
         }
         (DataType::UInt64, DataType::Utf8) => {
-            Inner::DictUtf8U64(b::StringDictionaryBuilder::<t::UInt64Type>::new())
+            Inner::DictUtf8U64(builder::StringDictionaryBuilder::<types::UInt64Type>::new())
         }
         // LargeUtf8 dictionaries with signed/unsigned integer keys
         (DataType::Int8, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8I8(b::LargeStringDictionaryBuilder::<t::Int8Type>::new())
+            Inner::DictLargeUtf8I8(builder::LargeStringDictionaryBuilder::<types::Int8Type>::new())
         }
-        (DataType::Int16, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8I16(b::LargeStringDictionaryBuilder::<t::Int16Type>::new())
-        }
-        (DataType::Int32, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8I32(b::LargeStringDictionaryBuilder::<t::Int32Type>::new())
-        }
-        (DataType::Int64, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8I64(b::LargeStringDictionaryBuilder::<t::Int64Type>::new())
-        }
+        (DataType::Int16, DataType::LargeUtf8) => Inner::DictLargeUtf8I16(
+            builder::LargeStringDictionaryBuilder::<types::Int16Type>::new(),
+        ),
+        (DataType::Int32, DataType::LargeUtf8) => Inner::DictLargeUtf8I32(
+            builder::LargeStringDictionaryBuilder::<types::Int32Type>::new(),
+        ),
+        (DataType::Int64, DataType::LargeUtf8) => Inner::DictLargeUtf8I64(
+            builder::LargeStringDictionaryBuilder::<types::Int64Type>::new(),
+        ),
         (DataType::UInt8, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8U8(b::LargeStringDictionaryBuilder::<t::UInt8Type>::new())
+            Inner::DictLargeUtf8U8(builder::LargeStringDictionaryBuilder::<types::UInt8Type>::new())
         }
-        (DataType::UInt16, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8U16(b::LargeStringDictionaryBuilder::<t::UInt16Type>::new())
-        }
-        (DataType::UInt32, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8U32(b::LargeStringDictionaryBuilder::<t::UInt32Type>::new())
-        }
-        (DataType::UInt64, DataType::LargeUtf8) => {
-            Inner::DictLargeUtf8U64(b::LargeStringDictionaryBuilder::<t::UInt64Type>::new())
-        }
+        (DataType::UInt16, DataType::LargeUtf8) => Inner::DictLargeUtf8U16(
+            builder::LargeStringDictionaryBuilder::<types::UInt16Type>::new(),
+        ),
+        (DataType::UInt32, DataType::LargeUtf8) => Inner::DictLargeUtf8U32(
+            builder::LargeStringDictionaryBuilder::<types::UInt32Type>::new(),
+        ),
+        (DataType::UInt64, DataType::LargeUtf8) => Inner::DictLargeUtf8U64(
+            builder::LargeStringDictionaryBuilder::<types::UInt64Type>::new(),
+        ),
         // Binary/LargeBinary
         (DataType::Int8, DataType::Binary) => {
-            Inner::DictBinaryI8(b::BinaryDictionaryBuilder::<t::Int8Type>::new())
+            Inner::DictBinaryI8(builder::BinaryDictionaryBuilder::<types::Int8Type>::new())
         }
         (DataType::Int16, DataType::Binary) => {
-            Inner::DictBinaryI16(b::BinaryDictionaryBuilder::<t::Int16Type>::new())
+            Inner::DictBinaryI16(builder::BinaryDictionaryBuilder::<types::Int16Type>::new())
         }
         (DataType::Int32, DataType::Binary) => {
-            Inner::DictBinaryI32(b::BinaryDictionaryBuilder::<t::Int32Type>::new())
+            Inner::DictBinaryI32(builder::BinaryDictionaryBuilder::<types::Int32Type>::new())
         }
         (DataType::Int64, DataType::Binary) => {
-            Inner::DictBinaryI64(b::BinaryDictionaryBuilder::<t::Int64Type>::new())
+            Inner::DictBinaryI64(builder::BinaryDictionaryBuilder::<types::Int64Type>::new())
         }
         (DataType::UInt8, DataType::Binary) => {
-            Inner::DictBinaryU8(b::BinaryDictionaryBuilder::<t::UInt8Type>::new())
+            Inner::DictBinaryU8(builder::BinaryDictionaryBuilder::<types::UInt8Type>::new())
         }
         (DataType::UInt16, DataType::Binary) => {
-            Inner::DictBinaryU16(b::BinaryDictionaryBuilder::<t::UInt16Type>::new())
+            Inner::DictBinaryU16(builder::BinaryDictionaryBuilder::<types::UInt16Type>::new())
         }
         (DataType::UInt32, DataType::Binary) => {
-            Inner::DictBinaryU32(b::BinaryDictionaryBuilder::<t::UInt32Type>::new())
+            Inner::DictBinaryU32(builder::BinaryDictionaryBuilder::<types::UInt32Type>::new())
         }
         (DataType::UInt64, DataType::Binary) => {
-            Inner::DictBinaryU64(b::BinaryDictionaryBuilder::<t::UInt64Type>::new())
+            Inner::DictBinaryU64(builder::BinaryDictionaryBuilder::<types::UInt64Type>::new())
         }
-        (DataType::Int8, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryI8(b::LargeBinaryDictionaryBuilder::<t::Int8Type>::new())
-        }
-        (DataType::Int16, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryI16(b::LargeBinaryDictionaryBuilder::<t::Int16Type>::new())
-        }
-        (DataType::Int32, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryI32(b::LargeBinaryDictionaryBuilder::<t::Int32Type>::new())
-        }
-        (DataType::Int64, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryI64(b::LargeBinaryDictionaryBuilder::<t::Int64Type>::new())
-        }
-        (DataType::UInt8, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryU8(b::LargeBinaryDictionaryBuilder::<t::UInt8Type>::new())
-        }
-        (DataType::UInt16, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryU16(b::LargeBinaryDictionaryBuilder::<t::UInt16Type>::new())
-        }
-        (DataType::UInt32, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryU32(b::LargeBinaryDictionaryBuilder::<t::UInt32Type>::new())
-        }
-        (DataType::UInt64, DataType::LargeBinary) => {
-            Inner::DictLargeBinaryU64(b::LargeBinaryDictionaryBuilder::<t::UInt64Type>::new())
-        }
+        (DataType::Int8, DataType::LargeBinary) => Inner::DictLargeBinaryI8(
+            builder::LargeBinaryDictionaryBuilder::<types::Int8Type>::new(),
+        ),
+        (DataType::Int16, DataType::LargeBinary) => Inner::DictLargeBinaryI16(
+            builder::LargeBinaryDictionaryBuilder::<types::Int16Type>::new(),
+        ),
+        (DataType::Int32, DataType::LargeBinary) => Inner::DictLargeBinaryI32(
+            builder::LargeBinaryDictionaryBuilder::<types::Int32Type>::new(),
+        ),
+        (DataType::Int64, DataType::LargeBinary) => Inner::DictLargeBinaryI64(
+            builder::LargeBinaryDictionaryBuilder::<types::Int64Type>::new(),
+        ),
+        (DataType::UInt8, DataType::LargeBinary) => Inner::DictLargeBinaryU8(
+            builder::LargeBinaryDictionaryBuilder::<types::UInt8Type>::new(),
+        ),
+        (DataType::UInt16, DataType::LargeBinary) => Inner::DictLargeBinaryU16(
+            builder::LargeBinaryDictionaryBuilder::<types::UInt16Type>::new(),
+        ),
+        (DataType::UInt32, DataType::LargeBinary) => Inner::DictLargeBinaryU32(
+            builder::LargeBinaryDictionaryBuilder::<types::UInt32Type>::new(),
+        ),
+        (DataType::UInt64, DataType::LargeBinary) => Inner::DictLargeBinaryU64(
+            builder::LargeBinaryDictionaryBuilder::<types::UInt64Type>::new(),
+        ),
         // FixedSizeBinary dictionaries
         (DataType::Int8, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryI8(
-            b::FixedSizeBinaryDictionaryBuilder::<t::Int8Type>::new(*w),
+            builder::FixedSizeBinaryDictionaryBuilder::<types::Int8Type>::new(*w),
         ),
-        (DataType::Int16, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryI16(
-            b::FixedSizeBinaryDictionaryBuilder::<t::Int16Type>::new(*w),
-        ),
-        (DataType::Int32, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryI32(
-            b::FixedSizeBinaryDictionaryBuilder::<t::Int32Type>::new(*w),
-        ),
-        (DataType::Int64, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryI64(
-            b::FixedSizeBinaryDictionaryBuilder::<t::Int64Type>::new(*w),
-        ),
-        (DataType::UInt8, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU8(
-            b::FixedSizeBinaryDictionaryBuilder::<t::UInt8Type>::new(*w),
-        ),
-        (DataType::UInt16, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU16(
-            b::FixedSizeBinaryDictionaryBuilder::<t::UInt16Type>::new(*w),
-        ),
-        (DataType::UInt32, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU32(
-            b::FixedSizeBinaryDictionaryBuilder::<t::UInt32Type>::new(*w),
-        ),
-        (DataType::UInt64, DataType::FixedSizeBinary(w)) => Inner::DictFixedSizeBinaryU64(
-            b::FixedSizeBinaryDictionaryBuilder::<t::UInt64Type>::new(*w),
-        ),
+        (DataType::Int16, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryI16(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::Int16Type,
+            >::new(*w))
+        }
+        (DataType::Int32, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryI32(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::Int32Type,
+            >::new(*w))
+        }
+        (DataType::Int64, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryI64(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::Int64Type,
+            >::new(*w))
+        }
+        (DataType::UInt8, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryU8(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::UInt8Type,
+            >::new(*w))
+        }
+        (DataType::UInt16, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryU16(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::UInt16Type,
+            >::new(*w))
+        }
+        (DataType::UInt32, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryU32(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::UInt32Type,
+            >::new(*w))
+        }
+        (DataType::UInt64, DataType::FixedSizeBinary(w)) => {
+            Inner::DictFixedSizeBinaryU64(builder::FixedSizeBinaryDictionaryBuilder::<
+                types::UInt64Type,
+            >::new(*w))
+        }
         // Primitive dictionary values (numeric & float)
         (k, v) => return new_prim_dict_inner(k, v),
     })
@@ -1258,7 +1287,7 @@ fn try_build_inner(dt: &DataType, capacity: usize) -> Result<Inner, DynError> {
         return Ok(inner);
     }
     if matches!(dt, DataType::Null) {
-        return Ok(Inner::Null(b::NullBuilder::new()));
+        return Ok(Inner::Null(builder::NullBuilder::new()));
     }
     Err(DynError::Builder {
         message: format!("unsupported DataType: {dt:?}"),

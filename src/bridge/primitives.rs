@@ -1,7 +1,9 @@
 //! Primitive Arrow bindings (integers, floats, bool, f16).
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
-    Array, PrimitiveArray,
+    PrimitiveArray,
     builder::PrimitiveBuilder,
     types::{
         Float16Type, Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type,

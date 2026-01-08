@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, FieldRef, Fields, Schema};
-use parquet::arrow::{ArrowSchemaConverter, ProjectionMask as ParquetProjectionMask};
-
 use super::{
     path::Path,
     rows::{DynRowRaw, DynRowView},
 };
-use crate::{DynViewError, schema::DynSchema};
+use crate::{
+    DynViewError,
+    arrow_array::RecordBatch,
+    arrow_schema::{DataType, Field, FieldRef, Fields, Schema},
+    parquet::arrow::{ArrowSchemaConverter, ProjectionMask as ParquetProjectionMask},
+    schema::DynSchema,
+};
 
 /// Column projection descriptor used to derive projected dynamic views.
 #[derive(Debug, Clone)]
@@ -235,7 +237,7 @@ fn build_parquet_mask(
         })?;
 
     if selected_paths.is_empty() {
-        return Ok(ParquetProjectionMask::none(descriptor.num_columns()));
+        return Ok(ParquetProjectionMask::leaves(&descriptor, []));
     }
 
     selected_paths.sort();
@@ -248,7 +250,7 @@ fn build_parquet_mask(
     }
     let leaf_indices = map_paths_to_leaf_indices(&selected_paths, &leaf_paths);
     if leaf_indices.is_empty() {
-        return Ok(ParquetProjectionMask::none(descriptor.num_columns()));
+        return Ok(ParquetProjectionMask::leaves(&descriptor, []));
     }
     Ok(ParquetProjectionMask::leaves(&descriptor, leaf_indices))
 }

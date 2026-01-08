@@ -6,24 +6,23 @@ name = "typed-arrow-dyn"
 readme = "./README.md"
 repository = { workspace = true }
 resolver = "2"
-version = "0.0.6"
+version = "0.0.7"
 
 [lib]
 name = "typed_arrow_dyn"
 path = "src/lib.rs"
 
 [features]
-default = []
+default = ["arrow-57"]
+arrow-55 = ["dep:parquet-55", "typed-arrow/arrow-55"]
+arrow-56 = ["dep:parquet-56", "typed-arrow/arrow-56"]
+arrow-57 = ["dep:parquet-57", "typed-arrow/arrow-57"]
 serde = ["dep:serde"]
 
 [dependencies]
-arrow-array = { workspace = true }
-arrow-buffer = { workspace = true }
-arrow-schema = { workspace = true }
-parquet = { workspace = true }
+parquet-55 = { package = "parquet", version = "55", optional = true }
+parquet-56 = { package = "parquet", version = "56", optional = true }
+parquet-57 = { package = "parquet", version = "57", optional = true }
 serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
 typed-arrow = { workspace = true }
-
-[dev-dependencies]
-arrow-data = { workspace = true }

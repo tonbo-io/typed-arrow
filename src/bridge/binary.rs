@@ -1,7 +1,9 @@
 //! Binary family bindings (Binary, `LargeBinary`, `FixedSizeBinary`).
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{
-    Array, FixedSizeBinaryArray, LargeBinaryArray,
+    FixedSizeBinaryArray, LargeBinaryArray,
     builder::{BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder},
 };
 use arrow_schema::DataType;

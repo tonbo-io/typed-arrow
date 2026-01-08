@@ -1,6 +1,6 @@
 use arrow_array::Array;
 use arrow_schema::DataType;
-use typed_arrow::{LargeBinary, bridge::ArrowBinding};
+use typed_arrow::{LargeBinary, arrow_array, arrow_schema, bridge::ArrowBinding};
 
 #[test]
 fn large_binary_datatype_and_build() {

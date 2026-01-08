@@ -2,7 +2,7 @@
 
 use arrow_array::{Array, StringArray};
 use thiserror::Error;
-use typed_arrow::{bridge::ArrowBindingView, schema::ViewAccessError};
+use typed_arrow::{arrow_array, arrow_schema, bridge::ArrowBindingView, schema::ViewAccessError};
 
 /// Custom error type for email validation
 #[derive(Debug, Clone, Error, PartialEq)]
