@@ -1,17 +1,18 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use arrow_array::{
-    Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
-    UnionArray,
-};
-use arrow_schema::{FieldRef, Fields, UnionFields, UnionMode};
-
 use super::{
     cell::{DynCellRef, view_cell_with_projector},
     path::Path,
     projection::{FieldProjector, StructProjection},
 };
-use crate::{DynViewError, arrow_array, arrow_schema};
+use crate::{
+    DynViewError,
+    arrow_array::{
+        Array, ArrayRef, FixedSizeListArray, LargeListArray, ListArray, MapArray, StructArray,
+        UnionArray,
+    },
+    arrow_schema::{FieldRef, Fields, UnionFields, UnionMode},
+};
 
 /// View over a struct column.
 pub struct DynStructView<'a> {

@@ -2,12 +2,11 @@
 
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, UnionArray};
-use arrow_buffer::ScalarBuffer;
-use arrow_schema::UnionFields;
-
 use crate::{
-    DynError, arrow_array, arrow_buffer, arrow_schema,
+    DynError,
+    arrow_array::{ArrayRef, UnionArray},
+    arrow_buffer::ScalarBuffer,
+    arrow_schema::UnionFields,
     cell::DynCell,
     dyn_builder::{DynColumnBuilder, FinishedColumn, array_key},
 };

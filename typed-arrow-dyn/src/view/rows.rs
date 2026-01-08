@@ -1,15 +1,17 @@
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, Fields, Schema};
-
 use super::{
     cell::{DynCellRaw, DynCellRef, view_cell_with_projector},
     path::Path,
     projection::{DynProjection, FieldProjector},
 };
 use crate::{
-    DynViewError, arrow_array, arrow_schema, cell::DynCell, rows::DynRow, schema::DynSchema,
+    DynViewError,
+    arrow_array::RecordBatch,
+    arrow_schema::{DataType, Field, Fields, Schema},
+    cell::DynCell,
+    rows::DynRow,
+    schema::DynSchema,
 };
 
 /// Iterator over borrowed dynamic rows.

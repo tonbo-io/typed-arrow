@@ -2,10 +2,11 @@
 
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{Schema, SchemaRef};
-
-use crate::{DynRowView, DynRowViews, DynViewError, arrow_array, arrow_schema};
+use crate::{
+    DynRowView, DynRowViews, DynViewError,
+    arrow_array::RecordBatch,
+    arrow_schema::{Schema, SchemaRef},
+};
 
 /// A runtime Arrow schema wrapper used by the unified facade.
 #[derive(Debug, Clone)]

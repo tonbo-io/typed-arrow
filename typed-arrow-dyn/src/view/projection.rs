@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, FieldRef, Fields, Schema};
-
 use super::{
     path::Path,
     rows::{DynRowRaw, DynRowView},
 };
 use crate::{
-    DynViewError, arrow_array, arrow_schema,
+    DynViewError,
+    arrow_array::RecordBatch,
+    arrow_schema::{DataType, Field, FieldRef, Fields, Schema},
     parquet::arrow::{ArrowSchemaConverter, ProjectionMask as ParquetProjectionMask},
     schema::DynSchema,
 };

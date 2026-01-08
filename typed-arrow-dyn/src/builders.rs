@@ -2,11 +2,8 @@
 
 use std::collections::HashMap;
 
-use arrow_array::RecordBatch;
-use arrow_schema::SchemaRef;
-
 use crate::{
-    DynError, arrow_array, arrow_schema, dyn_builder::DynColumnBuilder,
+    DynError, arrow_array::RecordBatch, arrow_schema::SchemaRef, dyn_builder::DynColumnBuilder,
     factory::try_new_dyn_builder_with_capacity, rows::DynRow, validate_nullability,
 };
 
