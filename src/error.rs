@@ -105,3 +105,13 @@ impl From<core::convert::Infallible> for ViewAccessError {
         match x {}
     }
 }
+
+/// Conversion from `TryFromSliceError` to allow fixed-size arrays like `[u8; N]` to work with
+/// generic List/Map implementations. This error occurs when converting `&[T]` to `[T; N]` and
+/// the slice length doesn't match the array length.
+#[cfg(feature = "views")]
+impl From<std::array::TryFromSliceError> for ViewAccessError {
+    fn from(e: std::array::TryFromSliceError) -> Self {
+        ViewAccessError::Custom(Box::new(e))
+    }
+}
