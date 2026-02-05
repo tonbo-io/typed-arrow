@@ -33,6 +33,9 @@ pub trait ArrowBinding {
     /// Concrete Arrow array type produced by `finish`.
     type Array: Array;
 
+    /// Whether this type is inherently nullable (e.g. `Null`).
+    const NULLABLE: bool = false;
+
     /// The Arrow `DataType` corresponding to this Rust type.
     fn data_type() -> DataType;
 

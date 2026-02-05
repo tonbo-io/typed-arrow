@@ -19,6 +19,7 @@ pub struct Null;
 impl ArrowBinding for Null {
     type Builder = NullBuilder;
     type Array = NullArray;
+    const NULLABLE: bool = true;
     fn data_type() -> DataType {
         DataType::Null
     }

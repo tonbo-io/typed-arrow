@@ -128,3 +128,7 @@ required-features = []
 name = "jiff_timestamp"
 path = "tests/jiff_timestamp.rs"
 required-features = ["jiff", "views"]
+
+[[test]]
+name = "nested_null"
+path = "tests/nested_null.rs"
