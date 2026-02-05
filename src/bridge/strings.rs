@@ -79,6 +79,7 @@ impl ArrowBindingView for String {
 
 /// Wrapper denoting Arrow `LargeUtf8` values. Use when individual strings can be
 /// extremely large or when 64-bit offsets are preferred.
+#[derive(Debug, Clone)]
 pub struct LargeUtf8(String);
 
 impl LargeUtf8 {

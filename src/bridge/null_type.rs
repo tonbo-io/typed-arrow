@@ -13,6 +13,7 @@ use super::ArrowBindingView;
 ///
 /// A `Null` column contains only nulls. Appending a value or a null both append
 /// a null slot. This maps to `arrow_array::NullArray` and uses `NullBuilder`.
+#[derive(Debug, Clone)]
 pub struct Null;
 
 impl ArrowBinding for Null {

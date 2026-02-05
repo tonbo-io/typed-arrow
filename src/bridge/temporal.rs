@@ -31,6 +31,7 @@ pub trait TimeUnitSpec {
 }
 
 /// Seconds since epoch.
+#[derive(Debug)]
 pub enum Second {}
 impl TimeUnitSpec for Second {
     type Arrow = TimestampSecondType;
@@ -40,6 +41,7 @@ impl TimeUnitSpec for Second {
 }
 
 /// Milliseconds since epoch.
+#[derive(Debug)]
 pub enum Millisecond {}
 impl TimeUnitSpec for Millisecond {
     type Arrow = TimestampMillisecondType;
@@ -49,6 +51,7 @@ impl TimeUnitSpec for Millisecond {
 }
 
 /// Microseconds since epoch.
+#[derive(Debug)]
 pub enum Microsecond {}
 impl TimeUnitSpec for Microsecond {
     type Arrow = TimestampMicrosecondType;
@@ -58,6 +61,7 @@ impl TimeUnitSpec for Microsecond {
 }
 
 /// Nanoseconds since epoch.
+#[derive(Debug)]
 pub enum Nanosecond {}
 impl TimeUnitSpec for Nanosecond {
     type Arrow = TimestampNanosecondType;
@@ -377,6 +381,7 @@ impl Time32UnitSpec for Millisecond {
 }
 
 /// Number of seconds/milliseconds since midnight.
+#[derive(Debug, Clone)]
 pub struct Time32<U: Time32UnitSpec>(i32, PhantomData<U>);
 impl<U: Time32UnitSpec> Time32<U> {
     /// Construct a new `Time32` value from an `i32` count in unit `U`.
@@ -469,6 +474,7 @@ impl Time64UnitSpec for Nanosecond {
 }
 
 /// Number of microseconds/nanoseconds since midnight.
+#[derive(Debug, Clone)]
 pub struct Time64<U: Time64UnitSpec>(i64, PhantomData<U>);
 impl<U: Time64UnitSpec> Time64<U> {
     /// Construct a new `Time64` value from an `i64` count in unit `U`.
