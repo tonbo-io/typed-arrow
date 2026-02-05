@@ -1,6 +1,10 @@
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::{ToTokens, quote};
-use syn::{Attribute, Data, DataStruct, DeriveInput, Fields, Ident, Path, Type};
+use syn::{
+    Attribute, Data, DataStruct, DeriveInput, Fields, GenericParam, Generics, Ident, Lifetime,
+    LifetimeParam, Path, Type, parse_quote, punctuated::Punctuated,
+};
 
 #[cfg(feature = "ext-hooks")]
 use crate::attrs::parse_ext_token_list_on_field;
@@ -42,8 +46,11 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         ));
     };
 
+    let view_lt = fresh_view_lifetime(&input.generics);
+
     let len = fields.named.len();
     let mut col_impls = Vec::with_capacity(len);
+    let mut col_infos = Vec::with_capacity(len);
     let mut visit_calls = Vec::with_capacity(len);
 
     let mut child_field_stmts = Vec::with_capacity(len);
@@ -62,6 +69,14 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let mut append_struct_borrowed_stmts = Vec::with_capacity(len);
     let mut append_null_row_stmts = Vec::with_capacity(len);
     let mut inner_tys_for_view = Vec::with_capacity(len);
+    let mut try_from_tys_for_view = Vec::with_capacity(len);
+
+    struct ColInfo {
+        idx: syn::Index,
+        inner_ty_ts: proc_macro2::TokenStream,
+        nullable: bool,
+        arrow_field_name: String,
+    }
 
     // Parse top-level schema metadata from struct attributes
     let schema_meta_pairs = parse_schema_metadata_pairs(&input.attrs)?;
@@ -120,24 +135,27 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         let inner_ty_ts = inner_ty.to_token_stream();
         inner_tys_for_view.push(inner_ty_ts.clone());
+        let needs_try_from = {
+            let is_primitive = is_copy_primitive(&inner_ty);
+            let is_str = is_string(&inner_ty);
+            let is_fsb = is_fixed_size_binary(&inner_ty);
+            !(is_primitive || is_str || is_fsb)
+        };
+        if needs_try_from {
+            try_from_tys_for_view.push(inner_ty_ts.clone());
+        }
         let nullable_lit = if nullable {
             quote!(true)
         } else {
             quote!(false)
         };
 
-        // impl ColAt<I> for Type
-        let col_impl = quote! {
-            impl ::typed_arrow::schema::ColAt<{ #idx }> for #name {
-                type Native = #inner_ty_ts;
-                type ColumnArray = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Array;
-                type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
-                const NULLABLE: bool = #nullable_lit;
-                const NAME: &'static str = #arrow_field_name;
-                fn data_type() -> ::typed_arrow::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
-            }
-        };
-        col_impls.push(col_impl);
+        col_infos.push(ColInfo {
+            idx: idx.clone(),
+            inner_ty_ts: inner_ty_ts.clone(),
+            nullable,
+            arrow_field_name: arrow_field_name.clone(),
+        });
 
         // V::visit::<I, Arrow, Rust>(FieldMeta::new(name, nullable))
         let visit = quote! {
@@ -288,19 +306,67 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         });
     }
 
+    let mut base_generics = input.generics.clone();
+    add_arrow_binding_bounds(&mut base_generics, &inner_tys_for_view);
+    let (base_impl_generics, base_ty_generics, base_where_clause) = base_generics.split_for_impl();
+
+    for info in &col_infos {
+        let idx = &info.idx;
+        let inner_ty_ts = &info.inner_ty_ts;
+        let nullable_lit = if info.nullable {
+            quote!(true)
+        } else {
+            quote!(false)
+        };
+        let arrow_field_name = &info.arrow_field_name;
+
+        col_impls.push(quote! {
+            impl #base_impl_generics ::typed_arrow::schema::ColAt<{ #idx }> for #name #base_ty_generics #base_where_clause {
+                type Native = #inner_ty_ts;
+                type ColumnArray = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Array;
+                type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
+                const NULLABLE: bool = #nullable_lit;
+                const NAME: &'static str = #arrow_field_name;
+                fn data_type() -> ::typed_arrow::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
+            }
+        });
+    }
+
+    let mut view_generics = base_generics.clone();
+    prepend_view_lifetime(&mut view_generics, view_lt.clone());
+    add_arrow_binding_view_bounds(&mut view_generics, &inner_tys_for_view, false);
+    add_view_lifetime_bounds(&mut view_generics, &inner_tys_for_view, &view_lt);
+    let (_view_impl_generics, view_ty_generics, view_where_clause) = view_generics.split_for_impl();
+
+    let mut view_try_generics = view_generics.clone();
+    add_view_try_from_bounds(&mut view_try_generics, &try_from_tys_for_view, &view_lt);
+    let (view_try_impl_generics, view_try_ty_generics, view_try_where_clause) =
+        view_try_generics.split_for_impl();
+
+    let mut view_iter_generics = base_generics.clone();
+    prepend_view_lifetime(&mut view_iter_generics, view_lt.clone());
+    add_arrow_binding_view_bounds(&mut view_iter_generics, &inner_tys_for_view, true);
+    let (view_iter_impl_generics, view_iter_ty_generics, view_iter_where_clause) =
+        view_iter_generics.split_for_impl();
+
+    let mut view_record_generics = base_generics.clone();
+    add_arrow_binding_view_bounds(&mut view_record_generics, &inner_tys_for_view, true);
+    let (view_record_impl_generics, view_record_ty_generics, view_record_where_clause) =
+        view_record_generics.split_for_impl();
+
     // impl Record and ForEachCol
     let rec_impl = quote! {
-        impl ::typed_arrow::schema::Record for #name {
+        impl #base_impl_generics ::typed_arrow::schema::Record for #name #base_ty_generics #base_where_clause {
             const LEN: usize = #len;
         }
 
-        impl ::typed_arrow::schema::ForEachCol for #name {
+        impl #base_impl_generics ::typed_arrow::schema::ForEachCol for #name #base_ty_generics #base_where_clause {
             fn for_each_col<V: ::typed_arrow::schema::ColumnVisitor>() {
                 #(#visit_calls)*
             }
         }
 
-        impl ::typed_arrow::schema::StructMeta for #name {
+        impl #base_impl_generics ::typed_arrow::schema::StructMeta for #name #base_ty_generics #base_where_clause {
             fn child_fields() -> ::std::vec::Vec<::typed_arrow::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
@@ -310,7 +376,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             fn new_struct_builder(capacity: usize) -> ::typed_arrow::arrow_array::builder::StructBuilder {
                 use ::std::sync::Arc;
                 let fields: ::std::vec::Vec<Arc<::typed_arrow::arrow_schema::Field>> =
-                    <#name as ::typed_arrow::schema::StructMeta>::child_fields()
+                    <#name #base_ty_generics as ::typed_arrow::schema::StructMeta>::child_fields()
                         .into_iter()
                         .map(Arc::new)
                         .collect();
@@ -321,7 +387,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
         }
 
-        impl ::typed_arrow::schema::SchemaMeta for #name {
+        impl #base_impl_generics ::typed_arrow::schema::SchemaMeta for #name #base_ty_generics #base_where_clause {
             fn fields() -> ::std::vec::Vec<::typed_arrow::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
@@ -335,30 +401,30 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
 
         // Row-based: builders + arrays + construction
-        pub struct #builders_ident {
+        pub struct #builders_ident #base_ty_generics #base_where_clause {
             #(#builder_struct_fields,)*
         }
 
-        pub struct #arrays_ident {
+        pub struct #arrays_ident #base_ty_generics #base_where_clause {
             #(#arrays_struct_fields,)*
         }
 
-        impl ::typed_arrow::schema::BuildRows for #name {
-            type Builders = #builders_ident;
-            type Arrays = #arrays_ident;
+        impl #base_impl_generics ::typed_arrow::schema::BuildRows for #name #base_ty_generics #base_where_clause {
+            type Builders = #builders_ident #base_ty_generics;
+            type Arrays = #arrays_ident #base_ty_generics;
             fn new_builders(capacity: usize) -> Self::Builders {
                 #builders_ident { #(#builders_init_fields,)* }
             }
         }
 
-        impl #builders_ident {
+        impl #base_impl_generics #builders_ident #base_ty_generics #base_where_clause {
             #[inline]
-            pub fn append_row(&mut self, row: #name) {
+            pub fn append_row(&mut self, row: #name #base_ty_generics) {
                 let #name { #( #field_idents ),* } = row;
                 #(#append_row_stmts)*
             }
             #[inline]
-            pub fn append_row_ref(&mut self, row: &#name) {
+            pub fn append_row_ref(&mut self, row: &#name #base_ty_generics) {
                 let #name { #( #field_idents ),* } = row;
                 #(#append_row_ref_stmts)*
             }
@@ -367,71 +433,83 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 #(#append_null_row_stmts)*
             }
             #[inline]
-            pub fn append_option_row(&mut self, row: ::core::option::Option<#name>) {
+            pub fn append_option_row(&mut self, row: ::core::option::Option<#name #base_ty_generics>) {
                 match row {
                     ::core::option::Option::Some(r) => self.append_row(r),
                     ::core::option::Option::None => self.append_null_row(),
                 }
             }
             #[inline]
-            pub fn append_option_row_ref(&mut self, row: ::core::option::Option<&#name>) {
+            pub fn append_option_row_ref(&mut self, row: ::core::option::Option<&#name #base_ty_generics>) {
                 match row {
                     ::core::option::Option::Some(r) => self.append_row_ref(r),
                     ::core::option::Option::None => self.append_null_row(),
                 }
             }
             #[inline]
-            pub fn append_rows<I: ::core::iter::IntoIterator<Item = #name>>(&mut self, rows: I) {
+            pub fn append_rows<I: ::core::iter::IntoIterator<Item = #name #base_ty_generics>>(&mut self, rows: I) {
                 for r in rows { self.append_row(r); }
             }
             #[inline]
-            pub fn append_rows_ref<'a, I: ::core::iter::IntoIterator<Item = &'a #name>>(&mut self, rows: I) {
+            pub fn append_rows_ref<'a, I: ::core::iter::IntoIterator<Item = &'a #name #base_ty_generics>>(
+                &mut self,
+                rows: I,
+            )
+            where
+                #name #base_ty_generics: 'a,
+            {
                 for r in rows { self.append_row_ref(r); }
             }
             #[inline]
-            pub fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<#name>>>(&mut self, rows: I) {
+            pub fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<#name #base_ty_generics>>>(&mut self, rows: I) {
                 for r in rows { self.append_option_row(r); }
             }
             #[inline]
-            pub fn append_option_rows_ref<'a, I: ::core::iter::IntoIterator<Item = ::core::option::Option<&'a #name>>>(&mut self, rows: I) {
+            pub fn append_option_rows_ref<'a, I: ::core::iter::IntoIterator<Item = ::core::option::Option<&'a #name #base_ty_generics>>>(
+                &mut self,
+                rows: I,
+            )
+            where
+                #name #base_ty_generics: 'a,
+            {
                 for r in rows { self.append_option_row_ref(r); }
             }
             #[inline]
-            pub fn finish(self) -> #arrays_ident {
+            pub fn finish(self) -> #arrays_ident #base_ty_generics {
                 #arrays_ident { #(#finish_fields,)* }
             }
         }
 
         // Implement the generic RowBuilder trait for the generated builders
-        impl ::typed_arrow::schema::RowBuilder<#name> for #builders_ident {
-            type Arrays = #arrays_ident;
-            fn append_row(&mut self, row: #name) { Self::append_row(self, row) }
+        impl #base_impl_generics ::typed_arrow::schema::RowBuilder<#name #base_ty_generics> for #builders_ident #base_ty_generics #base_where_clause {
+            type Arrays = #arrays_ident #base_ty_generics;
+            fn append_row(&mut self, row: #name #base_ty_generics) { Self::append_row(self, row) }
             fn append_null_row(&mut self) { Self::append_null_row(self) }
-            fn append_option_row(&mut self, row: ::core::option::Option<#name>) { Self::append_option_row(self, row) }
-            fn append_rows<I: ::core::iter::IntoIterator<Item = #name>>(&mut self, rows: I) { Self::append_rows(self, rows) }
-            fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<#name>>>(
+            fn append_option_row(&mut self, row: ::core::option::Option<#name #base_ty_generics>) { Self::append_option_row(self, row) }
+            fn append_rows<I: ::core::iter::IntoIterator<Item = #name #base_ty_generics>>(&mut self, rows: I) { Self::append_rows(self, rows) }
+            fn append_option_rows<I: ::core::iter::IntoIterator<Item = ::core::option::Option<#name #base_ty_generics>>>(
                 &mut self,
                 rows: I,
             ) { Self::append_option_rows(self, rows) }
-            fn finish(self) -> #arrays_ident { Self::finish(self) }
+            fn finish(self) -> #arrays_ident #base_ty_generics { Self::finish(self) }
         }
 
-        impl #arrays_ident {
+        impl #base_impl_generics #arrays_ident #base_ty_generics #base_where_clause {
             /// Build an Arrow RecordBatch from these arrays and the generated schema.
             pub fn into_record_batch(self) -> ::typed_arrow::arrow_array::RecordBatch {
                 use ::std::sync::Arc;
-                let schema = <#name as ::typed_arrow::schema::SchemaMeta>::schema();
+                let schema = <#name #base_ty_generics as ::typed_arrow::schema::SchemaMeta>::schema();
                 let mut cols: ::std::vec::Vec<Arc<dyn ::typed_arrow::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
                 #( cols.push(Arc::new(self.#field_idents)); )*
                 ::typed_arrow::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
             }
         }
 
-        impl ::typed_arrow::schema::IntoRecordBatch for #arrays_ident {
+        impl #base_impl_generics ::typed_arrow::schema::IntoRecordBatch for #arrays_ident #base_ty_generics #base_where_clause {
             fn into_record_batch(self) -> ::typed_arrow::arrow_array::RecordBatch { Self::into_record_batch(self) }
         }
 
-        impl ::typed_arrow::schema::AppendStruct for #name {
+        impl #base_impl_generics ::typed_arrow::schema::AppendStruct for #name #base_ty_generics #base_where_clause {
             fn append_owned_into(self, __sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
                 let #name { #( #field_idents ),* } = self;
                 #(#append_struct_owned_stmts)*
@@ -441,7 +519,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
         }
 
-        impl ::typed_arrow::schema::AppendStructRef for #name {
+        impl #base_impl_generics ::typed_arrow::schema::AppendStructRef for #name #base_ty_generics #base_where_clause {
             fn append_borrowed_into(&self, __sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
                 let #name { #( #field_idents ),* } = self;
                 #(#append_struct_borrowed_stmts)*
@@ -481,7 +559,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let mut visitor_instantiations: Vec<proc_macro2::TokenStream> = Vec::new();
     for v in &ext_visitors {
         visitor_instantiations.push(quote! {
-            const _: () = { <#name as ::typed_arrow::schema::ForEachCol>::for_each_col::<#v>(); };
+            impl #base_impl_generics #name #base_ty_generics #base_where_clause {
+                const _: () = { <#name #base_ty_generics as ::typed_arrow::schema::ForEachCol>::for_each_col::<#v>(); };
+            }
         });
     }
 
@@ -501,7 +581,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let idx = syn::Index::from(i);
         let (inner_ty, nullable) = unwrap_option(&f.ty);
         let inner_ty_ts = inner_ty.to_token_stream();
-        let view_ty = generate_view_type(&f.ty, nullable);
+        let view_ty = generate_view_type(&f.ty, nullable, &view_lt);
 
         // View struct field
         view_struct_fields.push(quote! {
@@ -510,7 +590,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         // Views iterator: store arrays with lifetimes (public for direct column access)
         views_array_fields.push(quote! {
-            pub #fname: &'a <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
+            pub #fname: &#view_lt <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
         });
 
         // Initialize views arrays from RecordBatch columns - downcast with error handling
@@ -577,15 +657,15 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let view_impl = if cfg!(feature = "views") {
         quote! {
             /// Zero-copy view of a single row from a RecordBatch.
-            pub struct #view_ident<'a> {
+            pub struct #view_ident #view_ty_generics #view_where_clause {
                 #(#view_struct_fields,)*
-                _phantom: ::core::marker::PhantomData<&'a ()>,
+                _phantom: ::core::marker::PhantomData<&#view_lt ()>,
             }
 
-            impl<'a> ::core::convert::TryFrom<#view_ident<'a>> for #name {
+            impl #view_try_impl_generics ::core::convert::TryFrom<#view_ident #view_try_ty_generics> for #name #base_ty_generics #view_try_where_clause {
                 type Error = ::typed_arrow::schema::ViewAccessError;
 
-                fn try_from(view: #view_ident<'a>) -> ::core::result::Result<Self, Self::Error> {
+                fn try_from(view: #view_ident #view_try_ty_generics) -> ::core::result::Result<Self, Self::Error> {
                     ::core::result::Result::Ok(#name {
                         #(#view_conversion_exprs,)*
                     })
@@ -593,23 +673,20 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
 
             /// Iterator yielding views over RecordBatch rows.
-            pub struct #views_ident<'a> {
+            pub struct #views_ident #view_ty_generics #view_where_clause {
                 #(#views_array_fields,)*
                 index: usize,
                 len: usize,
             }
 
-            impl<'a> ::core::iter::Iterator for #views_ident<'a>
-            where
-                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-            {
-                type Item = ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError>;
+            impl #view_iter_impl_generics ::core::iter::Iterator for #views_ident #view_iter_ty_generics #view_iter_where_clause {
+                type Item = ::core::result::Result<#view_ident #view_iter_ty_generics, ::typed_arrow::schema::ViewAccessError>;
 
                 fn next(&mut self) -> ::core::option::Option<Self::Item> {
                     if self.index >= self.len {
                         return ::core::option::Option::None;
                     }
-                    let result = (|| -> ::core::result::Result<#view_ident<'a>, ::typed_arrow::schema::ViewAccessError> {
+                    let result = (|| -> ::core::result::Result<#view_ident #view_iter_ty_generics, ::typed_arrow::schema::ViewAccessError> {
                         ::core::result::Result::Ok(#view_ident {
                             #(#view_extract_stmts,)*
                             _phantom: ::core::marker::PhantomData,
@@ -625,21 +702,15 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 }
             }
 
-            impl<'a> ::core::iter::ExactSizeIterator for #views_ident<'a>
-            where
-                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-            {
+            impl #view_iter_impl_generics ::core::iter::ExactSizeIterator for #views_ident #view_iter_ty_generics #view_iter_where_clause {
                 fn len(&self) -> usize {
                     self.len - self.index
                 }
             }
 
-            impl ::typed_arrow::schema::FromRecordBatch for #name
-            where
-                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-            {
-                type View<'a> = #view_ident<'a>;
-                type Views<'a> = #views_ident<'a>;
+            impl #view_record_impl_generics ::typed_arrow::schema::FromRecordBatch for #name #view_record_ty_generics #view_record_where_clause {
+                type View<#view_lt> = #view_ident #view_ty_generics;
+                type Views<#view_lt> = #views_ident #view_ty_generics;
 
                 fn from_record_batch(batch: &::typed_arrow::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
                     // Validate column count
@@ -659,11 +730,8 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 }
             }
 
-            impl ::typed_arrow::schema::StructView for #name
-            where
-                #(#inner_tys_for_view: ::typed_arrow::bridge::ArrowBindingView + 'static,)*
-            {
-                type View<'a> = #view_ident<'a>;
+            impl #view_record_impl_generics ::typed_arrow::schema::StructView for #name #view_record_ty_generics #view_record_where_clause {
+                type View<#view_lt> = #view_ident #view_ty_generics;
 
                 fn view_at(array: &::typed_arrow::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
                     use ::typed_arrow::arrow_array::Array;
@@ -691,6 +759,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         #(#field_macro_invocations)*
         #(#visitor_instantiations)*
     };
+    if std::env::var("TYPED_ARROW_DERIVE_DEBUG").is_ok() {
+        eprintln!("{expanded}");
+    }
     Ok(expanded)
 }
 
@@ -743,14 +814,130 @@ fn unwrap_option(ty: &Type) -> (Type, bool) {
     (ty.clone(), false)
 }
 
+fn fresh_view_lifetime(generics: &Generics) -> Lifetime {
+    let mut existing = Vec::new();
+    for param in &generics.params {
+        if let GenericParam::Lifetime(lp) = param {
+            existing.push(lp.lifetime.ident.to_string());
+        }
+    }
+
+    let base = "__ta_view";
+    let mut idx = 0usize;
+    loop {
+        let name = if idx == 0 {
+            base.to_string()
+        } else {
+            format!("{base}{idx}")
+        };
+        if !existing.iter().any(|s| s == &name) {
+            return Lifetime::new(&format!("'{}", name), Span::call_site());
+        }
+        idx += 1;
+    }
+}
+
+fn prepend_view_lifetime(generics: &mut Generics, lt: Lifetime) {
+    let mut params: Punctuated<GenericParam, syn::token::Comma> = Punctuated::new();
+    params.push(GenericParam::Lifetime(LifetimeParam::new(lt)));
+    params.extend(generics.params.clone());
+    generics.params = params;
+}
+
+fn add_arrow_binding_bounds(generics: &mut Generics, inner_tys: &[proc_macro2::TokenStream]) {
+    if inner_tys.is_empty() {
+        return;
+    }
+    let where_clause = generics.make_where_clause();
+    for ty in inner_tys {
+        where_clause
+            .predicates
+            .push(parse_quote!(#ty: ::typed_arrow::bridge::ArrowBinding));
+        where_clause.predicates.push(parse_quote!(
+            <#ty as ::typed_arrow::bridge::ArrowBinding>::Builder:
+                ::typed_arrow::arrow_array::builder::ArrayBuilder
+        ));
+        where_clause.predicates.push(parse_quote!(
+            <#ty as ::typed_arrow::bridge::ArrowBinding>::Builder: 'static
+        ));
+        where_clause.predicates.push(parse_quote!(
+            <#ty as ::typed_arrow::bridge::ArrowBinding>::Array: 'static
+        ));
+    }
+}
+
+fn add_arrow_binding_view_bounds(
+    generics: &mut Generics,
+    inner_tys: &[proc_macro2::TokenStream],
+    add_static: bool,
+) {
+    if inner_tys.is_empty() {
+        return;
+    }
+    let where_clause = generics.make_where_clause();
+    for ty in inner_tys {
+        if add_static {
+            where_clause.predicates.push(parse_quote!(
+                #ty: ::typed_arrow::bridge::ArrowBindingView<
+                    Array = <#ty as ::typed_arrow::bridge::ArrowBinding>::Array
+                > + 'static
+            ));
+        } else {
+            where_clause.predicates.push(parse_quote!(
+                #ty: ::typed_arrow::bridge::ArrowBindingView<
+                    Array = <#ty as ::typed_arrow::bridge::ArrowBinding>::Array
+                >
+            ));
+        }
+    }
+}
+
+fn add_view_lifetime_bounds(
+    generics: &mut Generics,
+    inner_tys: &[proc_macro2::TokenStream],
+    view_lt: &Lifetime,
+) {
+    if inner_tys.is_empty() {
+        return;
+    }
+    let where_clause = generics.make_where_clause();
+    for ty in inner_tys {
+        where_clause.predicates.push(parse_quote!(#ty: #view_lt));
+    }
+}
+
+fn add_view_try_from_bounds(
+    generics: &mut Generics,
+    inner_tys: &[proc_macro2::TokenStream],
+    view_lt: &Lifetime,
+) {
+    if inner_tys.is_empty() {
+        return;
+    }
+    let where_clause = generics.make_where_clause();
+    for ty in inner_tys {
+        where_clause
+            .predicates
+            .push(parse_quote!(#ty: ::core::convert::TryFrom<
+                <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
+            >));
+        where_clause.predicates.push(parse_quote!(
+            <#ty as ::core::convert::TryFrom<
+                <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
+            >>::Error: ::core::convert::Into<::typed_arrow::schema::ViewAccessError>
+        ));
+    }
+}
+
 /// Generate the view type for a field. Uses ArrowBindingView::View<'a> for all types.
 /// - Option<T> → Option<View<T>>
-fn generate_view_type(ty: &Type, nullable: bool) -> proc_macro2::TokenStream {
+fn generate_view_type(ty: &Type, nullable: bool, view_lt: &Lifetime) -> proc_macro2::TokenStream {
     let (inner_ty, _) = unwrap_option(ty);
     let inner_ty_ts = inner_ty.to_token_stream();
 
     // Always use the ArrowBindingView::View associated type
-    let view_inner = quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::View<'a> };
+    let view_inner =
+        quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt> };
 
     if nullable {
         quote! { ::core::option::Option<#view_inner> }
@@ -844,7 +1031,9 @@ fn generate_view_conversion_expr(
         } else {
             // Option<non-primitive>: map view to owned via TryInto
             quote! { #fname: match view.#fname {
-                ::core::option::Option::Some(__v) => ::core::option::Option::Some(__v.try_into()?),
+                ::core::option::Option::Some(__v) => ::core::option::Option::Some(
+                    __v.try_into().map_err(::core::convert::Into::into)?
+                ),
                 ::core::option::Option::None => ::core::option::Option::None,
             } }
         }
@@ -863,6 +1052,6 @@ fn generate_view_conversion_expr(
         } }
     } else {
         // Non-nullable non-primitive: convert view to owned via TryInto
-        quote! { #fname: view.#fname.try_into()? }
+        quote! { #fname: view.#fname.try_into().map_err(::core::convert::Into::into)? }
     }
 }
