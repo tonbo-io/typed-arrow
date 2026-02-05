@@ -1,9 +1,13 @@
 //! Arrow `Null` type binding.
 
+#[cfg(feature = "views")]
+use arrow_array::Array;
 use arrow_array::{NullArray, builder::NullBuilder};
 use arrow_schema::DataType;
 
 use super::ArrowBinding;
+#[cfg(feature = "views")]
+use super::ArrowBindingView;
 
 /// Marker type for Arrow `DataType::Null` columns.
 ///
@@ -28,5 +32,26 @@ impl ArrowBinding for Null {
     }
     fn finish(mut b: Self::Builder) -> Self::Array {
         b.finish()
+    }
+}
+
+#[cfg(feature = "views")]
+impl ArrowBindingView for Null {
+    type Array = NullArray;
+    type View<'a> = Null;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        // NullArray has no non-null values; treat the marker as the value.
+        Ok(Null)
     }
 }
