@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{ToTokens, quote};
@@ -47,6 +49,15 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     };
 
     let view_lt = fresh_view_lifetime(&input.generics);
+    let generic_type_idents: HashSet<Ident> = input
+        .generics
+        .params
+        .iter()
+        .filter_map(|p| match p {
+            GenericParam::Type(tp) => Some(tp.ident.clone()),
+            _ => None,
+        })
+        .collect();
 
     let len = fields.named.len();
     let mut col_impls = Vec::with_capacity(len);
@@ -135,13 +146,10 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         let inner_ty_ts = inner_ty.to_token_stream();
         inner_tys_for_view.push(inner_ty_ts.clone());
-        let needs_try_from = {
-            let is_primitive = is_copy_primitive(&inner_ty);
-            let is_str = is_string(&inner_ty);
-            let is_fsb = is_fixed_size_binary(&inner_ty);
-            !(is_primitive || is_str || is_fsb)
-        };
-        if needs_try_from {
+        let needs_try_into = !(is_copy_primitive(&inner_ty)
+            || is_string(&inner_ty)
+            || is_fixed_size_binary(&inner_ty));
+        if needs_try_into && type_contains_generic(&inner_ty, &generic_type_idents) {
             try_from_tys_for_view.push(inner_ty_ts.clone());
         }
         let nullable_lit = if nullable {
@@ -568,6 +576,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Generate view struct and iterator for FromRecordBatch
     let view_ident = Ident::new(&format!("{name}View"), name.span());
     let views_ident = Ident::new(&format!("{name}Views"), name.span());
+    let view_try_into_ident = Ident::new(&format!("__ta_view_try_into_{name}"), name.span());
 
     let mut view_struct_fields = Vec::with_capacity(len);
     let mut views_array_fields = Vec::with_capacity(len);
@@ -651,11 +660,28 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
 
         // Generate view-to-owned conversion expression
-        view_conversion_exprs.push(generate_view_conversion_expr(fname, &f.ty, nullable));
+        view_conversion_exprs.push(generate_view_conversion_expr(
+            fname,
+            &f.ty,
+            nullable,
+            &view_try_into_ident,
+        ));
     }
 
     let view_impl = if cfg!(feature = "views") {
         quote! {
+            #[allow(non_snake_case)]
+            #[inline]
+            fn #view_try_into_ident<T, U>(v: T) -> ::core::result::Result<U, ::typed_arrow::schema::ViewAccessError>
+            where
+                T: ::core::convert::TryInto<U>,
+                ::typed_arrow::schema::ViewAccessError: ::core::convert::From<
+                    <T as ::core::convert::TryInto<U>>::Error
+                >,
+            {
+                v.try_into().map_err(::typed_arrow::schema::ViewAccessError::from)
+            }
+
             /// Zero-copy view of a single row from a RecordBatch.
             pub struct #view_ident #view_ty_generics #view_where_clause {
                 #(#view_struct_fields,)*
@@ -814,6 +840,39 @@ fn unwrap_option(ty: &Type) -> (Type, bool) {
     (ty.clone(), false)
 }
 
+fn type_contains_generic(ty: &Type, generic_idents: &HashSet<Ident>) -> bool {
+    match ty {
+        Type::Path(tp) => {
+            for seg in &tp.path.segments {
+                if generic_idents.contains(&seg.ident) {
+                    return true;
+                }
+                if let syn::PathArguments::AngleBracketed(args) = &seg.arguments {
+                    for arg in &args.args {
+                        if let syn::GenericArgument::Type(arg_ty) = arg
+                            && type_contains_generic(arg_ty, generic_idents)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+        Type::Reference(tr) => type_contains_generic(&tr.elem, generic_idents),
+        Type::Array(ta) => type_contains_generic(&ta.elem, generic_idents),
+        Type::Slice(ts) => type_contains_generic(&ts.elem, generic_idents),
+        Type::Tuple(tt) => tt
+            .elems
+            .iter()
+            .any(|t| type_contains_generic(t, generic_idents)),
+        Type::Paren(tp) => type_contains_generic(&tp.elem, generic_idents),
+        Type::Group(tg) => type_contains_generic(&tg.elem, generic_idents),
+        Type::Ptr(tp) => type_contains_generic(&tp.elem, generic_idents),
+        _ => false,
+    }
+}
+
 fn fresh_view_lifetime(generics: &Generics) -> Lifetime {
     let mut existing = Vec::new();
     for param in &generics.params {
@@ -922,9 +981,11 @@ fn add_view_try_from_bounds(
                 <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
             >));
         where_clause.predicates.push(parse_quote!(
-            <#ty as ::core::convert::TryFrom<
-                <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
-            >>::Error: ::core::convert::Into<::typed_arrow::schema::ViewAccessError>
+            ::typed_arrow::schema::ViewAccessError: ::core::convert::From<
+                <#ty as ::core::convert::TryFrom<
+                    <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
+                >>::Error
+            >
         ));
     }
 }
@@ -1008,6 +1069,7 @@ fn generate_view_conversion_expr(
     fname: &syn::Ident,
     ty: &Type,
     nullable: bool,
+    view_try_into_ident: &syn::Ident,
 ) -> proc_macro2::TokenStream {
     let (inner_ty, _) = unwrap_option(ty);
     let is_primitive = is_copy_primitive(&inner_ty);
@@ -1031,9 +1093,7 @@ fn generate_view_conversion_expr(
         } else {
             // Option<non-primitive>: map view to owned via TryInto
             quote! { #fname: match view.#fname {
-                ::core::option::Option::Some(__v) => ::core::option::Option::Some(
-                    __v.try_into().map_err(::core::convert::Into::into)?
-                ),
+                ::core::option::Option::Some(__v) => ::core::option::Option::Some(#view_try_into_ident(__v)?),
                 ::core::option::Option::None => ::core::option::Option::None,
             } }
         }
@@ -1052,6 +1112,6 @@ fn generate_view_conversion_expr(
         } }
     } else {
         // Non-nullable non-primitive: convert view to owned via TryInto
-        quote! { #fname: view.#fname.try_into().map_err(::core::convert::Into::into)? }
+        quote! { #fname: #view_try_into_ident(view.#fname)? }
     }
 }
