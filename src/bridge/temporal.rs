@@ -31,7 +31,7 @@ pub trait TimeUnitSpec {
 }
 
 /// Seconds since epoch.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Second {}
 impl TimeUnitSpec for Second {
     type Arrow = TimestampSecondType;
@@ -41,7 +41,7 @@ impl TimeUnitSpec for Second {
 }
 
 /// Milliseconds since epoch.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Millisecond {}
 impl TimeUnitSpec for Millisecond {
     type Arrow = TimestampMillisecondType;
@@ -51,7 +51,7 @@ impl TimeUnitSpec for Millisecond {
 }
 
 /// Microseconds since epoch.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Microsecond {}
 impl TimeUnitSpec for Microsecond {
     type Arrow = TimestampMicrosecondType;
@@ -61,7 +61,7 @@ impl TimeUnitSpec for Microsecond {
 }
 
 /// Nanoseconds since epoch.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Nanosecond {}
 impl TimeUnitSpec for Nanosecond {
     type Arrow = TimestampNanosecondType;
