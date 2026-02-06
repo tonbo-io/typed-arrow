@@ -1,18 +1,18 @@
 [workspace]
-members = [".", "typed-arrow-derive", "typed-arrow-dyn", "typed-arrow-benches"]
+members = [".", "typed-arrow-benches", "typed-arrow-derive", "typed-arrow-dyn"]
 package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
-package.version = "0.6.0"
+package.version = "0.6.1"
 
 [workspace.dependencies]
-typed-arrow = { path = ".", version = "0.6.0", package = "typed-arrow", default-features = false }
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.6.0", package = "typed-arrow-derive" }
-typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.7", package = "typed-arrow-dyn", default-features = false }
 half = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+typed-arrow = { path = ".", version = "0.6.1", package = "typed-arrow", default-features = false }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.6.1", package = "typed-arrow-derive" }
+typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.7", package = "typed-arrow-dyn", default-features = false }
 
 [package]
 description = "Compile-time Arrow schemas for Rust."
@@ -25,7 +25,6 @@ resolver = "2"
 version = { workspace = true }
 
 [features]
-default = ["derive", "views", "arrow-57"]
 arrow-55 = [
     "dep:arrow-array-55",
     "dep:arrow-buffer-55",
@@ -44,6 +43,7 @@ arrow-57 = [
     "dep:arrow-data-57",
     "dep:arrow-schema-57",
 ]
+default = ["arrow-57", "derive", "views"]
 derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
 jiff = ["dep:jiff"]
