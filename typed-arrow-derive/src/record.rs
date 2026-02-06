@@ -324,7 +324,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let nullable_lit = if info.nullable {
             quote!(true)
         } else {
-            quote!(false)
+            quote!(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::NULLABLE)
         };
         let arrow_field_name = &info.arrow_field_name;
 
