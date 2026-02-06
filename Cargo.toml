@@ -46,6 +46,7 @@ arrow-57 = [
 ]
 derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
+jiff = ["dep:jiff"]
 views = ["derive", "typed-arrow-derive/views"]
 
 [dependencies]
@@ -62,6 +63,7 @@ arrow-schema-55 = { package = "arrow-schema", version = "55", optional = true }
 arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true }
 arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true }
 half = { workspace = true }
+jiff = { version = "0.2", optional = true }
 thiserror = { workspace = true }
 typed-arrow-derive = { workspace = true, optional = true }
 
@@ -121,3 +123,12 @@ required-features = ["views"]
 name = "trybuild"
 path = "tests/trybuild.rs"
 required-features = []
+
+[[test]]
+name = "jiff_timestamp"
+path = "tests/jiff_timestamp.rs"
+required-features = ["jiff", "views"]
+
+[[test]]
+name = "nested_null"
+path = "tests/nested_null.rs"

@@ -654,3 +654,117 @@ where
         Ok(Duration::new(array.value(index)))
     }
 }
+
+#[cfg(feature = "jiff")]
+impl ArrowBinding for jiff::Timestamp {
+    type Builder = PrimitiveBuilder<TimestampMicrosecondType>;
+    type Array = PrimitiveArray<TimestampMicrosecondType>;
+
+    fn data_type() -> DataType {
+        DataType::Timestamp(TimeUnit::Microsecond, None)
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<TimestampMicrosecondType>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(v.as_microsecond());
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+#[cfg(all(feature = "jiff", feature = "views"))]
+impl ArrowBindingView for jiff::Timestamp {
+    type Array = PrimitiveArray<TimestampMicrosecondType>;
+    type View<'a> = jiff::Timestamp;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        jiff::Timestamp::from_microsecond(array.value(index))
+            .map_err(|e| crate::schema::ViewAccessError::Custom(Box::new(e)))
+    }
+}
+
+#[cfg(feature = "jiff")]
+const JIFF_UNIX_EPOCH_DATE: jiff::civil::Date = jiff::civil::Date::constant(1970, 1, 1);
+
+#[cfg(feature = "jiff")]
+impl ArrowBinding for jiff::civil::Date {
+    type Builder = PrimitiveBuilder<Date32Type>;
+    type Array = PrimitiveArray<Date32Type>;
+
+    fn data_type() -> DataType {
+        DataType::Date32
+    }
+
+    fn new_builder(capacity: usize) -> Self::Builder {
+        PrimitiveBuilder::<Date32Type>::with_capacity(capacity)
+    }
+
+    fn append_value(b: &mut Self::Builder, v: &Self) {
+        b.append_value(
+            v.since((jiff::Unit::Day, JIFF_UNIX_EPOCH_DATE))
+                .unwrap()
+                .get_days(),
+        );
+    }
+
+    fn append_null(b: &mut Self::Builder) {
+        b.append_null();
+    }
+
+    fn finish(mut b: Self::Builder) -> Self::Array {
+        b.finish()
+    }
+}
+
+#[cfg(all(feature = "jiff", feature = "views"))]
+impl ArrowBindingView for jiff::civil::Date {
+    type Array = PrimitiveArray<Date32Type>;
+    type View<'a> = jiff::civil::Date;
+
+    fn get_view(
+        array: &Self::Array,
+        index: usize,
+    ) -> Result<Self::View<'_>, crate::schema::ViewAccessError> {
+        if index >= array.len() {
+            return Err(crate::schema::ViewAccessError::OutOfBounds {
+                index,
+                len: array.len(),
+                field_name: None,
+            });
+        }
+        if array.is_null(index) {
+            return Err(crate::schema::ViewAccessError::UnexpectedNull {
+                index,
+                field_name: None,
+            });
+        }
+        JIFF_UNIX_EPOCH_DATE
+            .checked_add(jiff::Span::new().days(array.value(index)))
+            .map_err(|e| crate::schema::ViewAccessError::Custom(Box::new(e)))
+    }
+}

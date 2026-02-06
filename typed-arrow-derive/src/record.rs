@@ -123,7 +123,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let nullable_lit = if nullable {
             quote!(true)
         } else {
-            quote!(false)
+            quote!(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::NULLABLE)
         };
 
         // impl ColAt<I> for Type
