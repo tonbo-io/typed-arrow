@@ -725,7 +725,11 @@ impl ArrowBinding for jiff::civil::Date {
     }
 
     fn append_value(b: &mut Self::Builder, v: &Self) {
-        b.append_value(v.since((jiff::Unit::Day, JIFF_UNIX_EPOCH_DATE)).unwrap().get_days());
+        b.append_value(
+            v.since((jiff::Unit::Day, JIFF_UNIX_EPOCH_DATE))
+                .unwrap()
+                .get_days(),
+        );
     }
 
     fn append_null(b: &mut Self::Builder) {

@@ -1,4 +1,4 @@
-use typed_arrow::{schema::BuildRows, Null, Record};
+use typed_arrow::{Null, Record, schema::BuildRows};
 
 #[derive(Debug, Record)]
 struct Inner {
