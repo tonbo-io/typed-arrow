@@ -12,19 +12,8 @@ use super::ArrowBindingView;
 /// Notes:
 /// - List-level nullability: wrap the column in `Option<List<T>>`.
 /// - Item-level nullability: use `List<Option<T>>` when elements can be null.
+#[derive(Default, Debug, Clone)]
 pub struct List<T>(Vec<T>);
-
-impl<T: Clone> Clone for List<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for List<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("List").field(&self.0).finish()
-    }
-}
 
 impl<T> List<T> {
     /// Construct a new list from a vector of values.
