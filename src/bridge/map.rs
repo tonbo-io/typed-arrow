@@ -12,21 +12,8 @@ use super::ArrowBinding;
 /// - Keys are non-nullable by Arrow spec.
 /// - Values are non-nullable for `Map<K, V, SORTED>` and nullable for `Map<K, Option<V>, SORTED>`.
 /// - Column-level nullability is expressed with `Option<Map<...>>`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Map<K, V, const SORTED: bool = false>(Vec<(K, V)>);
-
-impl<K: Clone, V: Clone, const SORTED: bool> Clone for Map<K, V, SORTED> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<K: std::fmt::Debug, V: std::fmt::Debug, const SORTED: bool> std::fmt::Debug
-    for Map<K, V, SORTED>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Map").field(&self.0).finish()
-    }
-}
 
 impl<K, V, const SORTED: bool> Map<K, V, SORTED> {
     /// Construct a new map from a vector of `(key, value)` pairs.
@@ -46,6 +33,32 @@ impl<K, V, const SORTED: bool> Map<K, V, SORTED> {
     #[must_use]
     pub fn into_inner(self) -> Vec<(K, V)> {
         self.0
+    }
+}
+
+// Serialize/Deserialize implementation forwards to that for Vec<(K, V)>.
+#[cfg(feature = "serde")]
+impl<'de, K, V, const SORTED: bool> serde::de::Deserialize<'de> for Map<K, V, SORTED>
+where
+    K: serde::de::Deserialize<'de>,
+    V: serde::de::Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(Vec::<(K, V)>::deserialize(deserializer)?.into())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<K, V, const SORTED: bool> serde::Serialize for Map<K, V, SORTED>
+where
+    K: serde::Serialize,
+    V: serde::Serialize,
+{
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 
@@ -143,17 +156,32 @@ where
 /// Sorted-keys `Map`: entries sourced from `BTreeMap<K, V>`, declaring `keys_sorted = true`.
 /// Keys are non-nullable; the value field is nullable per `MapBuilder` semantics, but this
 /// wrapper does not write null values.
+#[derive(Debug, Clone, PartialEq)]
 pub struct OrderedMap<K, V>(BTreeMap<K, V>);
 
-impl<K: Clone, V: Clone> Clone for OrderedMap<K, V> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+// Serialize/Deserialize implementation forwards to that for BTreeMap<K, V>.
+#[cfg(feature = "serde")]
+impl<'de, K, V> serde::de::Deserialize<'de> for OrderedMap<K, V>
+where
+    K: serde::de::Deserialize<'de> + Ord,
+    V: serde::de::Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(Self(BTreeMap::deserialize(deserializer)?))
     }
 }
 
-impl<K: std::fmt::Debug, V: std::fmt::Debug> std::fmt::Debug for OrderedMap<K, V> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("OrderedMap").field(&self.0).finish()
+#[cfg(feature = "serde")]
+impl<K, V> serde::Serialize for OrderedMap<K, V>
+where
+    K: serde::Serialize,
+    V: serde::Serialize,
+{
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

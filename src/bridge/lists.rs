@@ -12,7 +12,7 @@ use super::ArrowBindingView;
 /// Notes:
 /// - List-level nullability: wrap the column in `Option<List<T>>`.
 /// - Item-level nullability: use `List<Option<T>>` when elements can be null.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct List<T>(Vec<T>);
 
 impl<T> List<T> {
@@ -49,6 +49,30 @@ impl<T> std::iter::FromIterator<T> for List<T> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         Self::new(iter.into_iter().collect())
+    }
+}
+
+// Serialize/Deserialize implementation forwards to that for Vec<T>.
+#[cfg(feature = "serde")]
+impl<'de, T> serde::de::Deserialize<'de> for List<T>
+where
+    T: serde::de::Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(Vec::deserialize(deserializer)?.into())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<T> serde::Serialize for List<T>
+where
+    T: serde::Serialize,
+{
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 
@@ -888,19 +912,8 @@ where
 }
 
 /// Wrapper denoting an Arrow `LargeListArray` column with elements of `T`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct LargeList<T>(Vec<T>);
-
-impl<T: Clone> Clone for LargeList<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for LargeList<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("LargeList").field(&self.0).finish()
-    }
-}
 
 impl<T> LargeList<T> {
     /// Construct a new large-list from a vector of values.
@@ -936,6 +949,30 @@ impl<T> std::iter::FromIterator<T> for LargeList<T> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         Self::new(iter.into_iter().collect())
+    }
+}
+
+// Serialize/Deserialize implementation forwards to that for Vec<T>.
+#[cfg(feature = "serde")]
+impl<'de, T> serde::de::Deserialize<'de> for LargeList<T>
+where
+    T: serde::de::Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(Vec::deserialize(deserializer)?.into())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<T> serde::Serialize for LargeList<T>
+where
+    T: serde::Serialize,
+{
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

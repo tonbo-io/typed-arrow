@@ -79,7 +79,7 @@ impl ArrowBindingView for String {
 
 /// Wrapper denoting Arrow `LargeUtf8` values. Use when individual strings can be
 /// extremely large or when 64-bit offsets are preferred.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LargeUtf8(String);
 
 impl LargeUtf8 {
@@ -115,6 +115,24 @@ impl From<&str> for LargeUtf8 {
     #[inline]
     fn from(s: &str) -> Self {
         Self::new(s.to_string())
+    }
+}
+
+// Serialize/Deserialize implementation forwards to that for String.
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Deserialize<'de> for LargeUtf8 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(String::deserialize(deserializer)?.into())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for LargeUtf8 {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

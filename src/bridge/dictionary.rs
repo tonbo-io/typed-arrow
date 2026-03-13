@@ -23,6 +23,7 @@ use super::{ArrowBinding, binary::LargeBinary, strings::LargeUtf8};
 ///
 /// This prevents accidental reliance on representation details (e.g., raw keys) and
 /// keeps the API focused on appending logical values. The builder handles interning to keys.
+#[derive(Debug, Clone, PartialEq)]
 #[repr(transparent)]
 pub struct Dictionary<K, V>(V, PhantomData<K>);
 
@@ -43,6 +44,30 @@ impl<K, V> Dictionary<K, V> {
     #[inline]
     pub fn into_value(self) -> V {
         self.0
+    }
+}
+
+// Serialize/Deserialize implementation is transparent: forwards to that for V.
+#[cfg(feature = "serde")]
+impl<'de, K, V> serde::de::Deserialize<'de> for Dictionary<K, V>
+where
+    V: serde::de::Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(Self(V::deserialize(deserializer)?, PhantomData))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<K, V> serde::Serialize for Dictionary<K, V>
+where
+    V: serde::Serialize,
+{
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

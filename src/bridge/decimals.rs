@@ -15,6 +15,7 @@ use super::ArrowBindingView;
 
 /// Fixed-precision decimal stored in 128 bits.
 /// The value is represented as a scaled integer of type `i128`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Decimal128<const P: u8, const S: i8>(i128);
 impl<const P: u8, const S: i8> Decimal128<P, S> {
     /// Construct a new `Decimal128<P,S>` from a scaled integer value.
@@ -34,6 +35,24 @@ impl<const P: u8, const S: i8> Decimal128<P, S> {
     #[must_use]
     pub fn into_value(self) -> i128 {
         self.0
+    }
+}
+
+// Serialize/Deserialize implementation forwards to that for i128.
+#[cfg(feature = "serde")]
+impl<'de, const P: u8, const S: i8> serde::de::Deserialize<'de> for Decimal128<P, S> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Ok(Self(i128::deserialize(deserializer)?))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<const P: u8, const S: i8> serde::Serialize for Decimal128<P, S> {
+    fn serialize<S2: serde::Serializer>(&self, serializer: S2) -> Result<S2::Ok, S2::Error> {
+        self.0.serialize(serializer)
     }
 }
 

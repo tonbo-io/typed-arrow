@@ -13,7 +13,7 @@ use super::ArrowBindingView;
 ///
 /// A `Null` column contains only nulls. Appending a value or a null both append
 /// a null slot. This maps to `arrow_array::NullArray` and uses `NullBuilder`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Null;
 
 impl ArrowBinding for Null {
@@ -55,5 +55,23 @@ impl ArrowBindingView for Null {
         }
         // NullArray has no non-null values; treat the marker as the value.
         Ok(Null)
+    }
+}
+
+// Serialize/Deserialize implementation forwards to that for the empty tuple, ().
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Deserialize<'de> for Null {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        <()>::deserialize(deserializer).map(|_| Null)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Null {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_unit()
     }
 }

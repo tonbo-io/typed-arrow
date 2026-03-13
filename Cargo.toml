@@ -48,6 +48,7 @@ derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
 jiff = ["dep:jiff"]
 views = ["derive", "typed-arrow-derive/views"]
+serde = ["dep:serde"]
 
 [dependencies]
 arrow-array-55 = { package = "arrow-array", version = "55", optional = true }
@@ -64,11 +65,13 @@ arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true }
 arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true }
 half = { workspace = true }
 jiff = { version = "0.2", optional = true }
+serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
 typed-arrow-derive = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde = { workspace = true }
+serde_json = "1.0.149"
 trybuild = "1.0"
 
 [profile.bench]
@@ -83,6 +86,16 @@ required-features = ["ext-hooks"]
 name = "13_record_batch_views"
 path = "examples/13_record_batch_views.rs"
 required-features = ["views"]
+
+[[test]]
+name = "jiff_timestamp"
+path = "tests/jiff_timestamp.rs"
+required-features = ["jiff", "views"]
+
+[[test]]
+name = "nested_null"
+path = "tests/nested_null.rs"
+
 
 [[test]]
 name = "record_batch_views"
@@ -120,15 +133,11 @@ path = "tests/record_batch_views_union.rs"
 required-features = ["views"]
 
 [[test]]
+name = "serde"
+path = "tests/serde.rs"
+required-features = ["serde"]
+
+[[test]]
 name = "trybuild"
 path = "tests/trybuild.rs"
 required-features = []
-
-[[test]]
-name = "jiff_timestamp"
-path = "tests/jiff_timestamp.rs"
-required-features = ["jiff", "views"]
-
-[[test]]
-name = "nested_null"
-path = "tests/nested_null.rs"
