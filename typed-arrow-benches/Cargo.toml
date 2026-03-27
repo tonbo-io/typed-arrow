@@ -7,15 +7,16 @@ repository = { workspace = true }
 publish = false
 
 [features]
-default = ["arrow-57"]
+default = ["arrow-58"]
 arrow-55 = ["typed-arrow/arrow-55", "typed-arrow-dyn/arrow-55", "serde_arrow/arrow-55"]
 arrow-56 = ["typed-arrow/arrow-56", "typed-arrow-dyn/arrow-56", "serde_arrow/arrow-56"]
 arrow-57 = ["typed-arrow/arrow-57", "typed-arrow-dyn/arrow-57", "serde_arrow/arrow-57"]
+arrow-58 = ["typed-arrow/arrow-58", "typed-arrow-dyn/arrow-58", "serde_arrow/arrow-58"]
 
 [dependencies]
 criterion = "0.5"
 serde = { workspace = true }
-serde_arrow = { version = "0.13", default-features = false }
+serde_arrow = { version = "0.14", default-features = false }
 typed-arrow = { workspace = true, default-features = false, features = ["derive", "views"] }
 typed-arrow-dyn = { workspace = true, default-features = false }
 
