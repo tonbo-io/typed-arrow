@@ -49,7 +49,7 @@ impl StructCol {
                 ),
             });
         }
-        for (idx, (child, cell)) in self.children.iter_mut().zip(cells.into_iter()).enumerate() {
+        for (idx, (child, cell)) in self.children.iter_mut().zip(cells).enumerate() {
             match cell {
                 None => child.append_null(),
                 Some(v) => child.append_dyn(v).map_err(|e| e.at_col(idx))?,
