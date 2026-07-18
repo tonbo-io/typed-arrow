@@ -155,7 +155,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let nullable_lit = if nullable {
             quote!(true)
         } else {
-            quote!(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::NULLABLE)
+            quote!(<#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::NULLABLE)
         };
 
         col_infos.push(ColInfo {
@@ -168,7 +168,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // V::visit::<I, Arrow, Rust>(FieldMeta::new(name, nullable))
         let visit = quote! {
             V::visit::<{ #idx }, #inner_ty_ts>(
-                ::typed_arrow::schema::FieldMeta::new(#arrow_field_name, #nullable_lit)
+                typed_arrow::schema::FieldMeta::new(#arrow_field_name, #nullable_lit)
             );
         };
         visit_calls.push(visit);
@@ -182,9 +182,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 quote! { __m.insert(::std::string::String::from(#k), ::std::string::String::from(#v)); }
             });
             child_field_stmts.push(quote! {
-                let mut __f = ::typed_arrow::arrow_schema::Field::new(
+                let mut __f = typed_arrow::arrow_schema::Field::new(
                     #arrow_field_name,
-                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                    <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
                 );
                 let mut __m: ::std::collections::HashMap<::std::string::String, ::std::string::String> = ::std::collections::HashMap::new();
@@ -194,9 +194,9 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             });
         } else {
             child_field_stmts.push(quote! {
-                fields.push(::typed_arrow::arrow_schema::Field::new(
+                fields.push(typed_arrow::arrow_schema::Field::new(
                     #arrow_field_name,
-                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                    <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::data_type(),
                     #nullable_lit,
                 ));
             });
@@ -223,64 +223,64 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         // StructMeta: child builder boxed as ArrayBuilder
         child_builder_stmts.push(quote! {
-            let b: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder =
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity);
+            let b: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Builder =
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::new_builder(capacity);
             builders.push(Box::new(b));
         });
 
         // Row-based: struct fields and init
         builder_struct_fields.push(quote! {
-            pub #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder
+            pub #fname: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Builder
         });
         arrays_struct_fields.push(quote! {
-            pub #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
+            pub #fname: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Array
         });
         builders_init_fields.push(quote! {
-            #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::new_builder(capacity)
+            #fname: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::new_builder(capacity)
         });
         // Append row logic per field (owned)
         if nullable {
             append_row_stmts.push(quote! {
                 match #fname {
-                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &v),
-                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
+                    Some(v) => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &v),
+                    None => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
                 }
             });
             append_row_ref_stmts.push(quote! {
                 match &#fname {
-                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, v),
-                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
+                    Some(v) => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, v),
+                    None => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname),
                 }
             });
             append_null_row_stmts.push(quote! {
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname);
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname);
             });
         } else {
             append_row_stmts.push(quote! {
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
             });
             append_row_ref_stmts.push(quote! {
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(&mut self.#fname, &#fname);
             });
             append_null_row_stmts.push(quote! {
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname);
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(&mut self.#fname);
             });
         }
         finish_fields.push(quote! {
-            #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::finish(self.#fname)
+            #fname: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::finish(self.#fname)
         });
 
         // Generate AppendStruct implementations' bodies for this struct's fields
         let child_builder_ty =
-            quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Builder };
+            quote! { <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Builder };
         if nullable {
             append_struct_owned_stmts.push(quote! {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
                 match #fname {
-                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &v),
-                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
+                    Some(v) => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(cb, &v),
+                    None => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(cb),
                 }
             });
             append_struct_borrowed_stmts.push(quote! {
@@ -288,8 +288,8 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
                 match &#fname {
-                    Some(v) => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, v),
-                    None => <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb),
+                    Some(v) => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(cb, v),
+                    None => <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(cb),
                 }
             });
         } else {
@@ -297,20 +297,20 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
             });
             append_struct_borrowed_stmts.push(quote! {
                 let cb: &mut #child_builder_ty = __sb
                     .field_builder::<#child_builder_ty>({ #idx })
                     .expect("child builder type matches");
-                <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
+                <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_value(cb, &#fname);
             });
         }
         append_struct_null_stmts.push(quote! {
             let cb: &mut #child_builder_ty = __sb
                 .field_builder::<#child_builder_ty>({ #idx })
                 .expect("child builder type matches");
-            <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::append_null(cb);
+            <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::append_null(cb);
         });
     }
 
@@ -324,18 +324,18 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let nullable_lit = if info.nullable {
             quote!(true)
         } else {
-            quote!(<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::NULLABLE)
+            quote!(<#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::NULLABLE)
         };
         let arrow_field_name = &info.arrow_field_name;
 
         col_impls.push(quote! {
-            impl #base_impl_generics ::typed_arrow::schema::ColAt<{ #idx }> for #name #base_ty_generics #base_where_clause {
+            impl #base_impl_generics typed_arrow::schema::ColAt<{ #idx }> for #name #base_ty_generics #base_where_clause {
                 type Native = #inner_ty_ts;
-                type ColumnArray = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Array;
-                type ColumnBuilder = < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::Builder;
+                type ColumnArray = < #inner_ty_ts as typed_arrow::bridge::ArrowBinding >::Array;
+                type ColumnBuilder = < #inner_ty_ts as typed_arrow::bridge::ArrowBinding >::Builder;
                 const NULLABLE: bool = #nullable_lit;
                 const NAME: &'static str = #arrow_field_name;
-                fn data_type() -> ::typed_arrow::arrow_schema::DataType { < #inner_ty_ts as ::typed_arrow::bridge::ArrowBinding >::data_type() }
+                fn data_type() -> typed_arrow::arrow_schema::DataType { < #inner_ty_ts as typed_arrow::bridge::ArrowBinding >::data_type() }
             }
         });
     }
@@ -364,39 +364,39 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
     // impl Record and ForEachCol
     let rec_impl = quote! {
-        impl #base_impl_generics ::typed_arrow::schema::Record for #name #base_ty_generics #base_where_clause {
+        impl #base_impl_generics typed_arrow::schema::Record for #name #base_ty_generics #base_where_clause {
             const LEN: usize = #len;
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::ForEachCol for #name #base_ty_generics #base_where_clause {
-            fn for_each_col<V: ::typed_arrow::schema::ColumnVisitor>() {
+        impl #base_impl_generics typed_arrow::schema::ForEachCol for #name #base_ty_generics #base_where_clause {
+            fn for_each_col<V: typed_arrow::schema::ColumnVisitor>() {
                 #(#visit_calls)*
             }
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::StructMeta for #name #base_ty_generics #base_where_clause {
-            fn child_fields() -> ::std::vec::Vec<::typed_arrow::arrow_schema::Field> {
+        impl #base_impl_generics typed_arrow::schema::StructMeta for #name #base_ty_generics #base_where_clause {
+            fn child_fields() -> ::std::vec::Vec<typed_arrow::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
                 fields
             }
 
-            fn new_struct_builder(capacity: usize) -> ::typed_arrow::arrow_array::builder::StructBuilder {
+            fn new_struct_builder(capacity: usize) -> typed_arrow::arrow_array::builder::StructBuilder {
                 use ::std::sync::Arc;
-                let fields: ::std::vec::Vec<Arc<::typed_arrow::arrow_schema::Field>> =
-                    <#name #base_ty_generics as ::typed_arrow::schema::StructMeta>::child_fields()
+                let fields: ::std::vec::Vec<Arc<typed_arrow::arrow_schema::Field>> =
+                    <#name #base_ty_generics as typed_arrow::schema::StructMeta>::child_fields()
                         .into_iter()
                         .map(Arc::new)
                         .collect();
-                let mut builders: ::std::vec::Vec<Box<dyn ::typed_arrow::arrow_array::builder::ArrayBuilder>> =
+                let mut builders: ::std::vec::Vec<Box<dyn typed_arrow::arrow_array::builder::ArrayBuilder>> =
                     ::std::vec::Vec::with_capacity(#len);
                 #(#child_builder_stmts)*
-                ::typed_arrow::arrow_array::builder::StructBuilder::new(fields, builders)
+                typed_arrow::arrow_array::builder::StructBuilder::new(fields, builders)
             }
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::SchemaMeta for #name #base_ty_generics #base_where_clause {
-            fn fields() -> ::std::vec::Vec<::typed_arrow::arrow_schema::Field> {
+        impl #base_impl_generics typed_arrow::schema::SchemaMeta for #name #base_ty_generics #base_where_clause {
+            fn fields() -> ::std::vec::Vec<typed_arrow::arrow_schema::Field> {
                 let mut fields = ::std::vec::Vec::with_capacity(#len);
                 #(#child_field_stmts)*
                 fields
@@ -417,7 +417,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             #(#arrays_struct_fields,)*
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::BuildRows for #name #base_ty_generics #base_where_clause {
+        impl #base_impl_generics typed_arrow::schema::BuildRows for #name #base_ty_generics #base_where_clause {
             type Builders = #builders_ident #base_ty_generics;
             type Arrays = #arrays_ident #base_ty_generics;
             fn new_builders(capacity: usize) -> Self::Builders {
@@ -489,7 +489,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
 
         // Implement the generic RowBuilder trait for the generated builders
-        impl #base_impl_generics ::typed_arrow::schema::RowBuilder<#name #base_ty_generics> for #builders_ident #base_ty_generics #base_where_clause {
+        impl #base_impl_generics typed_arrow::schema::RowBuilder<#name #base_ty_generics> for #builders_ident #base_ty_generics #base_where_clause {
             type Arrays = #arrays_ident #base_ty_generics;
             fn append_row(&mut self, row: #name #base_ty_generics) { Self::append_row(self, row) }
             fn append_null_row(&mut self) { Self::append_null_row(self) }
@@ -504,31 +504,31 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         impl #base_impl_generics #arrays_ident #base_ty_generics #base_where_clause {
             /// Build an Arrow RecordBatch from these arrays and the generated schema.
-            pub fn into_record_batch(self) -> ::typed_arrow::arrow_array::RecordBatch {
+            pub fn into_record_batch(self) -> typed_arrow::arrow_array::RecordBatch {
                 use ::std::sync::Arc;
-                let schema = <#name #base_ty_generics as ::typed_arrow::schema::SchemaMeta>::schema();
-                let mut cols: ::std::vec::Vec<Arc<dyn ::typed_arrow::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
+                let schema = <#name #base_ty_generics as typed_arrow::schema::SchemaMeta>::schema();
+                let mut cols: ::std::vec::Vec<Arc<dyn typed_arrow::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
                 #( cols.push(Arc::new(self.#field_idents)); )*
-                ::typed_arrow::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
+                typed_arrow::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
             }
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::IntoRecordBatch for #arrays_ident #base_ty_generics #base_where_clause {
-            fn into_record_batch(self) -> ::typed_arrow::arrow_array::RecordBatch { Self::into_record_batch(self) }
+        impl #base_impl_generics typed_arrow::schema::IntoRecordBatch for #arrays_ident #base_ty_generics #base_where_clause {
+            fn into_record_batch(self) -> typed_arrow::arrow_array::RecordBatch { Self::into_record_batch(self) }
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::AppendStruct for #name #base_ty_generics #base_where_clause {
-            fn append_owned_into(self, __sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
+        impl #base_impl_generics typed_arrow::schema::AppendStruct for #name #base_ty_generics #base_where_clause {
+            fn append_owned_into(self, __sb: &mut typed_arrow::arrow_array::builder::StructBuilder) {
                 let #name { #( #field_idents ),* } = self;
                 #(#append_struct_owned_stmts)*
             }
-            fn append_null_into(__sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
+            fn append_null_into(__sb: &mut typed_arrow::arrow_array::builder::StructBuilder) {
                 #(#append_struct_null_stmts)*
             }
         }
 
-        impl #base_impl_generics ::typed_arrow::schema::AppendStructRef for #name #base_ty_generics #base_where_clause {
-            fn append_borrowed_into(&self, __sb: &mut ::typed_arrow::arrow_array::builder::StructBuilder) {
+        impl #base_impl_generics typed_arrow::schema::AppendStructRef for #name #base_ty_generics #base_where_clause {
+            fn append_borrowed_into(&self, __sb: &mut typed_arrow::arrow_array::builder::StructBuilder) {
                 let #name { #( #field_idents ),* } = self;
                 #(#append_struct_borrowed_stmts)*
             }
@@ -568,7 +568,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     for v in &ext_visitors {
         visitor_instantiations.push(quote! {
             impl #base_impl_generics #name #base_ty_generics #base_where_clause {
-                const _: () = { <#name #base_ty_generics as ::typed_arrow::schema::ForEachCol>::for_each_col::<#v>(); };
+                const _: () = { <#name #base_ty_generics as typed_arrow::schema::ForEachCol>::for_each_col::<#v>(); };
             }
         });
     }
@@ -599,16 +599,16 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
 
         // Views iterator: store arrays with lifetimes (public for direct column access)
         views_array_fields.push(quote! {
-            pub #fname: &#view_lt <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array
+            pub #fname: &#view_lt <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Array
         });
 
         // Initialize views arrays from RecordBatch columns - downcast with error handling
         views_init_fields.push(quote! {
             #fname: batch.column(#idx)
                 .as_any()
-                .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
-                .ok_or_else(|| ::typed_arrow::error::SchemaError::type_mismatch(
-                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                .downcast_ref::<<#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Array>()
+                .ok_or_else(|| typed_arrow::error::SchemaError::type_mismatch(
+                    <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::data_type(),
                     batch.column(#idx).data_type().clone()
                 ))?,
         });
@@ -617,11 +617,11 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         if nullable {
             // For nullable fields, use Option<T>::get_view which handles nulls
             view_extract_stmts.push(quote! {
-                #fname: <::core::option::Option<#inner_ty_ts> as ::typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?
+                #fname: <::core::option::Option<#inner_ty_ts> as typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?
             });
         } else {
             view_extract_stmts.push(quote! {
-                #fname: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?
+                #fname: <#inner_ty_ts as typed_arrow::bridge::ArrowBindingView>::get_view(self.#fname, self.index)?
             });
         }
 
@@ -633,13 +633,13 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 #fname: {
                     let __arr = array.column(#idx)
                         .as_any()
-                        .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
-                        .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
-                            expected: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                        .downcast_ref::<<#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Array>()
+                        .ok_or_else(|| typed_arrow::schema::ViewAccessError::TypeMismatch {
+                            expected: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::data_type(),
                             actual: array.column(#idx).data_type().clone(),
                             field_name: ::core::option::Option::Some(stringify!(#fname)),
                         })?;
-                    <::core::option::Option<#inner_ty_ts> as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
+                    <::core::option::Option<#inner_ty_ts> as typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
                 }
             });
         } else {
@@ -648,13 +648,13 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 #fname: {
                     let __arr = array.column(#idx)
                         .as_any()
-                        .downcast_ref::<<#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::Array>()
-                        .ok_or_else(|| ::typed_arrow::schema::ViewAccessError::TypeMismatch {
-                            expected: <#inner_ty_ts as ::typed_arrow::bridge::ArrowBinding>::data_type(),
+                        .downcast_ref::<<#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::Array>()
+                        .ok_or_else(|| typed_arrow::schema::ViewAccessError::TypeMismatch {
+                            expected: <#inner_ty_ts as typed_arrow::bridge::ArrowBinding>::data_type(),
                             actual: array.column(#idx).data_type().clone(),
                             field_name: ::core::option::Option::Some(stringify!(#fname)),
                         })?;
-                    <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
+                    <#inner_ty_ts as typed_arrow::bridge::ArrowBindingView>::get_view(__arr, index)?
                 }
             });
         }
@@ -672,14 +672,14 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         quote! {
             #[allow(non_snake_case)]
             #[inline]
-            fn #view_try_into_ident<T, U>(v: T) -> ::core::result::Result<U, ::typed_arrow::schema::ViewAccessError>
+            fn #view_try_into_ident<T, U>(v: T) -> ::core::result::Result<U, typed_arrow::schema::ViewAccessError>
             where
                 T: ::core::convert::TryInto<U>,
-                ::typed_arrow::schema::ViewAccessError: ::core::convert::From<
+                typed_arrow::schema::ViewAccessError: ::core::convert::From<
                     <T as ::core::convert::TryInto<U>>::Error
                 >,
             {
-                v.try_into().map_err(::typed_arrow::schema::ViewAccessError::from)
+                v.try_into().map_err(typed_arrow::schema::ViewAccessError::from)
             }
 
             /// Zero-copy view of a single row from a RecordBatch.
@@ -689,7 +689,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
 
             impl #view_try_impl_generics ::core::convert::TryFrom<#view_ident #view_try_ty_generics> for #name #base_ty_generics #view_try_where_clause {
-                type Error = ::typed_arrow::schema::ViewAccessError;
+                type Error = typed_arrow::schema::ViewAccessError;
 
                 fn try_from(view: #view_ident #view_try_ty_generics) -> ::core::result::Result<Self, Self::Error> {
                     ::core::result::Result::Ok(#name {
@@ -706,13 +706,13 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
 
             impl #view_iter_impl_generics ::core::iter::Iterator for #views_ident #view_iter_ty_generics #view_iter_where_clause {
-                type Item = ::core::result::Result<#view_ident #view_iter_ty_generics, ::typed_arrow::schema::ViewAccessError>;
+                type Item = ::core::result::Result<#view_ident #view_iter_ty_generics, typed_arrow::schema::ViewAccessError>;
 
                 fn next(&mut self) -> ::core::option::Option<Self::Item> {
                     if self.index >= self.len {
                         return ::core::option::Option::None;
                     }
-                    let result = (|| -> ::core::result::Result<#view_ident #view_iter_ty_generics, ::typed_arrow::schema::ViewAccessError> {
+                    let result = (|| -> ::core::result::Result<#view_ident #view_iter_ty_generics, typed_arrow::schema::ViewAccessError> {
                         ::core::result::Result::Ok(#view_ident {
                             #(#view_extract_stmts,)*
                             _phantom: ::core::marker::PhantomData,
@@ -734,14 +734,14 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 }
             }
 
-            impl #view_record_impl_generics ::typed_arrow::schema::FromRecordBatch for #name #view_record_ty_generics #view_record_where_clause {
+            impl #view_record_impl_generics typed_arrow::schema::FromRecordBatch for #name #view_record_ty_generics #view_record_where_clause {
                 type View<#view_lt> = #view_ident #view_ty_generics;
                 type Views<#view_lt> = #views_ident #view_ty_generics;
 
-                fn from_record_batch(batch: &::typed_arrow::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, ::typed_arrow::error::SchemaError> {
+                fn from_record_batch(batch: &typed_arrow::arrow_array::RecordBatch) -> ::core::result::Result<Self::Views<'_>, typed_arrow::error::SchemaError> {
                     // Validate column count
                     if batch.num_columns() != #len {
-                        return ::core::result::Result::Err(::typed_arrow::error::SchemaError::invalid(
+                        return ::core::result::Result::Err(typed_arrow::error::SchemaError::invalid(
                             format!("Column count mismatch: expected {} columns for {}, but RecordBatch has {} columns",
                                 #len, stringify!(#name), batch.num_columns())
                         ));
@@ -756,19 +756,19 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 }
             }
 
-            impl #view_record_impl_generics ::typed_arrow::schema::StructView for #name #view_record_ty_generics #view_record_where_clause {
+            impl #view_record_impl_generics typed_arrow::schema::StructView for #name #view_record_ty_generics #view_record_where_clause {
                 type View<#view_lt> = #view_ident #view_ty_generics;
 
-                fn view_at(array: &::typed_arrow::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, ::typed_arrow::schema::ViewAccessError> {
-                    use ::typed_arrow::arrow_array::Array;
+                fn view_at(array: &typed_arrow::arrow_array::StructArray, index: usize) -> ::core::result::Result<Self::View<'_>, typed_arrow::schema::ViewAccessError> {
+                    use typed_arrow::arrow_array::Array;
                     ::core::result::Result::Ok(#view_ident {
                         #(#struct_view_extract_stmts,)*
                         _phantom: ::core::marker::PhantomData,
                     })
                 }
 
-                fn is_null_at(array: &::typed_arrow::arrow_array::StructArray, index: usize) -> bool {
-                    use ::typed_arrow::arrow_array::Array;
+                fn is_null_at(array: &typed_arrow::arrow_array::StructArray, index: usize) -> bool {
+                    use typed_arrow::arrow_array::Array;
                     array.is_null(index)
                 }
             }
@@ -911,16 +911,16 @@ fn add_arrow_binding_bounds(generics: &mut Generics, inner_tys: &[proc_macro2::T
     for ty in inner_tys {
         where_clause
             .predicates
-            .push(parse_quote!(#ty: ::typed_arrow::bridge::ArrowBinding));
+            .push(parse_quote!(#ty: typed_arrow::bridge::ArrowBinding));
         where_clause.predicates.push(parse_quote!(
-            <#ty as ::typed_arrow::bridge::ArrowBinding>::Builder:
-                ::typed_arrow::arrow_array::builder::ArrayBuilder
+            <#ty as typed_arrow::bridge::ArrowBinding>::Builder:
+                typed_arrow::arrow_array::builder::ArrayBuilder
         ));
         where_clause.predicates.push(parse_quote!(
-            <#ty as ::typed_arrow::bridge::ArrowBinding>::Builder: 'static
+            <#ty as typed_arrow::bridge::ArrowBinding>::Builder: 'static
         ));
         where_clause.predicates.push(parse_quote!(
-            <#ty as ::typed_arrow::bridge::ArrowBinding>::Array: 'static
+            <#ty as typed_arrow::bridge::ArrowBinding>::Array: 'static
         ));
     }
 }
@@ -937,14 +937,14 @@ fn add_arrow_binding_view_bounds(
     for ty in inner_tys {
         if add_static {
             where_clause.predicates.push(parse_quote!(
-                #ty: ::typed_arrow::bridge::ArrowBindingView<
-                    Array = <#ty as ::typed_arrow::bridge::ArrowBinding>::Array
+                #ty: typed_arrow::bridge::ArrowBindingView<
+                    Array = <#ty as typed_arrow::bridge::ArrowBinding>::Array
                 > + 'static
             ));
         } else {
             where_clause.predicates.push(parse_quote!(
-                #ty: ::typed_arrow::bridge::ArrowBindingView<
-                    Array = <#ty as ::typed_arrow::bridge::ArrowBinding>::Array
+                #ty: typed_arrow::bridge::ArrowBindingView<
+                    Array = <#ty as typed_arrow::bridge::ArrowBinding>::Array
                 >
             ));
         }
@@ -978,12 +978,12 @@ fn add_view_try_from_bounds(
         where_clause
             .predicates
             .push(parse_quote!(#ty: ::core::convert::TryFrom<
-                <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
+                <#ty as typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
             >));
         where_clause.predicates.push(parse_quote!(
-            ::typed_arrow::schema::ViewAccessError: ::core::convert::From<
+            typed_arrow::schema::ViewAccessError: ::core::convert::From<
                 <#ty as ::core::convert::TryFrom<
-                    <#ty as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
+                    <#ty as typed_arrow::bridge::ArrowBindingView>::View<#view_lt>
                 >>::Error
             >
         ));
@@ -998,7 +998,7 @@ fn generate_view_type(ty: &Type, nullable: bool, view_lt: &Lifetime) -> proc_mac
 
     // Always use the ArrowBindingView::View associated type
     let view_inner =
-        quote! { <#inner_ty_ts as ::typed_arrow::bridge::ArrowBindingView>::View<#view_lt> };
+        quote! { <#inner_ty_ts as typed_arrow::bridge::ArrowBindingView>::View<#view_lt> };
 
     if nullable {
         quote! { ::core::option::Option<#view_inner> }

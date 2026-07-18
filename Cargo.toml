@@ -4,15 +4,15 @@ package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
-package.version = "0.7.0"
+package.version = "0.7.1"
 
 [workspace.dependencies]
 half = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
-typed-arrow = { path = ".", version = "0.7.0", package = "typed-arrow", default-features = false }
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.7.0", package = "typed-arrow-derive" }
-typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.7", package = "typed-arrow-dyn", default-features = false }
+typed-arrow = { path = ".", version = "0.7.1", package = "typed-arrow", default-features = false }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.7.1", package = "typed-arrow-derive" }
+typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.8", package = "typed-arrow-dyn", default-features = false }
 
 [package]
 description = "Compile-time Arrow schemas for Rust."
