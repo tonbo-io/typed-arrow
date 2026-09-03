@@ -4,14 +4,14 @@ package.edition = "2024"
 package.license = "Apache-2.0"
 package.readme = "README.md"
 package.repository = "https://github.com/tonbo-io/typed-arrow"
-package.version = "0.7.1"
+package.version = "0.8.0"
 
 [workspace.dependencies]
 half = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
-typed-arrow = { path = ".", version = "0.7.1", package = "typed-arrow", default-features = false }
-typed-arrow-derive = { path = "typed-arrow-derive", version = "0.7.1", package = "typed-arrow-derive" }
+typed-arrow = { path = ".", version = "0.8.0", package = "typed-arrow", default-features = false }
+typed-arrow-derive = { path = "typed-arrow-derive", version = "0.8.0", package = "typed-arrow-derive" }
 typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.8", package = "typed-arrow-dyn", default-features = false }
 
 [package]
@@ -49,7 +49,13 @@ arrow-58 = [
     "dep:arrow-data-58",
     "dep:arrow-schema-58",
 ]
-default = ["arrow-58", "derive", "views"]
+arrow-59 = [
+    "dep:arrow-array-59",
+    "dep:arrow-buffer-59",
+    "dep:arrow-data-59",
+    "dep:arrow-schema-59",
+]
+default = ["arrow-59", "derive", "views"]
 derive = ["dep:typed-arrow-derive"]
 ext-hooks = ["derive", "typed-arrow-derive/ext-hooks"]
 jiff = ["dep:jiff"]
@@ -61,18 +67,22 @@ arrow-array-55 = { package = "arrow-array", version = "55", optional = true }
 arrow-array-56 = { package = "arrow-array", version = "56", optional = true }
 arrow-array-57 = { package = "arrow-array", version = "57", optional = true }
 arrow-array-58 = { package = "arrow-array", version = "58", optional = true }
+arrow-array-59 = { package = "arrow-array", version = "59", optional = true }
 arrow-buffer-55 = { package = "arrow-buffer", version = "55", optional = true }
 arrow-buffer-56 = { package = "arrow-buffer", version = "56", optional = true }
 arrow-buffer-57 = { package = "arrow-buffer", version = "57", optional = true }
 arrow-buffer-58 = { package = "arrow-buffer", version = "58", optional = true }
+arrow-buffer-59 = { package = "arrow-buffer", version = "59", optional = true }
 arrow-data-55 = { package = "arrow-data", version = "55", optional = true }
 arrow-data-56 = { package = "arrow-data", version = "56", optional = true }
 arrow-data-57 = { package = "arrow-data", version = "57", optional = true }
 arrow-data-58 = { package = "arrow-data", version = "58", optional = true }
+arrow-data-59 = { package = "arrow-data", version = "59", optional = true }
 arrow-schema-55 = { package = "arrow-schema", version = "55", optional = true }
 arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true }
 arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true }
 arrow-schema-58 = { package = "arrow-schema", version = "58", optional = true }
+arrow-schema-59 = { package = "arrow-schema", version = "59", optional = true }
 half = { workspace = true }
 jiff = { version = "0.2", optional = true }
 serde = { workspace = true, optional = true }

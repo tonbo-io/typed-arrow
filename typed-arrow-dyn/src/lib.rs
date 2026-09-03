@@ -6,20 +6,39 @@
 
 #[cfg(all(
     feature = "arrow-55",
-    any(feature = "arrow-56", feature = "arrow-57", feature = "arrow-58")
+    any(
+        feature = "arrow-56",
+        feature = "arrow-57",
+        feature = "arrow-58",
+        feature = "arrow-59"
+    )
 ))]
-compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, or arrow-58.");
-#[cfg(all(feature = "arrow-56", any(feature = "arrow-57", feature = "arrow-58")))]
-compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, or arrow-58.");
-#[cfg(all(feature = "arrow-57", feature = "arrow-58"))]
-compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, or arrow-58.");
+compile_error!(
+    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
+);
+#[cfg(all(
+    feature = "arrow-56",
+    any(feature = "arrow-57", feature = "arrow-58", feature = "arrow-59")
+))]
+compile_error!(
+    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
+);
+#[cfg(all(feature = "arrow-57", any(feature = "arrow-58", feature = "arrow-59")))]
+compile_error!(
+    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
+);
+#[cfg(all(feature = "arrow-58", feature = "arrow-59"))]
+compile_error!(
+    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
+);
 #[cfg(not(any(
     feature = "arrow-55",
     feature = "arrow-56",
     feature = "arrow-57",
-    feature = "arrow-58"
+    feature = "arrow-58",
+    feature = "arrow-59"
 )))]
-compile_error!("Enable one Arrow feature: arrow-55, arrow-56, arrow-57, or arrow-58.");
+compile_error!("Enable one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59.");
 
 #[cfg(feature = "arrow-55")]
 pub use parquet_55 as parquet;
@@ -29,6 +48,8 @@ pub use parquet_56 as parquet;
 pub use parquet_57 as parquet;
 #[cfg(feature = "arrow-58")]
 pub use parquet_58 as parquet;
+#[cfg(feature = "arrow-59")]
+pub use parquet_59 as parquet;
 pub use typed_arrow::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
 
 mod builders;
