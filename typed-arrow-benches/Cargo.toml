@@ -7,11 +7,12 @@ repository = { workspace = true }
 publish = false
 
 [features]
-default = ["arrow-58"]
+default = ["arrow-59"]
 arrow-55 = ["typed-arrow/arrow-55", "typed-arrow-dyn/arrow-55", "serde_arrow/arrow-55"]
 arrow-56 = ["typed-arrow/arrow-56", "typed-arrow-dyn/arrow-56", "serde_arrow/arrow-56"]
 arrow-57 = ["typed-arrow/arrow-57", "typed-arrow-dyn/arrow-57", "serde_arrow/arrow-57"]
 arrow-58 = ["typed-arrow/arrow-58", "typed-arrow-dyn/arrow-58", "serde_arrow/arrow-58"]
+arrow-59 = ["typed-arrow/arrow-59", "typed-arrow-dyn/arrow-59", "serde_arrow/arrow-59"]
 
 [dependencies]
 criterion = "0.5"
