@@ -29,7 +29,11 @@ jobs:
           args: -- --check
 
   build:
-    name: clippy && test
+    name: clippy && test (Arrow ${{ matrix.arrow }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arrow: [55, 56, 57, 58, 59]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +47,9 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --workspace -- -D warnings
+          args: --workspace --all-targets --no-default-features --features arrow-${{ matrix.arrow }},derive,views,ext-hooks,jiff,serde -- -D warnings
 
       - name: Run cargo test
-        run: cargo test --verbose --workspace
+        run: |
+          cargo test --workspace --all-targets --no-default-features --features arrow-${{ matrix.arrow }},derive,views,ext-hooks,jiff,serde
+          cargo test --workspace --doc --no-default-features --features arrow-${{ matrix.arrow }},derive,views,ext-hooks,jiff,serde

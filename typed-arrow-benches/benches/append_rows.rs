@@ -12,13 +12,6 @@
 //! - read_primitives: read benchmark iterating over rows
 //! - read_with_strings: read benchmark with string access
 
-#[cfg(all(feature = "arrow-55", any(feature = "arrow-56", feature = "arrow-57")))]
-compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
-#[cfg(all(feature = "arrow-56", feature = "arrow-57"))]
-compile_error!("Select exactly one Arrow feature: arrow-55, arrow-56, or arrow-57.");
-#[cfg(not(any(feature = "arrow-55", feature = "arrow-56", feature = "arrow-57")))]
-compile_error!("Enable one Arrow feature: arrow-55, arrow-56, or arrow-57.");
-
 use std::sync::Arc;
 
 use arrow_array::{
@@ -524,10 +517,10 @@ fn bench_read_with_strings(c: &mut Criterion) {
                         if let Some(cell) = row.get(2).unwrap() {
                             sum = sum.wrapping_add(cell.into_bool().unwrap_or(false) as i64);
                         }
-                        if let Some(cell) = row.get(3).unwrap() {
-                            if let Some(s) = cell.into_str() {
-                                name_len += s.len();
-                            }
+                        if let Some(cell) = row.get(3).unwrap()
+                            && let Some(s) = cell.into_str()
+                        {
+                            name_len += s.len();
                         }
                     }
                     black_box((sum, name_len))

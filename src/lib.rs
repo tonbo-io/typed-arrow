@@ -231,82 +231,114 @@
 //!
 //! See `examples/12_ext_hooks.rs` for usage.
 
+const _: () = assert!(
+    cfg!(feature = "arrow-55") as u8
+        + cfg!(feature = "arrow-56") as u8
+        + cfg!(feature = "arrow-57") as u8
+        + cfg!(feature = "arrow-58") as u8
+        + cfg!(feature = "arrow-59") as u8
+        == 1,
+    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
+);
+
+// Select aliases deterministically so invalid combinations report the assertion
+// above instead of duplicate crate names.
 #[cfg(all(
     feature = "arrow-55",
-    any(
+    not(any(
         feature = "arrow-56",
         feature = "arrow-57",
         feature = "arrow-58",
         feature = "arrow-59"
-    )
+    ))
 ))]
-compile_error!(
-    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
-);
+pub extern crate arrow_array_55 as arrow_array;
 #[cfg(all(
     feature = "arrow-56",
-    any(feature = "arrow-57", feature = "arrow-58", feature = "arrow-59")
+    not(any(feature = "arrow-57", feature = "arrow-58", feature = "arrow-59"))
 ))]
-compile_error!(
-    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
-);
-#[cfg(all(feature = "arrow-57", any(feature = "arrow-58", feature = "arrow-59")))]
-compile_error!(
-    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
-);
-#[cfg(all(feature = "arrow-58", feature = "arrow-59"))]
-compile_error!(
-    "Select exactly one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59."
-);
-#[cfg(not(any(
-    feature = "arrow-55",
-    feature = "arrow-56",
-    feature = "arrow-57",
-    feature = "arrow-58",
-    feature = "arrow-59"
-)))]
-compile_error!("Enable one Arrow feature: arrow-55, arrow-56, arrow-57, arrow-58, or arrow-59.");
-
-#[cfg(feature = "arrow-55")]
-pub extern crate arrow_array_55 as arrow_array;
-#[cfg(feature = "arrow-56")]
 pub extern crate arrow_array_56 as arrow_array;
-#[cfg(feature = "arrow-57")]
+#[cfg(all(
+    feature = "arrow-57",
+    not(any(feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_array_57 as arrow_array;
-#[cfg(feature = "arrow-58")]
+#[cfg(all(feature = "arrow-58", not(any(feature = "arrow-59"))))]
 pub extern crate arrow_array_58 as arrow_array;
 #[cfg(feature = "arrow-59")]
 pub extern crate arrow_array_59 as arrow_array;
 
-#[cfg(feature = "arrow-55")]
+#[cfg(all(
+    feature = "arrow-55",
+    not(any(
+        feature = "arrow-56",
+        feature = "arrow-57",
+        feature = "arrow-58",
+        feature = "arrow-59"
+    ))
+))]
 pub extern crate arrow_buffer_55 as arrow_buffer;
-#[cfg(feature = "arrow-56")]
+#[cfg(all(
+    feature = "arrow-56",
+    not(any(feature = "arrow-57", feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_buffer_56 as arrow_buffer;
-#[cfg(feature = "arrow-57")]
+#[cfg(all(
+    feature = "arrow-57",
+    not(any(feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_buffer_57 as arrow_buffer;
-#[cfg(feature = "arrow-58")]
+#[cfg(all(feature = "arrow-58", not(any(feature = "arrow-59"))))]
 pub extern crate arrow_buffer_58 as arrow_buffer;
 #[cfg(feature = "arrow-59")]
 pub extern crate arrow_buffer_59 as arrow_buffer;
 
-#[cfg(feature = "arrow-55")]
+#[cfg(all(
+    feature = "arrow-55",
+    not(any(
+        feature = "arrow-56",
+        feature = "arrow-57",
+        feature = "arrow-58",
+        feature = "arrow-59"
+    ))
+))]
 pub extern crate arrow_data_55 as arrow_data;
-#[cfg(feature = "arrow-56")]
+#[cfg(all(
+    feature = "arrow-56",
+    not(any(feature = "arrow-57", feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_data_56 as arrow_data;
-#[cfg(feature = "arrow-57")]
+#[cfg(all(
+    feature = "arrow-57",
+    not(any(feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_data_57 as arrow_data;
-#[cfg(feature = "arrow-58")]
+#[cfg(all(feature = "arrow-58", not(any(feature = "arrow-59"))))]
 pub extern crate arrow_data_58 as arrow_data;
 #[cfg(feature = "arrow-59")]
 pub extern crate arrow_data_59 as arrow_data;
 
-#[cfg(feature = "arrow-55")]
+#[cfg(all(
+    feature = "arrow-55",
+    not(any(
+        feature = "arrow-56",
+        feature = "arrow-57",
+        feature = "arrow-58",
+        feature = "arrow-59"
+    ))
+))]
 pub extern crate arrow_schema_55 as arrow_schema;
-#[cfg(feature = "arrow-56")]
+#[cfg(all(
+    feature = "arrow-56",
+    not(any(feature = "arrow-57", feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_schema_56 as arrow_schema;
-#[cfg(feature = "arrow-57")]
+#[cfg(all(
+    feature = "arrow-57",
+    not(any(feature = "arrow-58", feature = "arrow-59"))
+))]
 pub extern crate arrow_schema_57 as arrow_schema;
-#[cfg(feature = "arrow-58")]
+#[cfg(all(feature = "arrow-58", not(any(feature = "arrow-59"))))]
 pub extern crate arrow_schema_58 as arrow_schema;
 #[cfg(feature = "arrow-59")]
 pub extern crate arrow_schema_59 as arrow_schema;
@@ -327,15 +359,8 @@ pub mod prelude {
     pub use crate::error::ViewAccessError;
     #[cfg(feature = "views")]
     pub use crate::schema::{FromRecordBatch, ViewResultIteratorExt};
-    #[cfg(any(
-        feature = "arrow-55",
-        feature = "arrow-56",
-        feature = "arrow-57",
-        feature = "arrow-58",
-        feature = "arrow-59"
-    ))]
-    pub use crate::{arrow_array, arrow_buffer, arrow_data, arrow_schema};
     pub use crate::{
+        arrow_array, arrow_buffer, arrow_data, arrow_schema,
         error::SchemaError,
         schema::{BuildRows, ColAt, ColumnVisitor, FieldMeta, ForEachCol, Record},
     };
@@ -406,4 +431,19 @@ impl AsViewsIterator for arrow_array::RecordBatch {
     fn iter_views<T: schema::FromRecordBatch>(&self) -> Result<T::Views<'_>, error::SchemaError> {
         T::from_record_batch(self)
     }
+}
+
+// Gate generated trait methods using this crate's Arrow selection, not downstream features.
+#[doc(hidden)]
+#[macro_export]
+#[cfg(feature = "arrow-59")]
+macro_rules! __arrow59_only {
+    ($($item:tt)*) => { $($item)* };
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(not(feature = "arrow-59"))]
+macro_rules! __arrow59_only {
+    ($($item:tt)*) => {};
 }

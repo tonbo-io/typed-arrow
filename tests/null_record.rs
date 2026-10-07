@@ -11,7 +11,7 @@ struct ContainsNull {
 fn null_column_metadata_and_building() {
     assert_eq!(<ContainsNull as Record>::LEN, 1);
     assert_eq!(<ContainsNull as ColAt<0>>::NAME, "always_null");
-    assert_eq!(<ContainsNull as ColAt<0>>::NULLABLE, true);
+    const { assert!(<ContainsNull as ColAt<0>>::NULLABLE) };
     assert_eq!(<ContainsNull as ColAt<0>>::data_type(), DataType::Null);
 
     let rows = vec![

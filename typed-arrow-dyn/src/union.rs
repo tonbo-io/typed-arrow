@@ -166,9 +166,7 @@ impl DenseUnionCol {
         let array_ref = Arc::new(array) as ArrayRef;
         let null_rows = std::mem::take(&mut self.null_rows);
 
-        for slot in &mut self.slots {
-            *slot = 0;
-        }
+        self.slots.fill(0);
 
         if !null_rows.is_empty() {
             union_metadata.push((array_key(&array_ref), null_rows));
