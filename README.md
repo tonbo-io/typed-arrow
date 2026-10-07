@@ -74,8 +74,21 @@ typed-arrow = { version = "0.x" }
 # Enable zero-copy views for reading RecordBatch data
 typed-arrow = { version = "0.x", features = ["views"] }
 
-# Choose Arrow major version (default is arrow-57)
+# Choose Arrow major version (default is arrow-59)
 typed-arrow = { version = "0.x", default-features = false, features = ["arrow-56", "derive", "views"] }
+```
+
+### Migrating to 0.8
+
+The default Arrow version changed from 58 to 59. This is a breaking change:
+Arrow types from different major versions are not interchangeable. Upgrade direct
+Arrow dependencies to 59 and use `typed-arrow-dyn` 0.0.9 alongside `typed-arrow` 0.8.
+
+To keep Arrow 58, disable defaults on both crates and select the same version:
+
+```toml
+typed-arrow = { version = "0.8", default-features = false, features = ["arrow-58", "derive", "views"] }
+typed-arrow-dyn = { version = "0.0.9", default-features = false, features = ["arrow-58"] }
 ```
 
 When working in this repository/workspace:
@@ -234,7 +247,7 @@ This is useful for:
 
 ## Arrow DataType Coverage
 
-Supported (arrow-rs v55/v56/v57 via `arrow-55`/`arrow-56`/`arrow-57` features):
+Supported (arrow-rs v55/v56/v57/v58/v59 via `arrow-55`/`arrow-56`/`arrow-57`/`arrow-58`/`arrow-59` features):
 
 - Primitives: Int8/16/32/64, UInt8/16/32/64, Float16/32/64, Boolean
 - Strings/Binary: Utf8, LargeUtf8, Binary, LargeBinary, FixedSizeBinary (via `[u8; N]`)

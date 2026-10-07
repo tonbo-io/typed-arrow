@@ -3,7 +3,7 @@
 ## Overview
 - Purpose: Build Arrow arrays and RecordBatches from runtime schemas (`typed_arrow_dyn::arrow_schema::Schema`) without compile-time type information.
 - Scope: Provide a small, focused dynamic facade that mirrors typed behavior where reasonable, keeping per-append overhead low. Nullability invariants (columns/fields/items) are validated at try-finish and returned as structured errors.
-  - Arrow versions are selected via `arrow-55`/`arrow-56`/`arrow-57` features (exactly one).
+  - Arrow versions are selected via `arrow-55`/`arrow-56`/`arrow-57`/`arrow-58`/`arrow-59` features (exactly one).
 
 ## Goals
 - Single `DataType` switch: map `typed_arrow_dyn::arrow_schema::DataType` to a concrete builder once per column (factory).

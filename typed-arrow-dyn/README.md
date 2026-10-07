@@ -62,7 +62,7 @@ fn build_batch() -> Result<typed_arrow_dyn::arrow_array::RecordBatch, DynError> 
 }
 ```
 
-Select Arrow major version (default is `arrow-57`):
+Select Arrow major version (default is `arrow-59`):
 
 ```toml
 [dependencies]
@@ -167,7 +167,7 @@ Violations bubble up as `DynError::Nullability` with `col`, `path`, and `index` 
 
 ## Supported Data Types
 
-The factory builds the following Arrow logical types (Arrow RS v55/v56/v57 via `arrow-55`/`arrow-56`/`arrow-57`):
+The factory builds the following Arrow logical types (Arrow RS v55/v56/v57/v58/v59 via `arrow-55`/`arrow-56`/`arrow-57`/`arrow-58`/`arrow-59`):
 
 - Null, Boolean
 - Int8/16/32/64, UInt8/16/32/64, Float32/64

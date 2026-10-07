@@ -12,7 +12,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 typed-arrow = { path = ".", version = "0.8.0", package = "typed-arrow", default-features = false }
 typed-arrow-derive = { path = "typed-arrow-derive", version = "0.8.0", package = "typed-arrow-derive" }
-typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.8", package = "typed-arrow-dyn", default-features = false }
+typed-arrow-dyn = { path = "typed-arrow-dyn", version = "0.0.9", package = "typed-arrow-dyn", default-features = false }
 
 [package]
 description = "Compile-time Arrow schemas for Rust."

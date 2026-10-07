@@ -112,10 +112,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ),
     ]);
     let projection = DynProjection::from_schema(schema.as_ref(), &projection_schema)?;
-    let mut projected = dyn_schema.iter_views(&batch)?.project(projection)?;
+    let projected = dyn_schema.iter_views(&batch)?.project(projection)?;
 
     println!("-- projected columns --");
-    while let Some(row) = projected.next() {
+    for row in projected {
         let row = row?;
         let id = row
             .get(0)?
