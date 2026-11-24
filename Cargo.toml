@@ -108,6 +108,11 @@ path = "examples/13_record_batch_views.rs"
 required-features = ["views"]
 
 [[test]]
+name = "empty_record"
+path = "tests/empty_record.rs"
+required-features = ["views"]
+
+[[test]]
 name = "jiff_timestamp"
 path = "tests/jiff_timestamp.rs"
 required-features = ["jiff", "views"]
