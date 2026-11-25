@@ -362,6 +362,43 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let (view_record_impl_generics, view_record_ty_generics, view_record_where_clause) =
         view_record_generics.split_for_impl();
 
+    // A RecordBatch with no columns needs its row count stated explicitly, and a record with no
+    // fields has no column builder to count rows. So only field-less records get a row counter in
+    // their builders and arrays; records with fields keep the exact same generated code.
+    let has_no_fields = len == 0;
+    let row_count_field = if has_no_fields {
+        quote! { __ta_row_count: usize, }
+    } else {
+        quote! {}
+    };
+    let row_count_init = if has_no_fields {
+        quote! { __ta_row_count: 0, }
+    } else {
+        quote! {}
+    };
+    let row_count_increment = if has_no_fields {
+        quote! { self.__ta_row_count += 1; }
+    } else {
+        quote! {}
+    };
+    let row_count_finish = if has_no_fields {
+        quote! { __ta_row_count: self.__ta_row_count, }
+    } else {
+        quote! {}
+    };
+    let build_record_batch = if has_no_fields {
+        quote! {
+            let options = typed_arrow::arrow_array::RecordBatchOptions::new()
+                .with_row_count(::core::option::Option::Some(self.__ta_row_count));
+            typed_arrow::arrow_array::RecordBatch::try_new_with_options(schema, cols, &options)
+                .expect("valid record batch")
+        }
+    } else {
+        quote! {
+            typed_arrow::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
+        }
+    };
+
     // impl Record and ForEachCol
     let rec_impl = quote! {
         impl #base_impl_generics typed_arrow::schema::Record for #name #base_ty_generics #base_where_clause {
@@ -411,17 +448,19 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         // Row-based: builders + arrays + construction
         pub struct #builders_ident #base_ty_generics #base_where_clause {
             #(#builder_struct_fields,)*
+            #row_count_field
         }
 
         pub struct #arrays_ident #base_ty_generics #base_where_clause {
             #(#arrays_struct_fields,)*
+            #row_count_field
         }
 
         impl #base_impl_generics typed_arrow::schema::BuildRows for #name #base_ty_generics #base_where_clause {
             type Builders = #builders_ident #base_ty_generics;
             type Arrays = #arrays_ident #base_ty_generics;
             fn new_builders(capacity: usize) -> Self::Builders {
-                #builders_ident { #(#builders_init_fields,)* }
+                #builders_ident { #(#builders_init_fields,)* #row_count_init }
             }
         }
 
@@ -430,15 +469,18 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             pub fn append_row(&mut self, row: #name #base_ty_generics) {
                 let #name { #( #field_idents ),* } = row;
                 #(#append_row_stmts)*
+                #row_count_increment
             }
             #[inline]
             pub fn append_row_ref(&mut self, row: &#name #base_ty_generics) {
                 let #name { #( #field_idents ),* } = row;
                 #(#append_row_ref_stmts)*
+                #row_count_increment
             }
             #[inline]
             pub fn append_null_row(&mut self) {
                 #(#append_null_row_stmts)*
+                #row_count_increment
             }
             #[inline]
             pub fn append_option_row(&mut self, row: ::core::option::Option<#name #base_ty_generics>) {
@@ -484,7 +526,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
             #[inline]
             pub fn finish(self) -> #arrays_ident #base_ty_generics {
-                #arrays_ident { #(#finish_fields,)* }
+                #arrays_ident { #(#finish_fields,)* #row_count_finish }
             }
         }
 
@@ -509,7 +551,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 let schema = <#name #base_ty_generics as typed_arrow::schema::SchemaMeta>::schema();
                 let mut cols: ::std::vec::Vec<Arc<dyn typed_arrow::arrow_array::Array>> = ::std::vec::Vec::with_capacity(#len);
                 #( cols.push(Arc::new(self.#field_idents)); )*
-                typed_arrow::arrow_array::RecordBatch::try_new(schema, cols).expect("valid record batch")
+                #build_record_batch
             }
         }
 
@@ -703,6 +745,8 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 #(#views_array_fields,)*
                 index: usize,
                 len: usize,
+                // Keeps the lifetime used when the record has no fields, and so no column arrays.
+                _phantom: ::core::marker::PhantomData<&#view_lt ()>,
             }
 
             impl #view_iter_impl_generics ::core::iter::Iterator for #views_ident #view_iter_ty_generics #view_iter_where_clause {
@@ -752,6 +796,7 @@ fn impl_record(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                         #(#views_init_fields)*
                         index: 0,
                         len: batch.num_rows(),
+                        _phantom: ::core::marker::PhantomData,
                     })
                 }
             }
